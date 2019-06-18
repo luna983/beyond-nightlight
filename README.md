@@ -5,6 +5,7 @@
 * `utils/preprocess/convert_aoi_to_chip.py`
 
 * `maskrcnn/dataloader/googleearthpro.py`
+* `maskrcnn/utils/checkpoint.py`
 * `maskrcnn/train.py`
 * `maskrcnn/eval.py`
 * `maskrcnn/infer.py`
