@@ -1,4 +1,4 @@
-## Scripts
+## Repo Structure
 
 * `utils/download/calibrate_device.py`
 * `utils/download/download_googleearthpro.py`
