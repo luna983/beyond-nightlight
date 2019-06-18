@@ -1,3 +1,11 @@
+# tmp folder and scripts
+tmp/
+tmp*.ipynb
+tmp*.py
+
+# OS generated files
+*.DS_Store
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
