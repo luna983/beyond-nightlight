@@ -17,3 +17,5 @@ __pycache__/
 
 # data symbolic links
 experiment_1/data
+maskrcnn/data
+maskrcnn/output

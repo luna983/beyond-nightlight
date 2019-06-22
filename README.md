@@ -1,16 +1,6 @@
-## Repo Structure
+## TODO
 
-* `utils/download/calibrate_device.py`
-* `utils/download/download_googleearthpro.py`
-* `utils/preprocess/convert_aoi_to_chip.py`
 
-* `maskrcnn/dataloader/googleearthpro.py`
-* `maskrcnn/utils/checkpoint.py`
-* `maskrcnn/train.py`
-* `maskrcnn/eval.py`
-* `maskrcnn/infer.py`
-
-* `experiment_1/create_aoi.py`
-* `experiment_1/download_googleearthpro.sh`
-* `experiment_1/preprocess.sh`
-* `experiment_1/config/default.yaml`
+- look into Mask RCNN paper, figure out how empty images are handled
+- make sure that inference and val images are not shuffled and retain a certain sequence, use `sorted()`
+- check data types of output tensors

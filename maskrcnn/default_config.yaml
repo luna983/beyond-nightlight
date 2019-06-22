@@ -1,0 +1,29 @@
+# trainval directory
+in_trainval_dir: data/GoogleEarthPro
+in_trainval_img_dir: Image
+in_trainval_mask_dir: Mask
+
+# inference directory
+in_infer_dir: data/GoogleEarthPro/Image
+
+# visualization directory
+in_visual_dir: data/GoogleEarthPro
+in_visual_img_dir: Image
+in_visual_mask_dir: Mask
+out_visual_dir: output/GoogleEarthPro
+
+# data loader
+dataset: googleearthpro
+label_dict:
+    'N/A': 1
+    'Unfinished House': 2
+    'Tin Roof': 3
+    'Colored Roof': 4
+
+# visualization parameters
+alpha: 128
+palette:
+    1: [255, 255, 255] # white: N/A
+    2: [255, 36, 0] # red: Unfinished House
+    3: [150, 223, 228] # blue: Tin Roof
+    4: [255, 213, 0] # yellow: Colored Roof
