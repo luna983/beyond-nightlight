@@ -15,7 +15,7 @@ __pycache__/
 # R files
 *.Rhistory
 
-# data symbolic links
+# symbolic links
 experiment_1/data
 maskrcnn/data
 maskrcnn/output
