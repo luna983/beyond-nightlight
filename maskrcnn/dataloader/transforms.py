@@ -6,7 +6,7 @@ import torch
 import torchvision
 from torchvision.transforms import functional as F
 
-import mask_transforms
+from .mask_transforms import Polygon, InstanceMask
 
 class Compose(torchvision.transforms.Compose):
     """Modified to compose transforms together, with target transforms."""
@@ -63,7 +63,7 @@ class ColorJitter(torchvision.transforms.ColorJitter):
     def __call__(self, image, target):
         """
         Args:
-            img (PIL Image): Input image.
+            image (PIL Image): Input image.
             target (InstanceMask object): Input instance masks.
 
         Returns:
@@ -75,6 +75,7 @@ class ColorJitter(torchvision.transforms.ColorJitter):
         return transform(image), target
 
 class RandomHorizontalFlip(torchvision.transforms.RandomHorizontalFlip):
+    """Modified to add instance mask in return values."""
 
     def __call__(self, image, target):
         """
@@ -92,6 +93,7 @@ class RandomHorizontalFlip(torchvision.transforms.RandomHorizontalFlip):
         return image, target
 
 class RandomVerticalFlip(torchvision.transforms.RandomVerticalFlip):
+    """Modified to add instance mask in return values."""
     
     def __call__(self, image, target):
         """
@@ -108,7 +110,36 @@ class RandomVerticalFlip(torchvision.transforms.RandomVerticalFlip):
             target = target.flip(FLIP_TOP_BOTTOM=True)
         return image, target
 
+class RandomCrop(torchvision.transforms.RandomCrop):
+    """Modified to add instance mask in return values."""
+
+    def __call__(self, image, target):
+        """
+        Args:
+            image (PIL Image): Image to be cropped.
+            target (InstanceMask): Target instance masks to be cropped.
+
+        Returns:
+            PIL Image: Cropped image.
+            target (InstanceMask): Cropped target instance masks.
+        """
+        if self.padding is not None:
+            image = F.pad(image, self.padding, self.fill, self.padding_mode)
+
+        # pad the width if needed
+        if self.pad_if_needed and image.size[0] < self.size[1]:
+            image = F.pad(image, (self.size[1] - image.size[0], 0), self.fill, self.padding_mode)
+        # pad the height if needed
+        if self.pad_if_needed and image.size[1] < self.size[0]:
+            image = F.pad(image, (0, self.size[0] - image.size[1]), self.fill, self.padding_mode)
+
+        i, j, h, w = self.get_params(image, self.size)
+
+        return F.crop(image, i, j, h, w), target.crop(i=i, j=j, h=h, w=w)
+
 class ToTensor(torchvision.transforms.ToTensor):
+    """Modified to return tensors that follow the Mask R-CNN conventions."""
+
     def __call__(self, image, target):
         """
         Args:
@@ -120,17 +151,3 @@ class ToTensor(torchvision.transforms.ToTensor):
             dict: a dict of tensors following Mask-RCNN conventions.
         """
         return F.to_tensor(image), target.to_tensor()
-
-class Normalize(torchvision.transforms.Normalize):
-    def __call__(self, image, target):
-        """
-        Args:
-            image (Tensor): Tensor image of size (C, H, W) to be normalized.
-            target (InstanceMask): target instance masks.
-
-        Returns:
-            Tensor: Normalized Tensor image.
-            Tensor: target instance masks.
-        """
-        return F.normalize(image, self.mean, self.std, self.inplace), target
-

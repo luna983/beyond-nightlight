@@ -1,4 +1,6 @@
 import os
+import json
+import numpy as np
 from glob import glob
 from random import shuffle
 from PIL import Image
@@ -6,14 +8,9 @@ from PIL import Image
 import torchvision
 from torch.utils.data import Dataset
 
-import transforms as tr
-from mask_transforms import InstanceMask
-
-# import json
-# import numpy as np
-# import csv
-
-
+from .transforms import Compose, ToTensor, RandomCrop
+from .transforms import Resize, ColorJitter, RandomHorizontalFlip, RandomVerticalFlip
+from .mask_transforms import InstanceMask
 
 class GoogleEarthProInstSeg(Dataset):
     """This loads the Google Earth Pro dataset.
@@ -40,7 +37,7 @@ class GoogleEarthProInstSeg(Dataset):
             ids = [os.path.basename(f).split('.')[0] for f in glob(
                 os.path.join(cfg.in_trainval_dir, cfg.in_trainval_img_dir, '*.jpg'))]
             shuffle(ids)
-            train_idx = np.round(train_ratio * len(ids)).astype(np.int)
+            train_idx = np.round(train_ratio * len(ids)).astype(np.uint32)
             with open(os.path.join(cfg.in_trainval_dir, 'train.txt'), 'w') as f:
                 json.dump(ids[:train_idx], f)
             with open(os.path.join(cfg.in_trainval_dir, 'val.txt'), 'w') as f:
@@ -55,7 +52,7 @@ class GoogleEarthProInstSeg(Dataset):
             self.targets = [os.path.join(
                 cfg.in_trainval_dir, cfg.in_trainval_mask_dir, i + '.jpg.json') for i in self.ids]      
         elif mode in ['infer']:
-            self.images = glob(os.path.join(cfg.in_infer_dir, '*.jpg'))
+            self.images = sorted(glob(os.path.join(cfg.in_infer_dir, '*.jpg')))
             self.ids = [os.path.basename(f).split('.')[0] for f in self.images]
             self.targets = []
         else:
@@ -73,13 +70,13 @@ class GoogleEarthProInstSeg(Dataset):
         image = Image.open(self.images[index]).convert('RGB')
         
         if self.mode in ['train', 'val']:
-            target = InstanceMask().from_supervisely(
-                file=self.targets[index], label_dict=cfg.label_dict)
-            sample = {'image': image, 'target': target}
+            target = InstanceMask()
+            target.from_supervisely(
+                file=self.targets[index], label_dict=self.cfg.label_dict)
             if self.mode == 'train':
-                return self.transform_train(sample)
+                return self.transform_train(image, target)
             elif self.mode == 'val':
-                return self.transform_val(sample)
+                return self.transform_val(image, target)
         elif self.mode in ['infer']:
             return self.transform_infer(image)
         else:
@@ -91,21 +88,28 @@ class GoogleEarthProInstSeg(Dataset):
     def __str__(self):
         return "Google Earth Pro {} sample: {:d} images".format(self.mode, len(self.images))
 
-    def transform_train(self, sample):
-        composed_transforms = tr.Compose([
-            tr.ToTensor(),
-            tr.Normalize()])
-        return composed_transforms(sample)
+    def transform_train(self, image, target):
+        h = np.floor(image.size[1] * self.cfg.random_crop_height).astype(np.uint16)
+        w = np.floor(image.size[0] * self.cfg.random_crop_width).astype(np.uint16)
+        composed_transforms = Compose([
+            RandomCrop(size=(h, w)),
+            RandomVerticalFlip(self.cfg.vertical_flip),
+            RandomHorizontalFlip(self.cfg.horizontal_flip),
+            ColorJitter(
+                brightness=self.cfg.brightness, contrast=self.cfg.contrast,
+                saturation=self.cfg.saturation, hue=self.cfg.hue),
+            Resize(width=self.cfg.resize_width, height=self.cfg.resize_height),
+            ToTensor()])
+        return composed_transforms(image, target)
 
-    def transform_val(self, sample):
-        composed_transforms = tr.Compose([
-            tr.ToTensor(),
-            tr.Normalize()])
-        return composed_transforms(sample)
+    def transform_val(self, image, target):
+        composed_transforms = Compose([
+            Resize(width=self.cfg.resize_width, height=self.cfg.resize_height),
+            ToTensor()])
+        return composed_transforms(image, target)
 
     def transform_infer(self, image):
         composed_transforms = torchvision.transforms.Compose([
-            torchvision.transforms.ToTensor(),
-            torchvision.transforms.Normalize(
-                mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+            torchvision.transforms.Resize(size=(self.cfg.resize_height, self.cfg.resize_width)),
+            torchvision.transforms.ToTensor()])
         return composed_transforms(image)

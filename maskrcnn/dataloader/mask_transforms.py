@@ -11,44 +11,65 @@ class Polygon(object):
     """
     Polygons that represents a single instance of an object mask.
 
-    Args:
+    Args: 
+        width, height (int): width and height of the image, in pixels.
+        category (int): value of the category of this instance.
         polygons (a list of lists of coordinates): The first level
             refers to all the polygons that compose the object, and
             the second level to the polygon coordinates. This is consistent
-            with the COCO annotation format.
-        width, height: width and height of the image, in pixels.
-        category (int): value of the category of this instance.
+            with the COCO annotation format. Multipart polygon is supported,
+            but polygons with holes are not. The coordinates can be floats,
+            and can be outside of the bounding box.
     """
 
-    def __init__(self, polygons=[], width, height, category):
-        self.polygons = polygons
+    def __init__(self, width, height, category, polygons):
         self.width = width
         self.height = height
         self.category = category
+        self.polygons = polygons
 
-    def from_supervisely(coordinates):
+    def __len__(self):
+        return len(self.polygons)
+
+    def __repr__(self):
+        s = self.__class__.__name__ + "("
+        s += "width={}, ".format(self.width)
+        s += "height={}, ".format(self.height)
+        s += "category={}, ".format(self.category)
+        s += "polygons={})".format(self.polygons)
+        return s
+
+    def from_supervisely(self, coordinates, verbose=False):
         """
         Load an instance from the Supervisely json format.
 
         Args:
             coordinates (dict): A dict that follows the Supervisely json format.
+            verbose (bool): if True, generate warnings of incorrect imports.
         """
 
         # check polygon validity - more than 2 points
         if len(coordinates['exterior']) > 2:
             self.polygons.append(np.array(
-                [i for i in coord for coord in coordinates['exterior']]))
-        if len(coordinates['interior']) > 2:
-            self.polygons.append(np.array(
-                [i for i in coord for coord in coordinates['interior']]))
+                [i for coord in coordinates['exterior'] for i in coord]).astype(np.float32))
+        else:
+            if verbose:
+                warnings.warn("Invalid exterior coordinates ignored: {}".format(
+                    coordinates['exterior']))
+        if verbose:
+            if len(coordinates['interior']) > 0:
+                warnings.warn("Interior coordinates ignored: {}".format(
+                    coordinates['interior']))
 
-        # no point outside of image boundaries
-        for p in self.polygons:
-            try:
-                assert p[::2].min() >= 0 and p[::2].max() <= self.width
-                assert p[1::2].min() >= 0 and p[1::2].max() <= self.height
-            except:
-                warnings.warn("Warning: Polygon outside of image boundaries.")
+    def to_rle(self):
+        """Convert instance polygons to run-length encoding (RLE).
+
+        Returns:
+            dict: Run-length encoding (RLE) of the binary mask.
+        """
+        rles = mask.frPyObjects(self.polygons, self.height, self.width)
+        rle = mask.merge(rles)
+        return rle
 
     def flip(self, FLIP_LEFT_RIGHT=False, FLIP_TOP_BOTTOM=False):
         """
@@ -83,7 +104,9 @@ class Polygon(object):
 
         Args:
             i (int): i in (i,j) i.e coordinates of the upper left corner.
+                Corresponds to height.
             j (int): j in (i,j) i.e coordinates of the upper left corner.
+                Corresponds to width.
             h (int): Height of the cropped image.
             w (int): Width of the cropped image.
 
@@ -91,17 +114,17 @@ class Polygon(object):
             Polygon: a new instance with cropped polygons
         """
 
-        assert i >= 0 and i <= self.width
-        assert j >= 0 and j <= self.height
-        assert i + w >= 0 and i + w <= self.width
-        assert j + h >= 0 and j + h <= self.height
+        assert i >= 0 and i <= self.height, "Dimension mismatch."
+        assert j >= 0 and j <= self.width, "Dimension mismatch."
+        assert i + h >= 0 and i + h <= self.height, "Dimension mismatch."
+        assert j + w >= 0 and j + w <= self.width, "Dimension mismatch."
 
         cropped_polygons = copy.deepcopy(self.polygons)
 
         for p in cropped_polygons:
-            p[0::2] = p[0::2] - i
-            p[1::2] = p[1::2] - j
-
+            p[0::2] = p[0::2] - j
+            p[1::2] = p[1::2] - i
+        
         return Polygon(
             polygons=cropped_polygons,
             width=w,
@@ -117,7 +140,6 @@ class Polygon(object):
         Returns:
             Polygon: a new instance with resized polygons
         """
-
         ratio_w, ratio_h = w / self.width, h / self.height
         resized_polygons = copy.deepcopy(self.polygons)
         for p in resized_polygons:
@@ -129,67 +151,6 @@ class Polygon(object):
             width=w,
             height=h,
             category=self.category)
-            
-    def to_tensor(self):
-        """Convert instance polygons to PyTorch tensors.
-
-        Returns:
-            Tensor[H, W]: binary masks of the polygons
-        """
-        rles = mask.frPyObjects(self.polygons, self.height, self.width)
-        rle = mask.merge(rles)
-        binary_mask = mask.decode(rle)
-        binary_mask = torch.from_numpy(binary_mask)
-        return binary_mask
-
-    def get_bbox(self):
-        """Get the ground-truth bounding boxes.
-        
-        Returns:
-            list: bounding box in [x0, y0, x1, y1] format,
-                with values between 0 and H and 0 and W.
-        """
-        xmin, xmax, ymin, ymax = [], [], [], []
-        for p in self.polygons:
-            xmin.append(p[0::2].min())
-            xmax.append(p[0::2].max())
-            ymin.append(p[1::2].min())
-            ymax.append(p[1::2].max())
-        xmin = np.array(xmin).min()
-        xmax = np.array(xmax).max()
-        ymin = np.array(ymin).min()
-        ymax = np.array(ymax).max()
-        return [np.max([xmin, 0]), 
-                np.max([ymin, 0]),
-                np.min([xmax, self.width]),
-                np.min([ymax, self.height])]
-
-    def is_valid(self):
-        """Check validity of the polygon (i.e., inside the image).
-
-        Returns:
-            bool: whether the instance is valid.
-        """
-        is_valid = []
-        for p in self.polygons:
-            if (p[0::2].min() > self.width or
-                p[0::2].max() < 0 or
-                p[1::2].min() > self.height or
-                p[1::2].max() < 0):
-                is_valid.append(False)
-            else:
-                is_valid.append(True)
-        return any(is_valid)
-
-    def __len__(self):
-        return len(self.polygons)
-
-    def __repr__(self):
-        s = self.__class__.__name__ + "("
-        s += "num_polygons={}, ".format(len(self.polygons))
-        s += "image_width={}, ".format(self.width)
-        s += "image_height={})".format(self.height)
-        return s
 
 
 class InstanceMask(object):
@@ -198,17 +159,28 @@ class InstanceMask(object):
 
     Args:
         instances (a list of Polygon): Each instance is a Polygon object.
+        label_dict (dict): a dict of category names and category values {str: int}.
         width, height (int): (width, height) of the image.
-        label_dict: a dict of category names and category values {str: int}.
     """
 
-    def __init__(self, label_dict=None, instances=None, width=None, height=None):
-        self.instances = instances
+    def __init__(self, instances=None, label_dict=None, width=None, height=None):
+        self.instances = [] if instances is None else instances
         self.label_dict = label_dict
         self.width = width
         self.height = height
 
-    def from_supervisely(file, label_dict):
+    def __len__(self):
+        return len(self.instances)
+
+    def __repr__(self):
+        s = self.__class__.__name__ + "("
+        s += "instances={}, ".format(self.instances)
+        s += "label_dict={}, ".format(self.label_dict)
+        s += "width={}, ".format(self.width)
+        s += "height={})".format(self.height)
+        return s
+
+    def from_supervisely(self, file, label_dict, verbose=False):
         """
         Load all instances from an image from the Supervisely json format.
 
@@ -216,6 +188,7 @@ class InstanceMask(object):
             file (string): A string of the file path where instance annotations
                 are stored using the Supervisely json format.
             label_dict (dict): A dict indicating {category name: int} mappings.
+            verbose (bool): if True, generate warnings of incorrect imports.
         """
 
         self.label_dict = label_dict
@@ -225,10 +198,48 @@ class InstanceMask(object):
         for poly in mask['objects']:
             instance = Polygon(
                 width=self.width, height=self.height,
-                category=self.label_dict[poly['classTitle']])
-            instance.from_supervisely(poly['points'])
-            if len(instance.polygons) > 0:
+                category=self.label_dict[poly['classTitle']],
+                polygons=[])
+            instance.from_supervisely(poly['points'], verbose=verbose)
+            if len(instance) > 0:
                 self.instances.append(instance)
+
+    def to_tensor(self):
+        """Convert instances to tensors. Some instances may be dropped.
+
+        Returns:
+            dict of torch.Tensors: following Mask-RCNN conventions.
+                boxes (Tensor[N, 4]): the ground-truth boxes in [x0, y0, x1, y1] format,
+                    with values between 0 and H and 0 and W.
+                labels (Tensor[N]): the class label for each ground-truth box.
+                masks (Tensor[N, H, W]): the segmentation binary masks for each instance.
+        """
+        # encode to RLEs
+        rles = [ins.to_rle() for ins in self.instances]
+
+        # drop instances with zero area
+        areas = mask.area(rles)
+        rles = [rle for rle, area in zip(rles, areas) if area != 0]
+        
+        # convert to masks
+        if len(rles) > 0:
+            binary_masks = mask.decode(rles)
+            binary_masks = torch.from_numpy(binary_masks.transpose((2,0,1)))
+        else:
+            binary_masks = torch.empty([0, self.height, self.width], dtype=torch.uint8)
+
+        # convert to bounding boxes
+        boxes = mask.toBbox(rles) # (x, y, w, h)
+        boxes[:, 2] = boxes[:, 0] + boxes[:, 2]
+        boxes[:, 3] = boxes[:, 1] + boxes[:, 3]
+        boxes = torch.from_numpy(boxes.astype(np.float32))
+        
+        # collate labels
+        labels = torch.tensor(
+            [ins.category for ins, area in zip(self.instances, areas) if area != 0],
+            dtype=torch.uint8)
+        
+        return {'boxes': boxes, 'labels': labels, 'masks': binary_masks}
 
     def flip(self, FLIP_LEFT_RIGHT=False, FLIP_TOP_BOTTOM=False):
         """Flip the annotations on an image.
@@ -251,7 +262,9 @@ class InstanceMask(object):
 
         Args:
             i (int): i in (i,j) i.e coordinates of the upper left corner.
+                Corresponds to height.
             j (int): j in (i,j) i.e coordinates of the upper left corner.
+                Corresponds to width.
             h (int): Height of the cropped image.
             w (int): Width of the cropped image.
 
@@ -259,6 +272,11 @@ class InstanceMask(object):
             InstanceMask: a new cropped instance mask.
         """
 
+        assert i >= 0 and i <= self.height, "Dimension mismatch."
+        assert j >= 0 and j <= self.width, "Dimension mismatch."
+        assert i + h >= 0 and i + h <= self.height, "Dimension mismatch."
+        assert j + w >= 0 and j + w <= self.width, "Dimension mismatch."
+        
         return InstanceMask(
             instances=[ins.crop(i=i, j=j, h=h, w=w) for ins in self.instances],
             width=w, height=h, label_dict=self.label_dict)            
@@ -275,40 +293,3 @@ class InstanceMask(object):
         return InstanceMask(
             instances=[ins.resize(h=h, w=w) for ins in self.instances],
             width=w, height=h, label_dict=self.label_dict)
-
-    def to_tensor(self):
-        """Convert instances to tensors.
-
-        Prior transforms only operate on polygon coordinates, excessive instances
-        (e.g., polygons that are cropped out) are dropped when converted to tensors.
-        
-        Returns:
-            dict of torch.Tensors: following Mask-RCNN conventions
-                boxes (Tensor[N, 4]): the ground-truth boxes in [x0, y0, x1, y1] format,
-                with values between 0 and H and 0 and W
-                labels (Tensor[N]): the class label for each ground-truth box
-                masks (Tensor[N, H, W]): the segmentation binary masks for each instance
-        """
-
-        # check validity of polygons
-        self.instances = [ins for ins in self.instances if ins.is_valid()]
-
-        if len(self.instances) > 0:
-            binary_mask = torch.stack([ins.to_tensor() for ins in self.instances])
-        else:
-            binary_mask = torch.empty([0, self.height, self.width], dtype=torch.uint8)
-
-        boxes = torch.tensor([ins.get_bbox() for ins in self.instances])
-        labels = [ins.category for ins in self.instances]
-
-        return {'boxes': boxes, 'labels': labels, 'masks': binary_mask}
-
-    def __len__(self):
-        return len(self.instances)
-
-    def __repr__(self):
-        s = self.__class__.__name__ + "("
-        s += "num_instances={}, ".format(len(self.instances))
-        s += "image_width={}, ".format(self.width)
-        s += "image_height={})".format(self.height)
-        return s

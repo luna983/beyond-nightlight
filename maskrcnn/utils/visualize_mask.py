@@ -1,90 +1,123 @@
-from PIL import Image, ImageDraw
+import numpy as np
+from PIL import Image, ImageDraw, ImageFont
 
 from torchvision.transforms import functional as F
 
-class Visualization(object):
+class InstSegVisualization(object):
     """Visualize an image with instance segmentation annotations.
 
     Args:
         cfg (argparse Namespace): visualization configurations.
+        image (torch.FloatTensor[C, H, W]): The original image, in the 0-1 range.
+        boxes (torch.Tensor[N, 4]): the predicted boxes in [x0, y0, x1, y1] format,
+                with values between 0 and H and 0 and W
+        labels (torch.Tensor[N]): the predicted labels for each image
+        scores (torch.Tensor[N]): the scores or each prediction
+        masks (torch.Tensor[N, H, W]): the predicted masks for each instance, in 0-1 range.
+                In order to obtain the final segmentation masks, the soft masks can be thresholded,
+                generally with a value of 0.5 (mask >= 0.5).
     """
-    def __init__(cfg):
-        self.cfg = cfg
+    def __init__(self, cfg, image, boxes=None, labels=None, scores=None, masks=None):
 
-    def load_image(image,
-                   mean=[0.485, 0.456, 0.406],
-                   std=[0.229, 0.224, 0.225],
-                   mode="RGB"):
-        """Loads an original image (overwrites existing images).
+        self.cfg = cfg
+        self.image = image.detach().cpu()
+        self.boxes = boxes.detach().cpu().numpy() if boxes is not None else None
+        self.labels = labels.detach().cpu().numpy() if labels is not None else None
+        self.scores = scores.detach().cpu().numpy() if scores is not None else None
+        self.masks = masks.detach().cpu().numpy() if masks is not None else None
+        self.font = ImageFont.truetype(cfg.font, cfg.font_size, encoding="unic")
+        self.width = np.floor(image.shape[2] * cfg.up_scale).astype(np.uint16)
+        self.height = np.floor(image.shape[1] * cfg.up_scale).astype(np.uint16)
+        self.up_scale = cfg.up_scale
+        self.output = None
+
+    def plot_image(self, mode='RGB'):
+        """Plots an original image (overwrites existing output attribute).
 
         Args:
-            image (torch.Tensor[C, H, W]): The original image, in the 0-1 range,
-                normalized to mean and std.
-            mean, std (list of floats): The mean and std with which images are normalized,
-                default to the ImageNet mean and std (FasterRCNN/MaskRCNN use this too).
             mode (str): PIL Image mode, default to RGB.
         """
-        if image.is_cuda:
-            self.img = image.detach().cpu()
-        else:
-            self.img = image.detach()
+        output = F.to_pil_image(self.image, mode=mode)
+        self.output = output.convert('RGBA').resize(size=(self.width, self.height))
 
-        self.img = F.to_pil_image(self.img, mode=mode):
-
-    def add_bbox(boxes):
+    def add_bbox(self):
         """Adds bounding boxes for all instances.
-
-        Args:
-            boxes (torch.Tensor[N, 4]): the predicted boxes in [x0, y0, x1, y1] format,
-                with values between 0 and H and 0 and W
         """
+        output_draw = ImageDraw.Draw(self.output)
+        # check existence of instances
+        if not self.boxes.shape[0] == 0:
+            for box in self.boxes:
+                output_draw.rectangle(
+                    box * self.up_scale,
+                    outline=tuple(self.cfg.bbox_outline))
 
-    def add_label(label):
+    def add_label(self):
         """Adds labels for all instances.
-
-        Args:
-            labels (torch.Tensor[N]): the predicted labels for each image
         """
+        output_draw = ImageDraw.Draw(self.output)
+        # check existence of instances
+        if not self.labels.shape[0] == 0:
+            rev_label_dict = {val: name for name, val in self.cfg.label_dict.items()}
+            for box, label in zip(self.boxes, self.labels):
+                output_draw.text(
+                    (box[0] * self.up_scale, box[3] * self.up_scale),
+                    rev_label_dict[label],
+                    font=self.font,
+                    fill=tuple(self.cfg.label_fill))
 
-    def add_label_score(label, score):
+    def add_label_score(self):
         """Adds labels and predicted scores for all instances.
-
-        Args:
-            labels (torch.Tensor[N]): the predicted labels for each image
-            scores (Tensor[N]): the scores or each prediction
         """
+        output_draw = ImageDraw.Draw(self.output)
+        # check existence of instances
+        if not self.labels.shape[0] == 0 and self.scores is not None:
+            rev_label_dict = {val: name for name, val in self.cfg.label_dict.items()}
+            for box, label, score in zip(self.boxes, self.labels, self.scores):
+                output_draw.text(
+                    (box[0] * self.up_scale, box[3] * self.up_scale),
+                    "{}: {:.2f}".format(rev_label_dict[label], score),
+                    font=self.font,
+                    fill=tuple(self.cfg.label_fill))
 
-    def add_binary_mask(mask, threshold=0.5):
+    def add_binary_mask(self, threshold=0.5):
         """Adds binary masks for all instances.
 
         Args:
-            masks (torch.Tensor[N, H, W]): the predicted masks for each instance, in 0-1 range. In order to
-                obtain the final segmentation masks, the soft masks can be thresholded, generally
-                with a value of 0.5 (mask >= 0.5).
             threshold (float): the threshold value for soft segmentation masks
         """
 
-    def save(out_dir):
+        # check existence of instances
+        if not self.masks.shape[0] == 0:
+            # threshold to get a [N, H, W] binary mask
+            binary_mask = self.masks > threshold
+
+            # colored mask, starting out as white and transparent
+            color_mask = np.zeros(
+                (binary_mask.shape[1], binary_mask.shape[2], 4), dtype=np.uint8)
+
+            for val, color in self.cfg.category_palette.items():
+                # for every category, take the union of the binary masks of all instances
+                category_mask = np.any(binary_mask[self.labels == val, :, :], axis=0)
+                # fill color in for each category
+                color_mask += (category_mask[:, :, np.newaxis] *
+                               np.array(color, dtype=np.uint8)[np.newaxis, np.newaxis, :])
+            # overlay color mask and image
+            color_mask = Image.fromarray(
+                color_mask, mode="RGBA").resize(size=(self.width, self.height))
+            self.output = Image.alpha_composite(self.output, color_mask)
+
+    def show(self):
+        """Shows the image."""
+        if self.output is None:
+            raise TypeError("No initialized images.")
+        else:
+            self.output.show()
+
+    def save(self, out_dir):
         """Saves the image.
 
         Args:
             out_dir (str): directory where the output image is saved.
         """
-    
-    mask = Image.open(os.path.join(args.in_mask_dir, file + ".png")).convert("L")
-    mask_array = np.array(mask)
-    rgba = np.zeros((mask_array.shape[0], mask_array.shape[1], 4))
-    for i, col in enumerate(palette):
-        for channel in range(4):
-            rgba[:, :, channel] += col[channel] * (mask_array == i)
-    mask = Image.fromarray(rgba.astype(np.uint8), mode="RGBA")
-    output = Image.alpha_composite(im.resize(mask.size), mask)
-    output.save(os.path.join(args.out_dir, file + ".png"))
 
-
-    from PIL import Image, ImageDraw
-blank_image = Image.new('RGBA', (400, 300), 'white')
-img_draw = ImageDraw.Draw(blank_image)
-img_draw.rectangle((70, 50, 270, 200), outline='red', fill='blue')
-img_draw.text((70, 250), 'Hello World', fill='green')
-blank_image.save('drawn_image.jpg')
+        self.output.save(out_dir)
