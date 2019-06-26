@@ -31,7 +31,6 @@ class MaskRCNNBatch(object):
 
     def pin_memory(self):
         for tensor in self.image:
-            print(tensor)
             tensor = tensor.pin_memory()
         if hasattr(self, 'target'):
             for item in self.target:
