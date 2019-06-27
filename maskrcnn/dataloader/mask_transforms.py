@@ -237,7 +237,7 @@ class InstanceMask(object):
         # collate labels
         labels = torch.tensor(
             [ins.category for ins, area in zip(self.instances, areas) if area != 0],
-            dtype=torch.uint8)
+            dtype=torch.int64)
         
         return {'boxes': boxes, 'labels': labels, 'masks': binary_masks}
 
