@@ -14,11 +14,12 @@ out_visual_dir: output/GoogleEarthPro
 
 # data loader
 dataset: googleearthpro
-label_dict:
+label_dict: # values should be [1,2,3,...,N]
     'N/A': 1
     'Unfinished House': 2
     'Tin Roof': 3
     'Colored Roof': 4
+# num_classes is inferred from label_dict
 
 # training data augmentation params
 random_crop_height: 0.7 # (0, 1], ratio of random crop
@@ -31,6 +32,17 @@ vertical_flip: 0.6
 horizontal_flip: 0.6
 resize_height: 400 # size of tensors fed into Mask R-CNN
 resize_width: 400 # size of tensors fed into Mask R-CNN
+
+# training schedule
+epochs: 5
+batch_size_per_gpu: 2
+num_workers: 0
+
+# model parameters
+coco_pretrained: True
+
+# optimizer parameters
+lr: 0.001
 
 # visualization parameters
 category_palette:

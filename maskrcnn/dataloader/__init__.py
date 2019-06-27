@@ -5,12 +5,6 @@ from torch.utils.data import DataLoader
 
 from .googleearthpro import GoogleEarthProInstSeg
 
-if torch.__version__ < '1.1.0':
-    warnings.warn("PyTorch version below 1.1.0. pin_memory option not available.")
-
-if not torch.cuda.is_available():
-    warnings.warn("CUDA is not available.")
-
 class MaskRCNNBatch(object):
     """Define methods to collate a list of data into a mini-batch.
 
@@ -52,6 +46,12 @@ def make_data_loader(cfg, modes=['train', 'val'], **kwargs):
         modes (list of str): list of data loader modes to be executed.
     """
 
+    if torch.__version__ < '1.1.0':
+        warnings.warn("PyTorch version below 1.1.0. pin_memory option not available.")
+
+    if not torch.cuda.is_available():
+        warnings.warn("CUDA is not available.")
+    
     data_loaders = []
 
     for mode in modes:
