@@ -1,3 +1,4 @@
+import numpy as np
 import argparse
 
 import torch
@@ -16,8 +17,13 @@ class Trainer(object):
     """
     def __init__(self, cfg):
 
+        print('=' * 72)
+        print("Initalizing trainer.")
+
         # save configurations
         self.cfg = cfg
+
+        print("Set up logging.")
 
         # initialize saver and output config
         self.saver = Saver(cfg)
@@ -26,15 +32,19 @@ class Trainer(object):
         # tensorboard summary
         self.writer = Writer(cfg)
 
+        print("Initalizing data loader.")
+
         # set device, detect cuda availability
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         # make data loader
         params = {
-            'batch_size': (cfg.batch_size_per_gpu if cfg.num_workers == 0
-                else cfg.batch_size_per_gpu * cfg.num_workers),
+            'batch_size': (cfg.batch_size_per_gpu if cfg.num_gpus == 0
+                else cfg.batch_size_per_gpu * cfg.num_gpus),
             'num_workers': cfg.num_workers}
         self.train_loader, self.val_loader = make_data_loader(cfg, **params)
+
+        print("Initalizing model and optimizer.")
 
         # make model
         params = {
@@ -50,13 +60,27 @@ class Trainer(object):
             'lr': cfg.lr}
         self.optimizer = torch.optim.Adam(model.parameters(), **params)
 
+        print("Starting from epoch {} to epoch {}".format(0, self.cfg.epochs))
+
     def train(self, epoch):
         """Train the model.
 
         Args:
             epoch (int): number of epochs since training started. (starts with 0)
         """
-        pass
+        print('=' * 72)
+        print("Epoch [{} / {}]".format(epoch, self.cfg.epochs))
+        self.model.train()
+        for i, sample in enumerate(self.train_loader):
+            images = [im.to(device) for im in sample.image]
+            targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+            loss_dict = model(images, targets)
+            loss = np.sum(l for l in loss_dict.values())
+            print("Iteration [{}]: loss: {}".format(i, loss))
+            print(loss_dict)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
     def validate(self, epoch):
         """Validate the model.
@@ -66,13 +90,14 @@ class Trainer(object):
         """
         pass
 
-    def finish(self, epoch):
+    def close(self, epoch):
         """Properly finish training.
 
         Args:
             epoch (int): current epoch
         """
         self.writer.close()
+        print('=' * 72)
         print("Training finished, completed {} epochs.".format(epoch))
         print('=' * 72)
 
@@ -97,16 +122,14 @@ if __name__ == '__main__':
     if not args.no_cuda:
         assert torch.cuda.is_available(), "CUDA not available."
     if args.cuda_max_devices is not None:
-        assert torch.cuda.device_count() <= args.cuda_max_devices, (
-            "{} GPUs available, please set visible devices.\n".format(
-                torch.cuda.device_count()) +
+        cfg.num_gpus = torch.cuda.device_count()
+        assert cfg.num_gpus <= args.cuda_max_devices, (
+            "{} GPUs available, please set visible devices.\n".format(cfg.num_gpus) +
             "export CUDA_VISIBLE_DEVICES=X,X")
 
     # train
-    print('=' * 72)
-    print("Initalizing trainer.")
     trainer = Trainer(cfg)
-    print("Starting from epoch {} to epoch {}".format(0, trainer.cfg.epochs))
     for epoch in range(0, trainer.cfg.epochs):
         trainer.train(epoch)
         trainer.validate(epoch)
+    trainer.close(trainer.cfg.epochs)
