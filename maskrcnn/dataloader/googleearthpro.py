@@ -19,23 +19,39 @@ class GoogleEarthProInstSeg(Dataset):
         cfg (Config): pass all configurations into the dataloader
         mode (str): a string in ['train', 'val', 'infer'], indicating the train,
             validation or inference mode for which data is loaded
+        drop_empty (bool): whether empty images with no instances should be dropped
         init (bool): whether initialization (train/val split) should be implemented,
             defaults to False but initialization auto implemented when not detecting
             train.txt and val.txt files
+        train_ratio (float): ratio of training images (as opposed to val)
     """
     
-    def __init__(self, cfg, mode, init=False, train_ratio=0.85):
+    def __init__(self, cfg, mode, drop_empty=False, init=False, train_ratio=0.85):
 
         super().__init__()
 
-        assert mode in ['train', 'val', 'infer']
+        # log 
+        self.cfg = cfg
+        self.mode = mode
 
         # initialize the train/val split
         if init or (mode in ['train', 'val'] and not (
             os.path.isfile(os.path.join(cfg.in_trainval_dir, 'train.txt')) and
             os.path.isfile(os.path.join(cfg.in_trainval_dir, 'val.txt')))):
-            ids = [os.path.basename(f).split('.')[0] for f in glob(
-                os.path.join(cfg.in_trainval_dir, cfg.in_trainval_img_dir, '*.jpg'))]
+            files = [f for f in glob(
+                os.path.join(cfg.in_trainval_dir, cfg.in_trainval_mask_dir, '*.json'))]
+            if drop_empty:
+                nonempty_files = []
+                for file in files:
+                    f = InstanceMask()
+                    f = f.from_supervisely(
+                        file=file, label_dict=self.cfg.label_dict)
+                    if not len(f) == 0:
+                        nonempty_files.append(file)
+                files = nonempty_files
+            else:
+                raise NotImplementedError
+            ids = [os.path.basename(f).split('.')[0] for f in files]
             shuffle(ids)
             train_idx = np.round(train_ratio * len(ids)).astype(np.uint32)
             with open(os.path.join(cfg.in_trainval_dir, 'train.txt'), 'w') as f:
@@ -57,10 +73,6 @@ class GoogleEarthProInstSeg(Dataset):
             self.targets = []
         else:
             raise NotImplementedError
-
-        # log 
-        self.cfg = cfg
-        self.mode = mode
 
         # check file existence
         assert all([os.path.isfile(f) for f in self.images])

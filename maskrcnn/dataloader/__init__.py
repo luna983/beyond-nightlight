@@ -5,40 +5,8 @@ from torch.utils.data import DataLoader
 
 from .googleearthpro import GoogleEarthProInstSeg
 
-class MaskRCNNBatch(object):
-    """Define methods to collate a list of data into a mini-batch.
-
-    Args:
-        data (list of dataset (subclass of torch.utils.data.Dataset)
-            items (from __getitem__)): data to be formed into a mini-batch.
-        has_target (bool): whether the batch has a target object
-            (True for train, val, False for infer)
-    """
-
-    def __init__(self, data, has_target=True):
-        if has_target:
-            self.image, self.target = zip(*data)
-            self.image = list(self.image)
-            self.target = list(self.target)
-        else:
-            self.image = data
-
-    def pin_memory(self):
-        self.image = [tensor.pin_memory() for tensor in self.image]
-        if hasattr(self, 'target'):
-            for item in self.target:
-                item['masks'] = item['masks'].pin_memory()
-                item['labels'] = item['labels'].pin_memory()
-                item['boxes'] = item['boxes'].pin_memory()
-        return self
-
-def collate_maskrcnn_image_target(batch):
-    return MaskRCNNBatch(batch, has_target=True)
-
-def collate_maskrcnn_image(batch):
-    return MaskRCNNBatch(batch, has_target=False)
-
 def collate_fn(batch):
+    """Helper function to collate lists of image/target pairs into a batch."""
     return tuple(zip(*batch))
 
 def make_data_loader(cfg, modes=['train', 'val'], **kwargs):
