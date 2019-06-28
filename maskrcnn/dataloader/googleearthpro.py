@@ -44,7 +44,7 @@ class GoogleEarthProInstSeg(Dataset):
                 nonempty_files = []
                 for file in files:
                     f = InstanceMask()
-                    f = f.from_supervisely(
+                    f.from_supervisely(
                         file=file, label_dict=self.cfg.label_dict)
                     if not len(f) == 0:
                         nonempty_files.append(file)
