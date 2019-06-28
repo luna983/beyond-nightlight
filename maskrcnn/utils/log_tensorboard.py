@@ -8,3 +8,6 @@ class Writer(object):
     """
     def __init__(self, cfg):
         pass
+
+    def close(self):
+        pass
