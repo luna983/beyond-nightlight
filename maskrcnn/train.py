@@ -53,12 +53,12 @@ class Trainer(object):
         self.model = maskrcnn_resnet50_fpn(**params)
         # parallelize
         self.model = torch.nn.DataParallel(self.model)
-        self.model.to(device)
+        self.model.to(self.device)
 
         # make optimizer
         params = {
             'lr': cfg.lr}
-        self.optimizer = torch.optim.Adam(model.parameters(), **params)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), **params)
 
         print("Starting from epoch {} to epoch {}".format(0, self.cfg.epochs))
 
@@ -72,9 +72,11 @@ class Trainer(object):
         print("Epoch [{} / {}]".format(epoch, self.cfg.epochs))
         self.model.train()
         for i, sample in enumerate(self.train_loader):
-            images = [im.to(device) for im in sample.image]
-            targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
-            loss_dict = model(images, targets)
+            images, targets = sample
+            images = [im.to(self.device) for im in images]
+            targets = [{k: v.to(self.device) for k, v in t.items()} for t in targets]
+            print([{k: v.shape for k, v in t.items()} for t in targets])
+            loss_dict = self.model(images, targets)
             loss = np.sum(l for l in loss_dict.values())
             print("Iteration [{}]: loss: {}".format(i, loss))
             print(loss_dict)

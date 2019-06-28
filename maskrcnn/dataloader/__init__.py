@@ -38,6 +38,9 @@ def collate_maskrcnn_image_target(batch):
 def collate_maskrcnn_image(batch):
     return MaskRCNNBatch(batch, has_target=False)
 
+def collate_fn(batch):
+    return tuple(zip(*batch))
+
 def make_data_loader(cfg, modes=['train', 'val'], **kwargs):
     """Make data loaders with different datasets.
 
@@ -66,17 +69,12 @@ def make_data_loader(cfg, modes=['train', 'val'], **kwargs):
         if mode in ['train']:
             data_loader = DataLoader(
                 data_set, shuffle=True,
-                collate_fn=collate_maskrcnn_image_target, pin_memory=True,
+                collate_fn=collate_fn, pin_memory=True,
                 **kwargs)
-        elif mode in ['val']:
+        elif mode in ['val', 'infer']:
             data_loader = DataLoader(
                 data_set, shuffle=False,
-                collate_fn=collate_maskrcnn_image_target, pin_memory=True,
-                **kwargs)
-        elif mode in ['infer']:
-            data_loader = DataLoader(
-                data_set, shuffle=False,
-                collate_fn=collate_maskrcnn_image, pin_memory=True,
+                collate_fn=collate_fn, pin_memory=True,
                 **kwargs)
         else:
             raise NotImplementedError
