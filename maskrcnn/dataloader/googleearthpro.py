@@ -26,7 +26,7 @@ class GoogleEarthProInstSeg(Dataset):
         train_ratio (float): ratio of training images (as opposed to val)
     """
     
-    def __init__(self, cfg, mode, drop_empty=False, init=False, train_ratio=0.85):
+    def __init__(self, cfg, mode, drop_empty=True, init=False, train_ratio=0.85):
 
         super().__init__()
 
