@@ -42,7 +42,7 @@ class Trainer(object):
             'batch_size': (cfg.batch_size_per_gpu if cfg.num_gpus == 0
                 else cfg.batch_size_per_gpu * cfg.num_gpus),
             'num_workers': cfg.num_workers}
-        self.train_loader, self.val_loader = make_data_loader(cfg, init=True, drop_empty=True, **params)
+        self.train_loader, self.val_loader = make_data_loader(cfg, **params)
 
         print("Initalizing model and optimizer.")
 
