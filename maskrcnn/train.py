@@ -76,6 +76,7 @@ class Trainer(object):
             images = [im.to(self.device) for im in images]
             targets = [{k: v.to(self.device) for k, v in t.items()} for t in targets]
             loss_dict = self.model(images, targets)
+            from pdb import set_trace; set_trace()
             loss = np.sum(l for l in loss_dict.values())
             print("Iteration [{}]: loss: {}".format(i, loss))
             print(loss_dict)
