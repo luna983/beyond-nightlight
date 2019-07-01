@@ -51,8 +51,6 @@ class Trainer(object):
             'num_classes': len(cfg.label_dict) + 1, # including background
             'pretrained': cfg.coco_pretrained}
         self.model = maskrcnn_resnet50_fpn(**params)
-        # parallelize
-        self.model = torch.nn.DataParallel(self.model)
         self.model.to(self.device)
 
         # make optimizer
@@ -76,10 +74,9 @@ class Trainer(object):
             images = [im.to(self.device) for im in images]
             targets = [{k: v.to(self.device) for k, v in t.items()} for t in targets]
             loss_dict = self.model(images, targets)
-            from pdb import set_trace; set_trace()
-            loss = np.sum(l for l in loss_dict.values())
-            print("Iteration [{}]: loss: {}".format(i, loss))
-            print(loss_dict)
+            loss = sum([l for l in loss_dict.values()])
+            print("Iteration [{}]: loss: {:.4f}".format(i, loss))
+            print("; ".join(["{}: {:.4f}".format(k, v) for k, v in loss_dict.items()]) + ".")
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
@@ -112,7 +109,7 @@ if __name__ == '__main__':
                         help="Path to config files.")
     parser.add_argument('--no-cuda', action='store_true',
                         help="Do not use CUDA.")
-    parser.add_argument('--cuda-max-devices', type=int, default=2,
+    parser.add_argument('--cuda-max-devices', type=int, default=1,
                         help="Maximum number of available GPUs.")
     args = parser.parse_args()
 
