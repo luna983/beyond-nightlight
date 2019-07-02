@@ -4,3 +4,8 @@
 * This code is not compatible with the `torch.nn.DataParallel` utilities. This is because when distribution happens within the `DataParallel` module, only `torch.Tensor` objects are treated as mini-batches and can be distributed (`scatter()`ed). This results in errors when the module attempts to split single image onto multiple GPUs and the color dimension is corrupted. `DistributedDataParallel()` have to be used and some sample code is available in [`torchvision/references/detection/train.py`](https://github.com/pytorch/vision/blob/master/references/detection/train.py).
 
 ## TODO
+
+* Debug `maskrcnn/utils/save_ckpt_log_tb.py` and `train.py`.
+
+* Write `eval.py`, add evaluator to `train.py`
+* Write `infer.py`

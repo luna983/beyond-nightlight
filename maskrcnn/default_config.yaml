@@ -3,6 +3,9 @@ in_trainval_dir: data/GoogleEarthPro
 in_trainval_img_dir: Image
 in_trainval_mask_dir: Mask
 
+# model and log directory
+runs_dir: runs/
+
 # inference directory
 in_infer_dir: data/GoogleEarthPro/Image
 
@@ -34,16 +37,22 @@ resize_height: 400 # size of tensors fed into Mask R-CNN
 resize_width: 400 # size of tensors fed into Mask R-CNN
 
 # training schedule
-epochs: 1
+epochs: 2
 batch_size_per_gpu: 2
 num_workers: 2
 # num_gpus inferred from torch.cuda.device_count()
 
 # model parameters
-coco_pretrained: False
+coco_pretrained: True
 
 # optimizer parameters
 lr: 0.001
+lr_scheduler_step_size: 2
+lr_scheduler_gamma: 0.1
+
+# evaluation parameters
+key_metric_name: key_metric
+key_metric_init: 0 # initial values for the key evaluation metric
 
 # visualization parameters
 category_palette:
