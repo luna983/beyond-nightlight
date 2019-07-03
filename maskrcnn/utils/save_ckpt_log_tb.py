@@ -29,7 +29,7 @@ class Saver(object):
     def save_config(self):
         """Saves the config files."""
         with open(os.path.join(self.run_dir, "config.yaml"), 'w') as f:
-            yaml.dump(self.cfg)
+            yaml.dump(self.cfg, f)
 
     def save_checkpoint(self, state_dict,
                         save_best=True, key_metric=None, best_key_metric=None):
