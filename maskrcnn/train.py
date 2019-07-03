@@ -9,8 +9,7 @@ from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 
 from utils.configure import Config
-from utils.save_checkpoint import Saver
-from utils.log_tensorboard import Writer
+from utils.save_ckpt_log_tb import Saver
 from dataloader import make_data_loader
 
 class Trainer(object):
@@ -48,13 +47,18 @@ class Trainer(object):
             self.model = maskrcnn_resnet50_fpn(pretrained=True)
             # replace the pre-trained FasterRCNN head with a new one
             self.model.roi_heads.box_predictor = FastRCNNPredictor(
-                in_features=self.model.roi_heads.box_predictor.cls_score.in_features,
-                num_classes=len(cfg.label_dict) + 1)
+                # in_features
+                self.model.roi_heads.box_predictor.cls_score.in_features,
+                # num_classes
+                len(cfg.label_dict) + 1)
             # replace the pre-trained MaskRCNN head with a new one
             self.model.roi_heads.mask_predictor = MaskRCNNPredictor(
-                in_features_mask=self.model.roi_heads.mask_predictor.conv5_mask.in_channels,
-                hidden_layer=self.model.roi_heads.mask_predictor.conv5_mask.dim_reduced,
-                num_classes=len(cfg.label_dict) + 1)
+                # in_features_mask
+                self.model.roi_heads.mask_predictor.conv5_mask.in_channels,
+                # hidden_layer
+                self.model.roi_heads.mask_predictor.conv5_mask.out_channels,
+                # num_classes
+                len(cfg.label_dict) + 1)
         else:
             params = {
                 'num_classes': len(cfg.label_dict) + 1, # including background
@@ -74,20 +78,19 @@ class Trainer(object):
         # load prior checkpoint
         if cfg.run_dir is not None:
             ckpt_file = os.path.join(cfg.run_dir, "checkpoint.pth.tar")
+            assert os.path.isfile(ckpt_file)
+            print("Loading checkpoint {}".format(ckpt_file))
+            ckpt = torch.load(ckpt_file)
+            self.start_epoch = ckpt['epoch'] + 1
+            self.model.load_state_dict(ckpt['state_dict'])
+            self.optimizer.load_state_dict(ckpt['optimizer'])
             key_metric_file = os.path.join(
                 cfg.run_dir, "best_" + cfg.key_metric_name + ".txt")
-            assert os.path.isfile(key_metric_file)
-            assert os.path.isfile(ckpt_file)
-            print("Loading checkpoint {}".format(ckpt_file)
-            ckpt = torch.load(ckpt_file)
-            self.start_epoch = ckpt['epoch']
-            if torch.cuda.is_available():
-                self.model.module.load_state_dict(ckpt['state_dict'])
+            if os.path.isfile(key_metric_file):
+                with open(key_metric_file, 'r') as f:
+                    self.best_key_metric = float(f.readline())
             else:
-                self.model.load_state_dict(ckpt['state_dict'])
-            self.optimizer.load_state_dict(ckpt['optimizer'])
-            with open(key_metric_file, 'r') as f:
-                self.best_key_metric = float(f.readline())
+                self.best_key_metric = cfg.key_metric_init
         else:
             self.start_epoch = 0
             self.best_key_metric = cfg.key_metric_init
@@ -103,7 +106,7 @@ class Trainer(object):
             epoch (int): number of epochs since training started. (starts with 0)
         """
         print('=' * 72)
-        print("Epoch [{} / {}]".format(epoch, self.cfg.epochs))
+        print("Epoch [{} / {}]".format(epoch, self.cfg.epochs - 1))
         print("Training...")
         self.model.train()
         for i, sample in enumerate(self.train_loader):
@@ -136,16 +139,11 @@ class Trainer(object):
             images, targets = sample
             images = [im.to(self.device) for im in images]
             targets = [{k: v.to(self.device) for k, v in t.items()} for t in targets]
-            loss_dict = self.model(images, targets)
-            loss = sum([l for l in loss_dict.values()])
-            self.saver.log_tb_loss(mode='val', loss=loss, loss_dict=loss_dict, epoch=epoch)
-            print("Iteration [{}]: loss: {:.4f}".format(i, loss))
-            print('; '.join(["{}: {:.4f}".format(k, v) for k, v in loss_dict.items()]) + '.')
+            pred = self.model(images, targets)
         # save checkpoint every epoch
         self.saver.save_checkpoint(
             state_dict={'epoch': epoch,
-                        'state_dict': (self.model.module.state_dict() if torch.cuda.is_available()
-                            else self.model.state_dict()),
+                        'state_dict': self.model.state_dict(),
                         'optimizer': self.optimizer.state_dict()},
             save_best=False)
 
@@ -192,14 +190,12 @@ if __name__ == '__main__':
     if args.resume_run is not None:
         assert os.path.exists(os.path.join(cfg.runs_dir, args.resume_run))
         cfg.run_dir = os.path.join(cfg.runs_dir, args.resume_run)
-    else
+    else:
         cfg.run_dir = None
 
     # train
-    try:
-        trainer = Trainer(cfg)
-        for epoch in range(0, trainer.cfg.epochs):
-            trainer.train(epoch)
-            trainer.validate(epoch)
-    finally:
-        trainer.close(epoch)
+    trainer = Trainer(cfg)
+    for epoch in range(trainer.start_epoch, cfg.epochs):
+        trainer.train(epoch)
+        trainer.validate(epoch)
+    trainer.close(epoch)

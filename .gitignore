@@ -18,4 +18,5 @@ __pycache__/
 # symbolic links
 experiment_1/data
 maskrcnn/data
+maskrcnn/runs
 maskrcnn/output

@@ -20,7 +20,7 @@ class Saver(object):
             run_id = int(runs[-1].split('_')[-1]) + 1 if runs else 0
             self.run_dir = os.path.join(self.runs_dir, "run_{:02d}".format(run_id))
             if not os.path.exists(self.run_dir):
-                os.makedir(self.run_dir)
+                os.mkdir(self.run_dir)
         else:
             self.run_dir = cfg.run_dir
         # save all configurations
@@ -71,9 +71,9 @@ class Saver(object):
                 sum up to total loss.
             epoch (int): number of epochs.
         """
-        self.writer.add_scalar('/'.join(mode, 'loss'), loss, epoch)
+        self.writer.add_scalar('/'.join((mode, 'loss')), loss, epoch)
         for k, v in loss_dict.items():
-            self.writer.add_scalar('/'.join(mode, k), v, epoch)
+            self.writer.add_scalar('/'.join((mode, k)), v, epoch)
 
     def log_tb_visualization(self):
         pass
