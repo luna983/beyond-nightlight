@@ -1,4 +1,5 @@
 import os
+import json
 import numpy as np
 from glob import glob
 import argparse
@@ -11,6 +12,8 @@ from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 from utils.configure import Config
 from utils.save_ckpt_log_tb import Saver
 from dataloader import make_data_loader
+from eval import convert_tensor_to_coco, Evaluator
+
 
 class Trainer(object):
     """Train and evaluate the machine learning model.
@@ -34,9 +37,10 @@ class Trainer(object):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         # make data loader
+        cfg.batch_size = (cfg.batch_size_per_gpu if cfg.num_gpus == 0
+            else cfg.batch_size_per_gpu * cfg.num_gpus)
         params = {
-            'batch_size': (cfg.batch_size_per_gpu if cfg.num_gpus == 0
-                else cfg.batch_size_per_gpu * cfg.num_gpus),
+            'batch_size': cfg.batch_size,
             'num_workers': cfg.num_workers}
         self.train_loader, self.val_loader = make_data_loader(cfg, **params)
 
@@ -84,16 +88,16 @@ class Trainer(object):
             self.start_epoch = ckpt['epoch'] + 1
             self.model.load_state_dict(ckpt['state_dict'])
             self.optimizer.load_state_dict(ckpt['optimizer'])
-            key_metric_file = os.path.join(
-                cfg.run_dir, "best_" + cfg.key_metric_name + ".txt")
-            if os.path.isfile(key_metric_file):
-                with open(key_metric_file, 'r') as f:
-                    self.best_key_metric = float(f.readline())
+            # load prior stats
+            metrics_file = os.path.join(cfg.run_dir, "best_metrics.json")
+            if os.path.isfile(metrics_file):
+                with open(metrics_file, 'r') as f:
+                    self.best_metrics = json.load(f)
             else:
-                self.best_key_metric = cfg.key_metric_init
+                self.best_metrics = None
         else:
             self.start_epoch = 0
-            self.best_key_metric = cfg.key_metric_init
+            self.best_metrics = None
 
         print("Starting from epoch {} to epoch {}...".format(self.start_epoch, cfg.epochs))
         # save configurations
@@ -135,17 +139,30 @@ class Trainer(object):
         """
         print("Validating...")
         self.model.eval()
+        # convert to COCO format
+        preds_coco = []
+        targets_coco = []
         for i, sample in enumerate(self.val_loader):
             images, targets = sample
             images = [im.to(self.device) for im in images]
             targets = [{k: v.to(self.device) for k, v in t.items()} for t in targets]
-            pred = self.model(images, targets)
+            preds = self.model(images, targets)
+            targets_coco += [convert_tensor_to_coco(
+                target, i * self.cfg.batch_size + j) for j, target in enumerate(targets)]
+            preds_coco += [convert_tensor_to_coco(
+                pred, i * self.cfg.batch_size + j) for j, pred in enumerate(preds)]
+        # evaluation
+        cocoeval = Evaluator(preds=preds_coco, targets=targets_coco)
+        metrics = cocoeval.evaluate()
         # save checkpoint every epoch
         self.saver.save_checkpoint(
             state_dict={'epoch': epoch,
                         'state_dict': self.model.state_dict(),
                         'optimizer': self.optimizer.state_dict()},
-            save_best=False)
+            metrics=metrics,
+            save_best=True,
+            key_metric_name=cfg.key_metric_name,
+            best_metrics=self.best_metrics)
 
     def close(self, epoch):
         """Properly finish training.

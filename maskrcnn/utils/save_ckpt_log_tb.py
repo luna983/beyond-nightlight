@@ -31,32 +31,35 @@ class Saver(object):
         with open(os.path.join(self.run_dir, "config.yaml"), 'w') as f:
             yaml.dump(self.cfg, f)
 
-    def save_checkpoint(self, state_dict,
-                        save_best=True, key_metric=None, best_key_metric=None):
+    def save_checkpoint(self, state_dict, metrics,
+                        save_best=True, key_metric_name=None, best_metrics=None):
         """Saves the checkpoint.
 
         Args:
             state_dict (dict): a dict storing all relevant parameters, including
-                epoch, state_dict of models and optimizers, and key metrics.
+                epoch, state_dict of models and optimizers.
+            metrics (dict): a dict of evaluation metrics.
             save_best (bool): overwrites the best checkpoints.
-            key_metric (float): a key metric to determine the best model.
+            key_metric_name (str): name of the key metric to determine the best model.
                 Required if save_best=True.
-            best_key_metric (float): the best key metric to determine the best model.
+            best_metrics (dict): the best key metrics for prior models.
                 Required if save_best=True.
         """
         # save current checkpoint
         torch.save(state_dict, os.path.join(self.run_dir, "checkpoint.pth.tar"))
+        with open(os.path.join(self.run_dir, "metrics.json"), 'w') as f:
+            json.dump(metrics, f)
 
         if save_best:
-            assert key_metric is not None, "No metric provided for comparison."
-            if key_metric > best_key_metric:
+            assert key_metric_name is not None, "No metric provided for comparison."
+            if (metrics[key_metric_name] > best_metrics[key_metric_name] or 
+                best_metrics is None):
                 shutil.copyfile(
                     os.path.join(self.run_dir, "checkpoint.pth.tar"),
                     os.path.join(self.run_dir, "best.pth.tar"))
-                key_metric_file = os.path.join(
-                    self.run_dir, "best_" + self.cfg.key_metric_name + ".txt")
-                with open(key_metric_file, 'w') as f:
-                    f.write(str(key_metric))
+                shutil.copyfile(
+                    os.path.join(self.run_dir, "metrics.json"),
+                    os.path.join(self.run_dir, "best.json"))
 
     def create_tb_summary(self):
         self.writer = SummaryWriter(log_dir=self.run_dir)

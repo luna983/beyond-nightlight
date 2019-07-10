@@ -51,8 +51,7 @@ lr_scheduler_step_size: 2
 lr_scheduler_gamma: 0.1
 
 # evaluation parameters
-key_metric_name: key_metric
-key_metric_init: 0 # initial values for the key evaluation metric
+key_metric_name: mAP
 
 # visualization parameters
 category_palette:

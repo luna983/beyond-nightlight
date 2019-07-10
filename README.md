@@ -5,7 +5,5 @@
 
 ## TODO
 
-* Debug `maskrcnn/utils/save_ckpt_log_tb.py` and `train.py`.
-
 * Write `eval.py`, add evaluator to `train.py`
 * Write `infer.py`
