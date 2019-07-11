@@ -146,13 +146,20 @@ class Trainer(object):
             images, targets = sample
             images = [im.to(self.device) for im in images]
             targets = [{k: v.to(self.device) for k, v in t.items()} for t in targets]
-            preds = self.model(images, targets)
-            targets_coco += [convert_tensor_to_coco(
-                target, i * self.cfg.batch_size + j) for j, target in enumerate(targets)]
-            preds_coco += [convert_tensor_to_coco(
-                pred, i * self.cfg.batch_size + j) for j, pred in enumerate(preds)]
+            preds = self.model(images)
+            for j, pred in enumerate(preds):
+                pred['masks'] = pred['masks'].squeeze(1) > self.cfg.mask_threshold
+                preds_coco += convert_tensor_to_coco(
+                    pred, i * self.cfg.batch_size + j)              
+            for j, target in enumerate(targets):
+                targets_coco += convert_tensor_to_coco(
+                    target, i * self.cfg.batch_size + j)
         # evaluation
-        cocoeval = Evaluator(preds=preds_coco, targets=targets_coco)
+        cocoeval = Evaluator(preds=preds_coco, targets=targets_coco,
+                             width=self.cfg.resize_width,
+                             height=self.cfg.resize_height,
+                             num_image=len(self.val_loader),
+                             label_dict=self.cfg.label_dict)
         metrics = cocoeval.evaluate()
         # save checkpoint every epoch
         self.saver.save_checkpoint(
@@ -213,6 +220,6 @@ if __name__ == '__main__':
     # train
     trainer = Trainer(cfg)
     for epoch in range(trainer.start_epoch, cfg.epochs):
-        trainer.train(epoch)
+        # trainer.train(epoch)
         trainer.validate(epoch)
     trainer.close(epoch)

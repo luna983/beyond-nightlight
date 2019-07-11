@@ -2,7 +2,8 @@ import time
 import numpy as np
 from collections import defaultdict
 import pycocotools.mask as mask
-from pycocotools import COCO, COCOeval, Params
+from pycocotools.coco import COCO
+from pycocotools.cocoeval import COCOeval, Params
 
 def convert_tensor_to_coco(annotation, image_id):
     """Convert PyTorch tensor output from Mask RCNN to COCO annotation format.
@@ -17,10 +18,11 @@ def convert_tensor_to_coco(annotation, image_id):
     # convert torch tensors to numpy arrays
     labels = annotation['labels'].detach().cpu().numpy()
     masks = annotation['masks'].detach().cpu().numpy()
-    scores = annotation['scores'].detach().cpu().numpy()
     boxes = annotation['boxes'].detach().cpu().numpy()
-    # get shape
-    _, height, width = masks.shape
+    if 'score' in annotation:
+        scores = annotation['scores'].detach().cpu().numpy()
+    else:
+        scores = np.ones_like(labels)
     # for mask.encode()
     # binary mask(s) must have [hxwxn]
     # type np.ndarray(dtype=uint8) in column-major order
@@ -28,18 +30,20 @@ def convert_tensor_to_coco(annotation, image_id):
     rles = mask.encode(np.asfortranarray(masks))
     areas = mask.area(rles)
     output = []
-    for i, rle, area, label, box, score in enumerate(
-        zip(rles, areas, labels, boxes, scores)):
-        output.append(
-            {'segmentation': rle,
-             'area': area,
-             'iscrowd': 1,
-             'image_id': image_id,
-             'bbox': box.tolist(),
-             'category_id': label,
-             # assuming no more than 1000 annotations per image
-             # create instance id
-             'id': image_id * 1000 + i})
+    for i, (rle, area, label, box, score) in enumerate(zip(
+        rles, areas, labels, boxes, scores)):
+        if area > 0:
+            output.append(
+                {'segmentation': rle,
+                 'area': area,
+                 'iscrowd': 1,
+                 'image_id': image_id,
+                 'bbox': box.tolist(),
+                 'category_id': label,
+                 'score': score,
+                 # assuming no more than 1000 annotations per image
+                 # create instance id
+                 'id': image_id * 1000 + i})
     return output
 
 class AnnotationLoader(COCO):
@@ -47,14 +51,20 @@ class AnnotationLoader(COCO):
 
     Args:
         annotations (list of dict): list of dict in COCO format
+        width, height (int): width and height of images fed into the model
+        num_image (int): number of images loaded
+        label_dict (dict): dict of {name: id} pairs for categories
     """
-    def __init__(self, annotations):
+    def __init__(self, annotations, width, height, num_image, label_dict):
         # load dataset
         self.dataset, self.anns, self.cats, self.imgs = dict(), dict(), dict(), dict()
         self.imgToAnns, self.catToImgs = defaultdict(list), defaultdict(list)
         print("Loading annotations into memory...")
         tic = time.time()
-        self.dataset = {'annotations': annotations}
+        self.dataset = {
+            'annotations': annotations,
+            'images': [{'id': i, 'height': height, 'width': width} for i in range(num_image)],
+            'categories': [{'id': i, 'name': name} for name, i in label_dict.items()]}
         toc = time.time()
         print("Done (t={:0.2f}s)".format(toc - tic))
         self.createIndex()
@@ -64,7 +74,7 @@ class AnnotationEvaluator(COCOeval):
     """
     def summarize(self):
 
-        def _summarize(ap=1, iouThr=None, areaRng='all', maxDets=200):
+        def _summarize(ap=1, iouThr=None, areaRng='all', maxDets=20):
             p = self.params
             iStr = " {:<18} {} @[ IoU={:<9} | area={:>6s} | maxDets={:>3d} ] = {:0.3f}"
             titleStr = "Average Precision" if ap == 1 else "Average Recall"
@@ -116,14 +126,17 @@ class Evaluator(object):
     Args:
         preds (list of dict): predictions in COCO format
         targets (list of dict): targets in COCO format
+        width, height (int): width and height of images fed into the model
+        num_image (int): number of images loaded
+        label_dict (dict): dict of {name: id} pairs for categories
     """
-    def __init__(self, preds, targets):
+    def __init__(self, preds, targets, width, height, num_image, label_dict):
         # instantiate COCOeval object
         self.cocoeval = AnnotationEvaluator(
-            cocoGt=AnnotationLoader(targets),
-            cocoDt=AnnotationLoader(preds))
+            cocoGt=AnnotationLoader(preds, width, height, num_image, label_dict),
+            cocoDt=AnnotationLoader(targets, width, height, num_image, label_dict))
         # change default parameters
-        self.cocoeval.params.maxDets = [200]
+        self.cocoeval.params.maxDets = [20]
         self.cocoeval.params.areaRng = [[0 ** 2, 1e5 ** 2]]
         self.cocoeval.params.areaRngLbl = ['all']
         

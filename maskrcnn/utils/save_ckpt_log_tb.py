@@ -1,4 +1,5 @@
 import os
+import json
 import yaml
 import shutil
 from glob import glob
@@ -52,8 +53,14 @@ class Saver(object):
 
         if save_best:
             assert key_metric_name is not None, "No metric provided for comparison."
-            if (metrics[key_metric_name] > best_metrics[key_metric_name] or 
-                best_metrics is None):
+            if best_metrics is None:
+                is_best = True
+            else:
+                if metrics[key_metric_name] > best_metrics[key_metric_name]:
+                    is_best = True
+                else:
+                    is_best = False
+            if is_best:
                 shutil.copyfile(
                     os.path.join(self.run_dir, "checkpoint.pth.tar"),
                     os.path.join(self.run_dir, "best.pth.tar"))
