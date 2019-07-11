@@ -11,8 +11,9 @@ from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 
 from utils.configure import Config
 from utils.save_ckpt_log_tb import Saver
+from utils.coco import convert_tensor_to_coco
 from dataloader import make_data_loader
-from eval import convert_tensor_to_coco, Evaluator
+from eval import Evaluator
 
 
 class Trainer(object):
