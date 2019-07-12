@@ -1,30 +1,24 @@
-from utils.coco import AnnotationEvaluator, AnnotationLoader
+# from utils.coco import AnnotationEvaluator, AnnotationLoader
+import os
+from pycocotools.coco import COCO
 from pycocotools.cocoeval import COCOeval
 
 
-class Evaluator(object):
+def evaluate(cfg):
     """This evaluates the difference between predictions and ground truth.
 
     Args:
-        preds (list of dict): predictions in COCO format
-        targets (list of dict): targets in COCO format
-        width, height (int): width and height of images fed into the model
-        num_image (int): number of images loaded
-        label_dict (dict): dict of {name: id} pairs for categories
+        cfg (Config): stores all configurations.
     """
-    def __init__(self, preds, targets, width, height, num_image, label_dict):
-        gt = AnnotationLoader(targets, width, height, num_image, label_dict)
-        # instantiate COCOeval object
-        self.E = COCOeval(
-            cocoGt=gt,
-            cocoDt=gt.loadRes("test.json"))
-        # change default parameters
-        # self.cocoeval.params.maxDets = [20]
-        # self.cocoeval.params.areaRng = [[0 ** 2, 1e5 ** 2]]
-        # self.cocoeval.params.areaRngLbl = ['all']
-        
-    def evaluate(self):
-        self.E.evaluate()
-        # import pdb; pdb.set_trace()
-        self.E.accumulate()
-        self.E.summarize()
+    GT = COCO(os.path.join(cfg.run_dir, "annotations_gt.json"))
+    DT = GT.loadRes(os.path.join(cfg.run_dir, "annotations_pred.json"))
+    E = COCOeval(cocoGt=GT, cocoDt=DT)
+    # change default parameters
+    # self.cocoeval.params.maxDets = [20]
+    # self.cocoeval.params.areaRng = [[0 ** 2, 1e5 ** 2]]
+    # self.cocoeval.params.areaRngLbl = ['all']
+    
+    E.evaluate()
+    # import pdb; pdb.set_trace()
+    E.accumulate()
+    return E.summarize()

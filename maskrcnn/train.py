@@ -1,7 +1,6 @@
 import os
 import json
 import numpy as np
-from glob import glob
 import argparse
 
 import torch
@@ -9,11 +8,11 @@ from torchvision.models.detection import maskrcnn_resnet50_fpn
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 
+from dataloader import make_data_loader
 from utils.configure import Config
 from utils.save_ckpt_log_tb import Saver
-from utils.coco import convert_tensor_to_coco
-from dataloader import make_data_loader
-from eval import Evaluator
+from utils.coco import COCOSaver
+from eval import evaluate
 
 
 class Trainer(object):
@@ -131,49 +130,49 @@ class Trainer(object):
             # update the learning rate
             self.lr_scheduler.step()
 
+    def save_val_annotations(self):
+        """Saves the validation set annotations as COCO format.
+        """
+        cocosaver = COCOSaver(gt=True, cfg=self.cfg)
+        for i, sample in enumerate(self.val_loader):
+            _, targets = sample
+            for target in targets:
+                cocosaver.update(target)
+        cocosaver.save()
+
     @torch.no_grad()
-    def validate(self, epoch):
-        """Validate the model.
+    def infer(self):
+        """Run inference on the model."""
+        print("Running inference...")
+        cocosaver = COCOSaver(gt=False, cfg=self.cfg)
+        self.model.eval()
+        for i, sample in enumerate(self.val_loader):
+            images, _ = sample
+            images = [im.to(self.device) for im in images]
+            preds = self.model(images)
+            for j, pred in enumerate(preds):
+                pred['masks'] = pred['masks'].squeeze(1) > self.cfg.mask_threshold
+                cocosaver.update(pred)
+        cocosaver.save()
+
+    def evaluate(self):
+        """Evaluates the saved predicted annotations versus ground truth."""        
+        self.metrics = evaluate(self.cfg)
+
+    def save_checkpoint(self, epoch):
+        """Saves the checkpoint.
 
         Args:
             epoch (int): number of epochs since training started. (starts with 0)
         """
-        print("Validating...")
-        self.model.eval()
-        # convert to COCO format
-        preds_coco = []
-        targets_coco = []
-        for i, sample in enumerate(self.val_loader):
-            images, targets = sample
-            images = [im.to(self.device) for im in images]
-            targets = [{k: v.to(self.device) for k, v in t.items()} for t in targets]
-            preds = self.model(images)
-            for j, pred in enumerate(preds):
-                pred['masks'] = pred['masks'].squeeze(1) > self.cfg.mask_threshold
-                preds_coco += convert_tensor_to_coco(
-                    pred, i * self.cfg.batch_size + j)              
-            for j, target in enumerate(targets):
-                targets_coco += convert_tensor_to_coco(
-                    target, i * self.cfg.batch_size + j)
-        # evaluation
-        with open("test.json", "r") as f:
-            targets_coco = json.load(f)
-        [target_coco.update({'id': i}) for i, target_coco in enumerate(targets_coco)]
-        preds_coco = targets_coco
-        cocoeval = Evaluator(preds=preds_coco, targets=targets_coco,
-                             width=self.cfg.resize_width,
-                             height=self.cfg.resize_height,
-                             num_image=len(self.val_loader),
-                             label_dict=self.cfg.label_dict)
-        metrics = cocoeval.evaluate()
         # save checkpoint every epoch
         self.saver.save_checkpoint(
             state_dict={'epoch': epoch,
                         'state_dict': self.model.state_dict(),
                         'optimizer': self.optimizer.state_dict()},
-            metrics=metrics,
             save_best=True,
-            key_metric_name=cfg.key_metric_name,
+            metrics=self.metrics,
+            key_metric_name=self.cfg.key_metric_name,
             best_metrics=self.best_metrics)
 
     def close(self, epoch):
@@ -224,7 +223,10 @@ if __name__ == '__main__':
 
     # train
     trainer = Trainer(cfg)
+    trainer.save_val_annotations()
     for epoch in range(trainer.start_epoch, cfg.epochs):
-        # trainer.train(epoch)
-        trainer.validate(epoch)
+        trainer.train(epoch)
+        trainer.infer()
+        trainer.evaluate()
+        trainer.save_checkpoint(epoch)
     trainer.close(epoch)
