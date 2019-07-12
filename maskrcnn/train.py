@@ -80,7 +80,8 @@ class Trainer(object):
             self.optimizer, step_size=cfg.lr_scheduler_step_size, gamma=cfg.lr_scheduler_gamma)
 
         # load prior checkpoint
-        if cfg.run_dir is not None:
+        if cfg.resume_dir is not None:
+            cfg.run_dir = cfg.resume_dir
             ckpt_file = os.path.join(cfg.run_dir, "checkpoint.pth.tar")
             assert os.path.isfile(ckpt_file)
             print("Loading checkpoint {}".format(ckpt_file))
@@ -217,9 +218,9 @@ if __name__ == '__main__':
     assert os.path.exists(cfg.runs_dir), "Model/log directory does not exist."
     if args.resume_run is not None:
         assert os.path.exists(os.path.join(cfg.runs_dir, args.resume_run))
-        cfg.run_dir = os.path.join(cfg.runs_dir, args.resume_run)
+        cfg.resume_dir = os.path.join(cfg.runs_dir, args.resume_run)
     else:
-        cfg.run_dir = None
+        cfg.resume_dir = None
 
     # train
     trainer = Trainer(cfg)

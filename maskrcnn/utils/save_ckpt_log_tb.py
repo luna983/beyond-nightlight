@@ -16,14 +16,15 @@ class Saver(object):
     def __init__(self, cfg):
         # check and create directories
         self.runs_dir = cfg.runs_dir
-        if cfg.run_dir is None:
+        if cfg.resume_dir is None:
             runs = sorted(glob(os.path.join(self.runs_dir, "run_*")))
             run_id = int(runs[-1].split('_')[-1]) + 1 if runs else 0
             self.run_dir = os.path.join(self.runs_dir, "run_{:02d}".format(run_id))
             if not os.path.exists(self.run_dir):
                 os.mkdir(self.run_dir)
         else:
-            self.run_dir = cfg.run_dir
+            self.run_dir = cfg.resume_dir
+        cfg.run_dir = self.run_dir
         # save all configurations
         self.cfg = cfg
 
