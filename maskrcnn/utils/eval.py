@@ -1,6 +1,6 @@
 import os
 from pycocotools.coco import COCO
-from pycocotools.cocoeval import COCOeval
+from utils.coco import COCOeval
 
 
 def evaluate(cfg):
@@ -19,6 +19,10 @@ def evaluate(cfg):
             assert len(DT) == 0
             return None
     E = COCOeval(cocoGt=GT, cocoDt=DT)
+    # set new evaluation params
+    E.params.maxDets = [100] 
+    E.params.areaRng = [[0 ** 2, 1e5 ** 2]]   
+    E.params.areaRngLbl = ['all']
     E.evaluate()
     E.accumulate()
     E.summarize()

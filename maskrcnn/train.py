@@ -151,11 +151,20 @@ class Trainer(object):
             for pred in preds:
                 pred['masks'] = pred['masks'].squeeze(1) > self.cfg.mask_threshold
                 cocosaver.add(pred)
+                self.saver.log_tb_visualization(
+                    mode='val',
+                    image=image,
+                    pred=pred)
         cocosaver.save()
 
-    def evaluate(self):
-        """Evaluates the saved predicted annotations versus ground truth."""        
+    def evaluate(self, epoch):
+        """Evaluates the saved predicted annotations versus ground truth.
+        
+        Args:
+            epoch (int): number of epochs since training started. (starts with 0)
+        """        
         self.metrics = evaluate(self.cfg)
+        self.saver.log_tb_eval(mode='val', metrics=self.metrics, epoch=epoch)
 
     def save_checkpoint(self, epoch):
         """Saves the checkpoint.
@@ -225,6 +234,6 @@ if __name__ == '__main__':
     for epoch in range(trainer.start_epoch, cfg.epochs):
         trainer.train(epoch)
         trainer.infer()
-        trainer.evaluate()
+        trainer.evaluate(epoch)
         trainer.save_checkpoint(epoch)
     trainer.close(epoch)

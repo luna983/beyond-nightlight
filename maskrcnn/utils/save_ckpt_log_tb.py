@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import json
 import yaml
 import shutil
@@ -6,6 +7,9 @@ from glob import glob
 
 import torch
 from torch.utils.tensorboard import SummaryWriter
+
+from visualize_mask import InstSegVisualization
+
 
 class Saver(object):
     """Saves the models and configs.
@@ -88,8 +92,40 @@ class Saver(object):
         for k, v in loss_dict.items():
             self.writer.add_scalar('/'.join((mode, k)), v, epoch)
 
-    def log_tb_visualization(self):
-        pass
+    def log_tb_eval(self, mode, metrics, epoch):
+        """Log evaluation on Tensorboard.
+
+        Args:
+            mode (str): mode should be in ['train', 'val'].
+            metrics (dict): dict of evaluation metrics.
+            epoch (int): number of epochs.
+        """
+        for k, v in metrics.items():
+            self.writer.add_scalar('/'.join((mode, k)), v, epoch)
+
+    def log_tb_visualization(self, mode, image, pred):
+        """Log visualization on Tensorboard.
+
+        Args:
+            mode (str): mode should be in ['train', 'val'].
+            image (torch.Tensor): image to be plotted
+            pred (dict of torch.Tensor): a dict of torch tensors 
+                following Mask RCNN conventions
+        """
+        if np.random.random() < self.cfg.prob_train_visualization:
+            v = InstSegVisualization(
+                self.cfg, image=image,
+                boxes=pred['boxes'], labels=pred['labels'],
+                scores=pred['scores'], masks=pred['masks'])
+            v.plot_image()
+            v.add_bbox()
+            v.add_label_score()
+            v.add_binary_mask()
+            self.writer.add_image(
+                '/'.join((mode, "predictions")),
+                np.array(v.output),
+                epoch,
+                dataformats='HWC')
 
     def close_tb_summary(self):
         self.writer.close()
