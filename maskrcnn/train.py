@@ -156,6 +156,10 @@ class Trainer(object):
                 targets_coco += convert_tensor_to_coco(
                     target, i * self.cfg.batch_size + j)
         # evaluation
+        with open("test.json", "r") as f:
+            targets_coco = json.load(f)
+        [target_coco.update({'id': i}) for i, target_coco in enumerate(targets_coco)]
+        preds_coco = targets_coco
         cocoeval = Evaluator(preds=preds_coco, targets=targets_coco,
                              width=self.cfg.resize_width,
                              height=self.cfg.resize_height,

@@ -18,7 +18,7 @@ def convert_tensor_to_coco(annotation, image_id):
     labels = annotation['labels'].detach().cpu().numpy()
     masks = annotation['masks'].detach().cpu().numpy()
     boxes = annotation['boxes'].detach().cpu().numpy()
-    if 'score' in annotation:
+    if 'scores' in annotation:
         scores = annotation['scores'].detach().cpu().numpy()
     else:
         scores = np.ones_like(labels)
