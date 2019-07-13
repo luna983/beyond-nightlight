@@ -52,7 +52,7 @@ lr_scheduler_gamma: 0.1
 
 # evaluation parameters
 mask_threshold: 0.5
-key_metric_name: mAP
+key_metric_name: 0
 
 # visualization parameters
 category_palette:

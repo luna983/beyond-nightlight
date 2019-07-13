@@ -80,27 +80,24 @@ class Trainer(object):
             self.optimizer, step_size=cfg.lr_scheduler_step_size, gamma=cfg.lr_scheduler_gamma)
 
         # load prior checkpoint
-        if cfg.resume_dir is not None:
-            cfg.run_dir = cfg.resume_dir
-            ckpt_file = os.path.join(cfg.run_dir, "checkpoint.pth.tar")
-            assert os.path.isfile(ckpt_file)
+        ckpt_file = os.path.join(cfg.run_dir, "checkpoint.pth.tar")
+        if os.path.isfile(ckpt_file):
             print("Loading checkpoint {}".format(ckpt_file))
             ckpt = torch.load(ckpt_file)
             self.start_epoch = ckpt['epoch'] + 1
             self.model.load_state_dict(ckpt['state_dict'])
             self.optimizer.load_state_dict(ckpt['optimizer'])
-            # load prior stats
-            metrics_file = os.path.join(cfg.run_dir, "best_metrics.json")
-            if os.path.isfile(metrics_file):
-                with open(metrics_file, 'r') as f:
-                    self.best_metrics = json.load(f)
-            else:
-                self.best_metrics = None
         else:
             self.start_epoch = 0
+        # load prior stats
+        metrics_file = os.path.join(cfg.run_dir, "best_metrics.json")
+        if os.path.isfile(metrics_file):
+            with open(metrics_file, 'r') as f:
+                self.best_metrics = json.load(f)
+        else:
             self.best_metrics = None
 
-        print("Starting from epoch {} to epoch {}...".format(self.start_epoch, cfg.epochs))
+        print("Starting from epoch {} to epoch {}...".format(self.start_epoch, cfg.epochs - 1))
         # save configurations
         self.cfg = cfg
 
@@ -147,11 +144,11 @@ class Trainer(object):
         print("Running inference...")
         cocosaver = COCOSaver(gt=False, cfg=self.cfg)
         self.model.eval()
-        for i, sample in enumerate(self.val_loader):
+        for sample in self.val_loader:
             images, _ = sample
             images = [im.to(self.device) for im in images]
             preds = self.model(images)
-            for j, pred in enumerate(preds):
+            for pred in preds:
                 pred['masks'] = pred['masks'].squeeze(1) > self.cfg.mask_threshold
                 cocosaver.update(pred)
         cocosaver.save()

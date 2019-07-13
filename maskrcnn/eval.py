@@ -11,7 +11,13 @@ def evaluate(cfg):
         cfg (Config): stores all configurations.
     """
     GT = COCO(os.path.join(cfg.run_dir, "annotations_gt.json"))
-    DT = GT.loadRes(os.path.join(cfg.run_dir, "annotations_pred.json"))
+    try:
+        DT = GT.loadRes(os.path.join(cfg.run_dir, "annotations_pred.json"))
+    except IndexError:
+        with open(os.path.join(cfg.run_dir, "annotations_pred.json"), 'r') as f:
+            DT = json.load(f)
+            assert len(DT) == 0
+            return None
     E = COCOeval(cocoGt=GT, cocoDt=DT)
     # change default parameters
     # self.cocoeval.params.maxDets = [20]
@@ -21,4 +27,5 @@ def evaluate(cfg):
     E.evaluate()
     # import pdb; pdb.set_trace()
     E.accumulate()
-    return E.summarize()
+    E.summarize()
+    return E.stats

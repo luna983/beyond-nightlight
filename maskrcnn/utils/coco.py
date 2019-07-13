@@ -1,5 +1,6 @@
 import os
-# import numpy as np
+import json
+import numpy as np
 # from collections import defaultdict
 import pycocotools.mask as maskutils
 # from pycocotools.coco import COCO
@@ -35,6 +36,8 @@ class COCOSaver(object):
         self.annotations = []
         if gt:
             self.images = []
+        else:
+            self.image_id = 0
 
     def update(self, annotation):
         """This updates the annotation list.
@@ -53,11 +56,11 @@ class COCOSaver(object):
                 self.annotations.append({
                     'segmentation': convert_binary_mask_to_uncompressed_rle(
                         np.asfortranarray(mask)),
-                    'area': np.sum(mask),
+                    'area': int(np.sum(mask)),
                     'iscrowd': 1,
                     'bbox': box.tolist(),
                     'image_id': image_id,
-                    'category_id': label,
+                    'category_id': int(label),
                     # assuming no more than 1000 annotations per image
                     # create instance id
                     'id': image_id * 1000 + i})
@@ -78,12 +81,14 @@ class COCOSaver(object):
             for i, (rle, area, label, box, score) in enumerate(zip(
                 rles, areas, labels, boxes, scores)):
                 if area > 0:
+                    rle['counts'] = rle['counts'].decode('ascii')
                     self.annotations.append(
                         {'segmentation': rle,
                          'bbox': box.tolist(),
-                         'score': score,
-                         'image_id': image_id,
-                         'category_id': label})
+                         'score': float(score),
+                         'image_id': self.image_id,
+                         'category_id': int(label)})
+            self.image_id += 1
 
     def save(self):
         """This saves the annotations to the default log directory.
@@ -94,7 +99,8 @@ class COCOSaver(object):
                     'annotations': self.annotations,
                     'images': self.images,
                     'categories': [{'id': i, 'name': name}
-                        for name, i in self.cfg.label_dict.items()]}, f)
+                        for name, i in self.cfg.label_dict.items()]
+                    }, f)
         else:
             with open(os.path.join(self.cfg.run_dir, "annotations_pred.json"), 'w') as f:
                 json.dump(self.annotations, f)

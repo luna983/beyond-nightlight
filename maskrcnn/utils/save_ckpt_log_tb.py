@@ -51,7 +51,7 @@ class Saver(object):
         torch.save(state_dict, os.path.join(self.run_dir, "checkpoint.pth.tar"))
         if metrics is not None:
             with open(os.path.join(self.run_dir, "metrics.json"), 'w') as f:
-                json.dump(metrics, f)
+                json.dump(metrics.tolist(), f)
 
         if save_best:
             assert key_metric_name is not None, "No metric provided for comparison."
@@ -66,9 +66,10 @@ class Saver(object):
                 shutil.copyfile(
                     os.path.join(self.run_dir, "checkpoint.pth.tar"),
                     os.path.join(self.run_dir, "best.pth.tar"))
-                shutil.copyfile(
-                    os.path.join(self.run_dir, "metrics.json"),
-                    os.path.join(self.run_dir, "best.json"))
+                if metrics is not None:
+                    shutil.copyfile(
+                        os.path.join(self.run_dir, "metrics.json"),
+                        os.path.join(self.run_dir, "best.json"))
 
     def create_tb_summary(self):
         self.writer = SummaryWriter(log_dir=self.run_dir)

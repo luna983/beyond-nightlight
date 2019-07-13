@@ -117,7 +117,7 @@ class GoogleEarthProInstSeg(Dataset):
     def transform_val(self, image, target):
         composed_transforms = Compose([
             Resize(width=self.cfg.resize_width, height=self.cfg.resize_height),
-            ToTensor()])
+            ToCOCO()])
         return composed_transforms(image, target)
 
     def transform_infer(self, image):
