@@ -12,7 +12,7 @@ from dataloader import make_data_loader
 from utils.configure import Config
 from utils.save_ckpt_log_tb import Saver
 from utils.coco import COCOSaver
-from eval import evaluate
+from utils.eval import evaluate
 
 
 class Trainer(object):
@@ -135,7 +135,7 @@ class Trainer(object):
         for i, sample in enumerate(self.val_loader):
             _, targets = sample
             for target in targets:
-                cocosaver.update(target)
+                cocosaver.add(target)
         cocosaver.save()
 
     @torch.no_grad()
@@ -150,7 +150,7 @@ class Trainer(object):
             preds = self.model(images)
             for pred in preds:
                 pred['masks'] = pred['masks'].squeeze(1) > self.cfg.mask_threshold
-                cocosaver.update(pred)
+                cocosaver.add(pred)
         cocosaver.save()
 
     def evaluate(self):
