@@ -8,7 +8,7 @@ from glob import glob
 import torch
 from torch.utils.tensorboard import SummaryWriter
 
-from visualize_mask import InstSegVisualization
+from utils.visualize_mask import InstSegVisualization
 
 
 class Saver(object):
@@ -55,7 +55,7 @@ class Saver(object):
         torch.save(state_dict, os.path.join(self.run_dir, "checkpoint.pth.tar"))
         if metrics is not None:
             with open(os.path.join(self.run_dir, "metrics.json"), 'w') as f:
-                json.dump(metrics.tolist(), f)
+                json.dump(metrics, f)
 
         if save_best:
             assert key_metric_name is not None, "No metric provided for comparison."
@@ -100,17 +100,19 @@ class Saver(object):
             metrics (dict): dict of evaluation metrics.
             epoch (int): number of epochs.
         """
-        for k, v in metrics.items():
-            self.writer.add_scalar('/'.join((mode, k)), v, epoch)
+        if metrics is not None:
+            for k, v in metrics.items():
+                self.writer.add_scalar('/'.join((mode, k)), v, epoch)
 
-    def log_tb_visualization(self, mode, image, pred):
+    def log_tb_visualization(self, mode, epoch, image, pred):
         """Log visualization on Tensorboard.
 
         Args:
             mode (str): mode should be in ['train', 'val'].
-            image (torch.Tensor): image to be plotted
+            epoch (int): number of epochs since training started.
+            image (torch.Tensor): image to be plotted.
             pred (dict of torch.Tensor): a dict of torch tensors 
-                following Mask RCNN conventions
+                following Mask RCNN conventions.
         """
         if np.random.random() < self.cfg.prob_train_visualization:
             v = InstSegVisualization(

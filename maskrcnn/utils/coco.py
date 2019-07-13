@@ -11,7 +11,7 @@ class COCOeval(pycocotools.cocoeval.COCOeval):
     """   
     def summarize(self):  
 
-         def _summarize(ap=1, iouThr=None, areaRng='all', maxDets=100):   
+        def _summarize(ap=1, iouThr=None, areaRng='all', maxDets=100):   
             p = self.params   
             iStr = " {:<18} {} @[ IoU={:<9} | area={:>6s} | maxDets={:>3d} ] = {:0.3f}"   
             titleStr = "Average Precision" if ap == 1 else "Average Recall"   
@@ -42,13 +42,13 @@ class COCOeval(pycocotools.cocoeval.COCOeval):
             print(iStr.format(titleStr, typeStr, iouStr, areaRng, maxDets, mean_s))   
             return mean_s 
 
-         def _summarizeDets():    
+        def _summarizeDets():    
             stats = {'mAP': _summarize(1),    
                      'AP50': _summarize(1, iouThr=.5),    
                      'AP75': _summarize(1, iouThr=.75)}   
             return stats
 
-         if not self.eval:
+        if not self.eval:
             raise Exception("Please run accumulate() first")  
         iouType = self.params.iouType
         if iouType == 'segm' or iouType == 'bbox':

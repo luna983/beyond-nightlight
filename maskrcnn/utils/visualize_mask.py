@@ -79,7 +79,7 @@ class InstSegVisualization(object):
                     font=self.font,
                     fill=tuple(self.cfg.label_fill))
 
-    def add_binary_mask(self, threshold=0.5):
+    def add_binary_mask(self, threshold=None):
         """Adds binary masks for all instances.
 
         Args:
@@ -89,9 +89,11 @@ class InstSegVisualization(object):
         # check existence of instances
         if not self.masks.shape[0] == 0:
             # threshold to get a [N, H, W] binary mask
-            binary_mask = self.masks > threshold
-
-            # colored mask, starting out as white and transparent
+            if threshold is not None:
+                binary_mask = self.masks > threshold
+            else:
+                binary_mask = self.masks
+            # colored mask, starting out as black and transparent
             color_mask = np.zeros(
                 (binary_mask.shape[1], binary_mask.shape[2], 4), dtype=np.uint8)
 

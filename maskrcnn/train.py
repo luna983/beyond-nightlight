@@ -139,8 +139,12 @@ class Trainer(object):
         cocosaver.save()
 
     @torch.no_grad()
-    def infer(self):
-        """Run inference on the model."""
+    def infer(self, epoch):
+        """Run inference on the model.
+        
+        Args:
+            epoch (int): number of epochs since training started. (starts with 0)
+        """
         print("Running inference...")
         cocosaver = COCOSaver(gt=False, cfg=self.cfg)
         self.model.eval()
@@ -148,11 +152,12 @@ class Trainer(object):
             images, _ = sample
             images = [im.to(self.device) for im in images]
             preds = self.model(images)
-            for pred in preds:
+            for image, pred in zip(images, preds):
                 pred['masks'] = pred['masks'].squeeze(1) > self.cfg.mask_threshold
                 cocosaver.add(pred)
                 self.saver.log_tb_visualization(
                     mode='val',
+                    epoch=epoch,
                     image=image,
                     pred=pred)
         cocosaver.save()
@@ -233,7 +238,7 @@ if __name__ == '__main__':
     trainer.save_val_annotations()
     for epoch in range(trainer.start_epoch, cfg.epochs):
         trainer.train(epoch)
-        trainer.infer()
+        trainer.infer(epoch)
         trainer.evaluate(epoch)
         trainer.save_checkpoint(epoch)
     trainer.close(epoch)
