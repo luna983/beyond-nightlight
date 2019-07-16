@@ -111,6 +111,8 @@ class Trainer(object):
         print("Epoch [{} / {}]".format(epoch, self.cfg.epochs - 1))
         print("Training...")
         self.model.train()
+        losses = []
+        loss_dicts = []
         for i, sample in enumerate(self.train_loader):
             images, targets = sample
             images = [im.to(self.device) for im in images]
@@ -118,15 +120,17 @@ class Trainer(object):
             # forward pass
             loss_dict = self.model(images, targets)
             loss = sum([l for l in loss_dict.values()])
-            self.saver.log_tb_loss(mode='train', loss=loss, loss_dict=loss_dict, epoch=epoch)
             print("Iteration [{}]: loss: {:.4f}".format(i, loss))
             print('; '.join(["{}: {:.4f}".format(k, v) for k, v in loss_dict.items()]) + '.')
+            losses.append(loss.detach().cpu())
+            loss_dicts.append({k: v.detach().cpu() for k, v in loss_dict.items()})
             # backward pass
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
             # update the learning rate
             self.lr_scheduler.step()
+        self.saver.log_tb_loss(mode='train', losses=losses, loss_dicts=loss_dicts, epoch=epoch)
 
     def save_val_annotations(self):
         """Saves the validation set annotations as COCO format.
@@ -149,16 +153,17 @@ class Trainer(object):
         cocosaver = COCOSaver(gt=False, cfg=self.cfg)
         self.model.eval()
         for sample in self.val_loader:
-            images, _ = sample
+            images, targets = sample
             images = [im.to(self.device) for im in images]
             preds = self.model(images)
-            for image, pred in zip(images, preds):
+            for image, target, pred in zip(images, targets, preds):
                 pred['masks'] = pred['masks'].squeeze(1) > self.cfg.mask_threshold
                 cocosaver.add(pred)
                 self.saver.log_tb_visualization(
                     mode='val',
                     epoch=epoch,
                     image=image,
+                    target=target,
                     pred=pred)
         cocosaver.save()
 

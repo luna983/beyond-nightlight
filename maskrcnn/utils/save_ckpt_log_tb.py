@@ -4,6 +4,7 @@ import json
 import yaml
 import shutil
 from glob import glob
+from collections import defaultdict
 
 import torch
 from torch.utils.tensorboard import SummaryWriter
@@ -78,19 +79,25 @@ class Saver(object):
     def create_tb_summary(self):
         self.writer = SummaryWriter(log_dir=self.run_dir)
 
-    def log_tb_loss(self, mode, loss, loss_dict, epoch):
+    def log_tb_loss(self, mode, losses, loss_dicts, epoch):
         """Log loss on Tensorboard.
 
         Args:
             mode (str): mode should be in ['train', 'val'].
-            loss (torch.Tensor): the loss from this epoch.
-            loss_dict (dict): dict of different types of losses, they
+            losses (list of torch.Tensor): the losses from this epoch.
+            loss_dicts (list of dict): dicts of different types of losses, they
                 sum up to total loss.
             epoch (int): number of epochs.
         """
+        loss = sum([l for l in losses]) / len(losses)
+        loss_dict = defaultdict(list)
+        for l in loss_dicts:
+            for k, v in l.items():
+                loss_dict[k].append(v)
         self.writer.add_scalar('/'.join((mode, 'loss')), loss, epoch)
-        for k, v in loss_dict.items():
-            self.writer.add_scalar('/'.join((mode, k)), v, epoch)
+        for k, vs in loss_dict.items():
+            l = sum([v for v in vs]) / len(vs)
+            self.writer.add_scalar('/'.join((mode, k)), l, epoch)
 
     def log_tb_eval(self, mode, metrics, epoch):
         """Log evaluation on Tensorboard.
@@ -104,17 +111,34 @@ class Saver(object):
             for k, v in metrics.items():
                 self.writer.add_scalar('/'.join((mode, k)), v, epoch)
 
-    def log_tb_visualization(self, mode, epoch, image, pred):
+    def log_tb_visualization(self, mode, epoch, image, target, pred):
         """Log visualization on Tensorboard.
 
         Args:
             mode (str): mode should be in ['train', 'val'].
             epoch (int): number of epochs since training started.
             image (torch.Tensor): image to be plotted.
+            target (dict of torch.Tensor): a dict of torch tensors 
+                following Mask RCNN conventions. Ground truth.
             pred (dict of torch.Tensor): a dict of torch tensors 
-                following Mask RCNN conventions.
+                following Mask RCNN conventions. Predictions.
         """
         if np.random.random() < self.cfg.prob_train_visualization:
+            v = InstSegVisualization(
+                self.cfg, image=image,
+                boxes=target['boxes'], labels=target['labels'],
+                masks=target['masks'])
+            v.plot_image()
+            v.add_bbox()
+            v.add_label()
+            # v.add_binary_mask()
+            v.save(os.path.join(self.run_dir, "visualization_gt.png"))
+            self.writer.add_image(
+                '/'.join((mode, 'ground_truth')),
+                np.array(v.output),
+                epoch,
+                dataformats='HWC')
+            # predictions
             v = InstSegVisualization(
                 self.cfg, image=image,
                 boxes=pred['boxes'], labels=pred['labels'],
@@ -122,9 +146,10 @@ class Saver(object):
             v.plot_image()
             v.add_bbox()
             v.add_label_score()
-            v.add_binary_mask()
+            # v.add_binary_mask()
+            v.save(os.path.join(self.run_dir, "visualization_pred.png"))
             self.writer.add_image(
-                '/'.join((mode, "predictions")),
+                '/'.join((mode, 'predictions')),
                 np.array(v.output),
                 epoch,
                 dataformats='HWC')
