@@ -33,8 +33,8 @@ saturation: 0
 hue: 0
 vertical_flip: 0.5
 horizontal_flip: 0.5
-resize_height: 500 # size of tensors fed into Mask R-CNN
-resize_width: 500 # size of tensors fed into Mask R-CNN
+resize_height: 300 # size of tensors fed into Mask R-CNN
+resize_width: 300 # size of tensors fed into Mask R-CNN
 
 # training schedule
 epochs: 20
@@ -63,6 +63,6 @@ category_palette:
     4: [255, 213, 0, 64] # yellow: Colored Roof
 bbox_outline: [255, 255, 255, 255] # white
 label_fill: [255, 255, 255, 255] # white
-up_scale: 2 # to improve visualization quality
+up_scale: 1 # to improve visualization quality
 font: utils/fonts/helvetica-light.ttf
 font_size: 25
