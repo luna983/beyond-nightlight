@@ -237,7 +237,6 @@ if __name__ == '__main__':
         cfg.resume_dir = os.path.join(cfg.runs_dir, args.resume_run)
     else:
         cfg.resume_dir = None
-
     # train
     trainer = Trainer(cfg)
     trainer.save_val_annotations()

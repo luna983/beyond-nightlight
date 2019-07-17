@@ -124,14 +124,17 @@ class Saver(object):
                 following Mask RCNN conventions. Predictions.
         """
         if np.random.random() < self.cfg.prob_train_visualization:
+            image_mean = torch.Tensor([0.485, 0.456, 0.406])
+            image_std = torch.Tensor([0.229, 0.224, 0.225])
+            denorm_image = image.detach().cpu() * image_std[:, None, None] + image_mean[:, None, None]
             v = InstSegVisualization(
-                self.cfg, image=image,
+                self.cfg, image=denorm_image,
                 boxes=target['boxes'], labels=target['labels'],
                 masks=target['masks'])
             v.plot_image()
             v.add_bbox()
             v.add_label()
-            # v.add_binary_mask()
+            v.add_binary_mask()
             v.save(os.path.join(self.run_dir, "visualization_gt.png"))
             self.writer.add_image(
                 '/'.join((mode, 'ground_truth')),
@@ -140,13 +143,13 @@ class Saver(object):
                 dataformats='HWC')
             # predictions
             v = InstSegVisualization(
-                self.cfg, image=image,
+                self.cfg, image=denorm_image,
                 boxes=pred['boxes'], labels=pred['labels'],
                 scores=pred['scores'], masks=pred['masks'])
             v.plot_image()
             v.add_bbox()
             v.add_label_score()
-            # v.add_binary_mask()
+            v.add_binary_mask()
             v.save(os.path.join(self.run_dir, "visualization_pred.png"))
             self.writer.add_image(
                 '/'.join((mode, 'predictions')),
