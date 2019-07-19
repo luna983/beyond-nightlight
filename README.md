@@ -5,5 +5,7 @@
 
 ## TODO
 
-* Write `eval.py`, add evaluator to `train.py`
-* Write `infer.py`
+* [ ] Training loss is not going down, why? Read more on the architecture of Mask-RCNN
+* [x] Log train eval and visualization on TB, I did that, and the pattern looks broadly similar to that on val set, I also tried overfitting on a couple of training images, and the following issue persisted.
+* [ ] It is not predicting anything for certain categories, why? The scores are not going up (and the scores are always similar), this may have something to do with class weights? Tin roof is always the category that is being predicted. The other categories are mostly missed.
+* [ ] If the random seed is not good, the model does not converge, what happens is that each mask has a distinct grid pattern, and that the generated bbox are usually very large. I'm suspecting that this way, the model is not getting proper gradient so the training process does not improve the model. Re-running should solve this issue.
