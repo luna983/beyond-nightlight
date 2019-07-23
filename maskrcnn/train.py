@@ -244,7 +244,8 @@ if __name__ == '__main__':
     trainer.save_val_annotations()
     for epoch in range(trainer.start_epoch, cfg.epochs):
         trainer.train(epoch)
-        trainer.infer(epoch)
-        trainer.evaluate(epoch)
-        trainer.save_checkpoint(epoch)
+        if epoch >= cfg.eval_epoch:
+            trainer.infer(epoch)
+            trainer.evaluate(epoch)
+            trainer.save_checkpoint(epoch)
     trainer.close(epoch)
