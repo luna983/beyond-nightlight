@@ -8,3 +8,4 @@
 * [ ] Training loss not going down, why?
 * [ ] Read more on the architecture of Mask-RCNN
 * [ ] There is definitely a bug in the evaluation codes, the evaluation output is weird (exactly the same for all the epochs) I suspect that the cocosaver is not overwriting existing files properly
+* [ ] I bet adding spacenet will improve the results
