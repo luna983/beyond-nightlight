@@ -2,6 +2,7 @@ import os
 import json
 import numpy as np
 import argparse
+import copy
 
 import torch
 from torchvision.models.detection import maskrcnn_resnet50_fpn
@@ -154,9 +155,10 @@ class Trainer(object):
         self.model.eval()
         for sample in self.val_loader:
             images, targets = sample
+            images_copy = copy.deepcopy(images)
             images = [im.to(self.device) for im in images]
             preds = self.model(images)
-            for image, target, pred in zip(images, targets, preds):
+            for image, target, pred in zip(images_copy, targets, preds):
                 pred['masks'] = pred['masks'].squeeze(1) > self.cfg.mask_threshold
                 cocosaver.add(pred)
                 self.saver.log_tb_visualization(
@@ -242,7 +244,8 @@ if __name__ == '__main__':
     trainer.save_val_annotations()
     for epoch in range(trainer.start_epoch, cfg.epochs):
         trainer.train(epoch)
-        trainer.infer(epoch)
-        trainer.evaluate(epoch)
-        trainer.save_checkpoint(epoch)
+        if epoch >= cfg.eval_epoch:
+            trainer.infer(epoch)
+            trainer.evaluate(epoch)
+            trainer.save_checkpoint(epoch)
     trainer.close(epoch)

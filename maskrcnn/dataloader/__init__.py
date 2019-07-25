@@ -29,7 +29,8 @@ def make_data_loader(cfg, modes=['train', 'val'], **kwargs):
         
         # link cfg.dataset and dataloader class
         if cfg.dataset == 'googleearthpro':
-            data_set = GoogleEarthProInstSeg(cfg, mode=mode)
+            data_set = GoogleEarthProInstSeg(
+                cfg, mode=mode, init=cfg.train_val_init, train_ratio=cfg.train_ratio)
         else:
             raise NotImplementedError
         

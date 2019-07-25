@@ -17,6 +17,8 @@ out_visual_dir: output/GoogleEarthPro
 
 # data loader
 dataset: googleearthpro
+train_val_init: True
+train_ratio: 0.85
 label_dict: # values should be [1,2,3,...,N]
     'N/A': 1
     'Unfinished House': 2
@@ -27,17 +29,18 @@ label_dict: # values should be [1,2,3,...,N]
 # training data augmentation params
 random_crop_height: 1 # (0, 1], ratio of random crop
 random_crop_width: 1 # (0, 1], ratio of random crop
-brightness: 0
-contrast: 0
-saturation: 0
-hue: 0
+brightness: 0.1
+contrast: 0.1
+saturation: 0.1
+hue: 0.1
 vertical_flip: 0.5
 horizontal_flip: 0.5
-resize_height: 300 # size of tensors fed into Mask R-CNN
-resize_width: 300 # size of tensors fed into Mask R-CNN
+resize_height: 500 # size of tensors fed into Mask R-CNN
+resize_width: 500 # size of tensors fed into Mask R-CNN
 
 # training schedule
-epochs: 20
+epochs: 200
+eval_epoch: 150
 batch_size_per_gpu: 3
 num_workers: 2
 # num_gpus inferred from torch.cuda.device_count()
@@ -46,8 +49,8 @@ num_workers: 2
 coco_pretrained: True
 
 # optimizer parameters
-lr: 0.001
-lr_scheduler_step_size: 2
+lr: 0.0001
+lr_scheduler_step_size: 50
 lr_scheduler_gamma: 0.1
 
 # evaluation parameters
@@ -55,7 +58,7 @@ mask_threshold: 0.5
 key_metric_name: mAP
 
 # visualization parameters
-prob_train_visualization: 0.5
+prob_train_visualization: 0.1
 category_palette:
     1: [255, 255, 255, 64] # white: N/A
     2: [255, 36, 0, 64] # red: Unfinished House
@@ -63,6 +66,6 @@ category_palette:
     4: [255, 213, 0, 64] # yellow: Colored Roof
 bbox_outline: [255, 255, 255, 255] # white
 label_fill: [255, 255, 255, 255] # white
-up_scale: 1 # to improve visualization quality
+up_scale: 2 # to improve visualization quality
 font: utils/fonts/helvetica-light.ttf
 font_size: 25
