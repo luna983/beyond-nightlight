@@ -3,6 +3,9 @@ tmp/
 tmp*.ipynb
 tmp*.py
 
+# API keys
+**API_KEY.txt
+
 # OS generated files
 *.DS_Store
 
@@ -15,7 +18,9 @@ __pycache__/
 # R files
 *.Rhistory
 
-# symbolic links
+# symbolic links and logs
+utils/data
+utils/logs
 experiment_1/data
 maskrcnn/data
 maskrcnn/runs
