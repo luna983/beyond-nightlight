@@ -163,44 +163,24 @@ class Trainer(object):
             epoch (int): number of epochs since training started.
         """
         print("Running inference...")
-        if not self.cfg.infer:
-            cocosaver = COCOSaver(gt=False, cfg=self.cfg)
-            self.model.eval()
-            for sample in self.val_loader:
-                images, targets = sample
-                images_copy = copy.deepcopy(images)
-                images = [im.to(self.device) for im in images]
-                preds = self.model(images)
-                for image, target, pred in zip(images_copy, targets, preds):
-                    pred['masks'] = (pred['masks'].squeeze(1) >
-                                     self.cfg.mask_threshold)
-                    cocosaver.add(pred)
-                    self.saver.log_tb_visualization(
-                        mode='val',
-                        epoch=epoch,
-                        image=image,
-                        target=target,
-                        pred=pred)
-            cocosaver.save()
-        else:
-            cocosaver = COCOSaver(gt=False, cfg=self.cfg)
-            self.model.eval()
-            for images in self.val_loader:
-                import pdb; pdb.set_trace()
-                images_copy = copy.deepcopy(images)
-                images = [im.to(self.device) for im in images]
-                preds = self.model(images)
-                for image, pred in zip(images_copy, preds):
-                    pred['masks'] = (pred['masks'].squeeze(1) >
-                                     self.cfg.mask_threshold)
-                    cocosaver.add(pred)
-                    self.saver.log_tb_visualization(
-                        mode='infer',
-                        epoch=epoch,
-                        image=image,
-                        target=None,
-                        pred=pred)
-            cocosaver.save()
+        cocosaver = COCOSaver(gt=False, cfg=self.cfg)
+        self.model.eval()
+        for sample in self.val_loader:
+            images, targets = sample
+            images_copy = copy.deepcopy(images)
+            images = [im.to(self.device) for im in images]
+            preds = self.model(images)
+            for image, target, pred in zip(images_copy, targets, preds):
+                pred['masks'] = (pred['masks'].squeeze(1) >
+                                 self.cfg.mask_threshold)
+                cocosaver.add(pred)
+                self.saver.log_tb_visualization(
+                    mode=('infer' if self.cfg.infer else 'val'),
+                    epoch=epoch,
+                    image=image,
+                    target=target,
+                    pred=pred)
+        cocosaver.save()
 
     def evaluate(self, epoch):
         """Evaluates the saved predicted annotations versus ground truth.

@@ -102,7 +102,7 @@ class GoogleEarthProInstSeg(Dataset):
             elif self.mode == 'val':
                 return self.transform_val(image, target)
         elif self.mode in ['infer']:
-            return self.transform_infer(image)
+            return self.transform_infer(image, None)
         else:
             raise NotImplementedError
 
@@ -135,9 +135,9 @@ class GoogleEarthProInstSeg(Dataset):
             ToTensor()])
         return composed_transforms(image, target)
 
-    def transform_infer(self, image):
+    def transform_infer(self, image, target):
         composed_transforms = torchvision.transforms.Compose([
             torchvision.transforms.Resize(
                 size=(self.cfg.resize_height, self.cfg.resize_width)),
             torchvision.transforms.ToTensor()])
-        return composed_transforms(image)
+        return composed_transforms(image, target)
