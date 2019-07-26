@@ -1,6 +1,5 @@
 import os
 import json
-import numpy as np
 import argparse
 import copy
 
@@ -22,6 +21,7 @@ class Trainer(object):
     Args:
         cfg (Config object): stores all configurations.
     """
+
     def __init__(self, cfg):
 
         print('=' * 72)
@@ -35,15 +35,21 @@ class Trainer(object):
         print("Initalizing data loader...")
 
         # set device, detect cuda availability
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        
+        self.device = torch.device("cuda" if torch.cuda.is_available()
+                                   else "cpu")
+
         # make data loader
         cfg.batch_size = (cfg.batch_size_per_gpu if cfg.num_gpus == 0
-            else cfg.batch_size_per_gpu * cfg.num_gpus)
+                          else cfg.batch_size_per_gpu * cfg.num_gpus)
         params = {
             'batch_size': cfg.batch_size,
             'num_workers': cfg.num_workers}
-        self.train_loader, self.val_loader = make_data_loader(cfg, **params)
+        if cfg.infer:
+            self.val_loader = make_data_loader(
+                cfg, modes=['infer'], **params)[0]
+        else:
+            self.train_loader, self.val_loader = make_data_loader(
+                cfg, **params)
 
         print("Initalizing model and optimizer...")
 
@@ -66,7 +72,7 @@ class Trainer(object):
                 len(cfg.label_dict) + 1)
         else:
             params = {
-                'num_classes': len(cfg.label_dict) + 1, # including background
+                'num_classes': len(cfg.label_dict) + 1,  # including background
                 'pretrained': False}
             self.model = maskrcnn_resnet50_fpn(**params)
         self.model.to(self.device)
@@ -78,7 +84,8 @@ class Trainer(object):
             [p for p in self.model.parameters() if p.requires_grad],
             **params)
         self.lr_scheduler = torch.optim.lr_scheduler.StepLR(
-            self.optimizer, step_size=cfg.lr_scheduler_step_size, gamma=cfg.lr_scheduler_gamma)
+            self.optimizer, step_size=cfg.lr_scheduler_step_size,
+            gamma=cfg.lr_scheduler_gamma)
 
         # load prior checkpoint
         ckpt_file = os.path.join(cfg.run_dir, "checkpoint.pth.tar")
@@ -98,7 +105,8 @@ class Trainer(object):
         else:
             self.best_metrics = None
 
-        print("Starting from epoch {} to epoch {}...".format(self.start_epoch, cfg.epochs - 1))
+        print("Starting from epoch {} to epoch {}..."
+              .format(self.start_epoch, cfg.epochs - 1))
         # save configurations
         self.cfg = cfg
 
@@ -106,7 +114,7 @@ class Trainer(object):
         """Train the model.
 
         Args:
-            epoch (int): number of epochs since training started. (starts with 0)
+            epoch (int): number of epochs since training started
         """
         print('=' * 72)
         print("Epoch [{} / {}]".format(epoch, self.cfg.epochs - 1))
@@ -117,21 +125,25 @@ class Trainer(object):
         for i, sample in enumerate(self.train_loader):
             images, targets = sample
             images = [im.to(self.device) for im in images]
-            targets = [{k: v.to(self.device) for k, v in t.items()} for t in targets]
+            targets = [{k: v.to(self.device) for k, v in t.items()}
+                       for t in targets]
             # forward pass
             loss_dict = self.model(images, targets)
             loss = sum([l for l in loss_dict.values()])
             print("Iteration [{}]: loss: {:.4f}".format(i, loss))
-            print('; '.join(["{}: {:.4f}".format(k, v) for k, v in loss_dict.items()]) + '.')
+            print('; '.join(["{}: {:.4f}".format(k, v)
+                             for k, v in loss_dict.items()]) + '.')
             losses.append(loss.detach().cpu())
-            loss_dicts.append({k: v.detach().cpu() for k, v in loss_dict.items()})
+            loss_dicts.append({k: v.detach().cpu()
+                               for k, v in loss_dict.items()})
             # backward pass
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
             # update the learning rate
             self.lr_scheduler.step()
-        self.saver.log_tb_loss(mode='train', losses=losses, loss_dicts=loss_dicts, epoch=epoch)
+        self.saver.log_tb_loss(mode='train', losses=losses,
+                               loss_dicts=loss_dicts, epoch=epoch)
 
     def save_val_annotations(self):
         """Saves the validation set annotations as COCO format.
@@ -146,35 +158,55 @@ class Trainer(object):
     @torch.no_grad()
     def infer(self, epoch):
         """Run inference on the model.
-        
+
         Args:
-            epoch (int): number of epochs since training started. (starts with 0)
+            epoch (int): number of epochs since training started.
         """
         print("Running inference...")
-        cocosaver = COCOSaver(gt=False, cfg=self.cfg)
-        self.model.eval()
-        for sample in self.val_loader:
-            images, targets = sample
-            images_copy = copy.deepcopy(images)
-            images = [im.to(self.device) for im in images]
-            preds = self.model(images)
-            for image, target, pred in zip(images_copy, targets, preds):
-                pred['masks'] = pred['masks'].squeeze(1) > self.cfg.mask_threshold
-                cocosaver.add(pred)
-                self.saver.log_tb_visualization(
-                    mode='val',
-                    epoch=epoch,
-                    image=image,
-                    target=target,
-                    pred=pred)
-        cocosaver.save()
+        if not self.cfg.infer:
+            cocosaver = COCOSaver(gt=False, cfg=self.cfg)
+            self.model.eval()
+            for sample in self.val_loader:
+                images, targets = sample
+                images_copy = copy.deepcopy(images)
+                images = [im.to(self.device) for im in images]
+                preds = self.model(images)
+                for image, target, pred in zip(images_copy, targets, preds):
+                    pred['masks'] = (pred['masks'].squeeze(1) >
+                                     self.cfg.mask_threshold)
+                    cocosaver.add(pred)
+                    self.saver.log_tb_visualization(
+                        mode='val',
+                        epoch=epoch,
+                        image=image,
+                        target=target,
+                        pred=pred)
+            cocosaver.save()
+        else:
+            cocosaver = COCOSaver(gt=False, cfg=self.cfg)
+            self.model.eval()
+            for images in self.val_loader:
+                images_copy = copy.deepcopy(images)
+                images = [im.to(self.device) for im in images]
+                preds = self.model(images)
+                for image, pred in zip(images_copy, preds):
+                    pred['masks'] = (pred['masks'].squeeze(1) >
+                                     self.cfg.mask_threshold)
+                    cocosaver.add(pred)
+                    self.saver.log_tb_visualization(
+                        mode='infer',
+                        epoch=epoch,
+                        image=image,
+                        target=None,
+                        pred=pred)
+            cocosaver.save()
 
     def evaluate(self, epoch):
         """Evaluates the saved predicted annotations versus ground truth.
-        
+
         Args:
-            epoch (int): number of epochs since training started. (starts with 0)
-        """        
+            epoch (int): number of epochs since training started.
+        """
         self.metrics = evaluate(self.cfg)
         self.saver.log_tb_eval(mode='val', metrics=self.metrics, epoch=epoch)
 
@@ -182,7 +214,7 @@ class Trainer(object):
         """Saves the checkpoint.
 
         Args:
-            epoch (int): number of epochs since training started. (starts with 0)
+            epoch (int): number of epochs since training started.
         """
         # save checkpoint every epoch
         self.saver.save_checkpoint(
@@ -202,14 +234,18 @@ class Trainer(object):
         """
         self.saver.close_tb_summary()
         print('=' * 72)
-        print("Training finished, completed {} to {} epochs.".format(
-            self.start_epoch, epoch))
+        if not self.cfg.infer:
+            print("Training finished, completed {} to {} epochs.".format(
+                self.start_epoch, epoch))
+        else:
+            print("Inference completed!")
         print('=' * 72)
+
 
 if __name__ == '__main__':
 
     # collect command line arguments
-    parser = argparse.ArgumentParser(description="Visualize instance segmentation masks.")
+    parser = argparse.ArgumentParser(description="Visualize inst segm masks.")
     parser.add_argument('--config', nargs='+', type=str,
                         default=["default_config.yaml"],
                         help="Path to config files.")
@@ -219,6 +255,8 @@ if __name__ == '__main__':
                         help="Maximum number of available GPUs.")
     parser.add_argument('--resume-run', type=str, default=None,
                         help="Load existing checkpoint and resume training.")
+    parser.add_argument('--infer', action='store_true',
+                        help="Run inference.")
     args = parser.parse_args()
 
     # parse configurations
@@ -231,7 +269,8 @@ if __name__ == '__main__':
     if args.cuda_max_devices is not None:
         cfg.num_gpus = torch.cuda.device_count()
         assert cfg.num_gpus <= args.cuda_max_devices, (
-            "{} GPUs available, please set visible devices.\n".format(cfg.num_gpus) +
+            "{} GPUs available, please set visible devices.\n"
+            .format(cfg.num_gpus) +
             "export CUDA_VISIBLE_DEVICES=X,X")
     assert os.path.exists(cfg.runs_dir), "Model/log directory does not exist."
     if args.resume_run is not None:
@@ -239,13 +278,22 @@ if __name__ == '__main__':
         cfg.resume_dir = os.path.join(cfg.runs_dir, args.resume_run)
     else:
         cfg.resume_dir = None
-    # train
-    trainer = Trainer(cfg)
-    trainer.save_val_annotations()
-    for epoch in range(trainer.start_epoch, cfg.epochs):
-        trainer.train(epoch)
-        if epoch >= cfg.eval_epoch:
-            trainer.infer(epoch)
-            trainer.evaluate(epoch)
-            trainer.save_checkpoint(epoch)
-    trainer.close(epoch)
+
+    # check for inference flag
+    cfg.infer = args.infer
+    if not args.infer:
+        # train
+        trainer = Trainer(cfg)
+        trainer.save_val_annotations()
+        for epoch in range(trainer.start_epoch, cfg.epochs):
+            trainer.train(epoch)
+            if epoch >= cfg.eval_epoch:
+                trainer.infer(epoch)
+                trainer.evaluate(epoch)
+                trainer.save_checkpoint(epoch)
+        trainer.close(epoch)
+    else:
+        epoch = cfg.epochs + 1
+        trainer = Trainer(cfg)
+        trainer.infer(epoch)
+        trainer.close(epoch)

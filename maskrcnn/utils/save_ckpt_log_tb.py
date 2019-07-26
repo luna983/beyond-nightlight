@@ -18,13 +18,15 @@ class Saver(object):
     Args:
         cfg (Config object): stores all configurations.
     """
+
     def __init__(self, cfg):
         # check and create directories
         self.runs_dir = cfg.runs_dir
         if cfg.resume_dir is None:
             runs = sorted(glob(os.path.join(self.runs_dir, "run_*")))
             run_id = int(runs[-1].split('_')[-1]) + 1 if runs else 0
-            self.run_dir = os.path.join(self.runs_dir, "run_{:02d}".format(run_id))
+            self.run_dir = os.path.join(self.runs_dir, "run_{:02d}"
+                                                       .format(run_id))
             if not os.path.exists(self.run_dir):
                 os.mkdir(self.run_dir)
         else:
@@ -43,23 +45,24 @@ class Saver(object):
         """Saves the checkpoint.
 
         Args:
-            state_dict (dict): a dict storing all relevant parameters, including
-                epoch, state_dict of models and optimizers.
+            state_dict (dict): a dict storing all relevant parameters,
+                including epoch, state_dict of models and optimizers.
             save_best (bool): overwrites the best checkpoints.
             metrics (dict): a dict of evaluation metrics.
-            key_metric_name (str): name of the key metric to determine the best model.
-                Required if save_best=True.
+            key_metric_name (str): name of the key metric to determine
+                the best model. Required if save_best=True.
             best_metrics (dict): the best key metrics for prior models.
                 Required if save_best=True.
         """
         # save current checkpoint
-        torch.save(state_dict, os.path.join(self.run_dir, "checkpoint.pth.tar"))
+        torch.save(state_dict, os.path.join(self.run_dir,
+                                            "checkpoint.pth.tar"))
         if metrics is not None:
             with open(os.path.join(self.run_dir, "metrics.json"), 'w') as f:
                 json.dump(metrics, f)
 
         if save_best:
-            assert key_metric_name is not None, "No metric provided for comparison."
+            assert key_metric_name is not None, "No metric provided."
             if best_metrics is None:
                 is_best = True
             else:
@@ -96,8 +99,8 @@ class Saver(object):
                 loss_dict[k].append(v)
         self.writer.add_scalar('/'.join((mode, 'loss')), loss, epoch)
         for k, vs in loss_dict.items():
-            l = sum([v for v in vs]) / len(vs)
-            self.writer.add_scalar('/'.join((mode, k)), l, epoch)
+            loss_component = sum([v for v in vs]) / len(vs)
+            self.writer.add_scalar('/'.join((mode, k)), loss_component, epoch)
 
     def log_tb_eval(self, mode, metrics, epoch):
         """Log evaluation on Tensorboard.
@@ -118,41 +121,44 @@ class Saver(object):
             mode (str): mode should be in ['train', 'val'].
             epoch (int): number of epochs since training started.
             image (torch.Tensor): image to be plotted.
-            target (dict of torch.Tensor): a dict of torch tensors 
+            target (dict of torch.Tensor): a dict of torch tensors
                 following Mask RCNN conventions. Ground truth.
-            pred (dict of torch.Tensor): a dict of torch tensors 
+            pred (dict of torch.Tensor): a dict of torch tensors
                 following Mask RCNN conventions. Predictions.
         """
         if np.random.random() < self.cfg.prob_train_visualization:
-            v = InstSegVisualization(
-                self.cfg, image=image,
-                boxes=target['boxes'], labels=target['labels'],
-                masks=target['masks'])
-            v.plot_image()
-            v.add_bbox()
-            v.add_label()
-            v.add_binary_mask()
-            v.save(os.path.join(self.run_dir, "visualization_gt.png"))
-            self.writer.add_image(
-                '/'.join((mode, 'ground_truth')),
-                np.array(v.output),
-                epoch,
-                dataformats='HWC')
+            # ground truth
+            if target is not None:
+                v = InstSegVisualization(
+                    self.cfg, image=image,
+                    boxes=target['boxes'], labels=target['labels'],
+                    masks=target['masks'])
+                v.plot_image()
+                v.add_bbox()
+                v.add_label()
+                v.add_binary_mask()
+                v.save(os.path.join(self.run_dir, "visualization_gt.png"))
+                self.writer.add_image(
+                    '/'.join((mode, 'ground_truth')),
+                    np.array(v.output),
+                    epoch,
+                    dataformats='HWC')
             # predictions
-            v = InstSegVisualization(
-                self.cfg, image=image,
-                boxes=pred['boxes'], labels=pred['labels'],
-                scores=pred['scores'], masks=pred['masks'])
-            v.plot_image()
-            v.add_bbox()
-            v.add_label_score()
-            v.add_binary_mask()
-            v.save(os.path.join(self.run_dir, "visualization_pred.png"))
-            self.writer.add_image(
-                '/'.join((mode, 'predictions')),
-                np.array(v.output),
-                epoch,
-                dataformats='HWC')
+            if pred is not None:
+                v = InstSegVisualization(
+                    self.cfg, image=image,
+                    boxes=pred['boxes'], labels=pred['labels'],
+                    scores=pred['scores'], masks=pred['masks'])
+                v.plot_image()
+                v.add_bbox()
+                v.add_label_score()
+                v.add_binary_mask()
+                v.save(os.path.join(self.run_dir, "visualization_pred.png"))
+                self.writer.add_image(
+                    '/'.join((mode, 'predictions')),
+                    np.array(v.output),
+                    epoch,
+                    dataformats='HWC')
 
     def close_tb_summary(self):
         self.writer.close()

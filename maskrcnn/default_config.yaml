@@ -7,7 +7,7 @@ in_trainval_mask_dir: Mask
 runs_dir: runs/
 
 # inference directory
-in_infer_dir: data/GoogleEarthPro/Image
+in_infer_dir: data/GoogleStaticMap
 
 # visualization directory
 in_visual_dir: data/GoogleEarthPro

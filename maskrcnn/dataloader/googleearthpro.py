@@ -9,37 +9,45 @@ import torchvision
 from torch.utils.data import Dataset
 
 from .transforms import Compose, ToTensor, RandomCrop
-from .transforms import Resize, ColorJitter, RandomHorizontalFlip, RandomVerticalFlip
+from .transforms import Resize, ColorJitter
+from .transforms import RandomHorizontalFlip, RandomVerticalFlip
 from .mask_transforms import InstanceMask
+
 
 class GoogleEarthProInstSeg(Dataset):
     """This loads the Google Earth Pro dataset.
 
     Args:
         cfg (Config): pass all configurations into the dataloader
-        mode (str): a string in ['train', 'val', 'infer'], indicating the train,
-            validation or inference mode for which data is loaded
-        drop_empty (bool): whether empty images with no instances should be dropped
-        init (bool): whether initialization (train/val split) should be implemented,
-            defaults to False but initialization auto implemented when not detecting
-            train.txt and val.txt files
+        mode (str): a string in ['train', 'val', 'infer'],
+            indicating the train, validation or inference mode
+            for which data is loaded
+        drop_empty (bool): whether empty images with no instances
+            should be dropped
+        init (bool): whether initialization (train/val split) should
+            be implemented, defaults to False but initialization
+            auto implemented when not detecting train.txt and val.txt files
         train_ratio (float): ratio of training images (as opposed to val)
     """
-    
-    def __init__(self, cfg, mode, drop_empty=True, init=False, train_ratio=0.85):
 
+    def __init__(self, cfg, mode, drop_empty=True,
+                 init=False, train_ratio=0.85):
         super().__init__()
 
-        # log 
+        # log
         self.cfg = cfg
         self.mode = mode
 
         # initialize the train/val split
-        if init or (mode in ['train', 'val'] and not (
-            os.path.isfile(os.path.join(cfg.in_trainval_dir, 'train.txt')) and
-            os.path.isfile(os.path.join(cfg.in_trainval_dir, 'val.txt')))):
+        f_exist = (os.path.isfile(os.path.join(cfg.in_trainval_dir,
+                                               'train.txt')) and
+                   os.path.isfile(os.path.join(cfg.in_trainval_dir,
+                                               'val.txt')))
+        if init or (mode in ['train', 'val'] and not f_exist):
             files = [f for f in glob(
-                os.path.join(cfg.in_trainval_dir, cfg.in_trainval_mask_dir, '*.json'))]
+                os.path.join(cfg.in_trainval_dir,
+                             cfg.in_trainval_mask_dir,
+                             '*.json'))]
             if drop_empty:
                 nonempty_files = []
                 for file in files:
@@ -54,21 +62,25 @@ class GoogleEarthProInstSeg(Dataset):
             ids = [os.path.basename(f).split('.')[0] for f in files]
             shuffle(ids)
             train_idx = np.round(train_ratio * len(ids)).astype(np.uint32)
-            with open(os.path.join(cfg.in_trainval_dir, 'train.txt'), 'w') as f:
+            with open(os.path.join(cfg.in_trainval_dir,
+                                   'train.txt'), 'w') as f:
                 json.dump(ids[:train_idx], f)
             with open(os.path.join(cfg.in_trainval_dir, 'val.txt'), 'w') as f:
                 json.dump(ids[train_idx:], f)
 
         # load train/val/inference data
         if mode in ['train', 'val']:
-            with open(os.path.join(cfg.in_trainval_dir, mode + '.txt'), 'r') as f:
+            with open(os.path.join(cfg.in_trainval_dir,
+                                   mode + '.txt'), 'r') as f:
                 self.ids = json.load(f)
-            self.images = [os.path.join(
-                cfg.in_trainval_dir, cfg.in_trainval_img_dir, i + '.jpg') for i in self.ids] 
-            self.targets = [os.path.join(
-                cfg.in_trainval_dir, cfg.in_trainval_mask_dir, i + '.jpg.json') for i in self.ids]      
+            self.images = [os.path.join(cfg.in_trainval_dir,
+                                        cfg.in_trainval_img_dir,
+                                        i + '.jpg') for i in self.ids]
+            self.targets = [os.path.join(cfg.in_trainval_dir,
+                                         cfg.in_trainval_mask_dir,
+                                         i + '.jpg.json') for i in self.ids]
         elif mode in ['infer']:
-            self.images = sorted(glob(os.path.join(cfg.in_infer_dir, '*.jpg')))
+            self.images = sorted(glob(os.path.join(cfg.in_infer_dir, '*.png')))
             self.ids = [os.path.basename(f).split('.')[0] for f in self.images]
             self.targets = []
         else:
@@ -80,7 +92,7 @@ class GoogleEarthProInstSeg(Dataset):
 
     def __getitem__(self, index):
         image = Image.open(self.images[index]).convert('RGB')
-        
+
         if self.mode in ['train', 'val']:
             target = InstanceMask()
             target.from_supervisely(
@@ -98,11 +110,14 @@ class GoogleEarthProInstSeg(Dataset):
         return len(self.images)
 
     def __str__(self):
-        return "Google Earth Pro {} sample: {:d} images".format(self.mode, len(self.images))
+        return ("Google Earth Pro {} sample: {:d} images"
+                .format(self.mode, len(self.images)))
 
     def transform_train(self, image, target):
-        h = np.floor(image.size[1] * self.cfg.random_crop_height).astype(np.uint16)
-        w = np.floor(image.size[0] * self.cfg.random_crop_width).astype(np.uint16)
+        h = (np.floor(image.size[1] * self.cfg.random_crop_height)
+             .astype(np.uint16))
+        w = (np.floor(image.size[0] * self.cfg.random_crop_width)
+             .astype(np.uint16))
         composed_transforms = Compose([
             RandomCrop(size=(h, w)),
             RandomVerticalFlip(self.cfg.vertical_flip),
@@ -122,6 +137,7 @@ class GoogleEarthProInstSeg(Dataset):
 
     def transform_infer(self, image):
         composed_transforms = torchvision.transforms.Compose([
-            torchvision.transforms.Resize(size=(self.cfg.resize_height, self.cfg.resize_width)),
+            torchvision.transforms.Resize(
+                size=(self.cfg.resize_height, self.cfg.resize_width)),
             torchvision.transforms.ToTensor()])
         return composed_transforms(image)
