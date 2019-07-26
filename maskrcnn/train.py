@@ -104,9 +104,9 @@ class Trainer(object):
                 self.best_metrics = json.load(f)
         else:
             self.best_metrics = None
-
-        print("Starting from epoch {} to epoch {}..."
-              .format(self.start_epoch, cfg.epochs - 1))
+        if not cfg.infer:
+            print("Starting from epoch {} to epoch {}..."
+                  .format(self.start_epoch, cfg.epochs - 1))
         # save configurations
         self.cfg = cfg
 
@@ -186,6 +186,7 @@ class Trainer(object):
             cocosaver = COCOSaver(gt=False, cfg=self.cfg)
             self.model.eval()
             for images in self.val_loader:
+                import pdb; pdb.set_trace()
                 images_copy = copy.deepcopy(images)
                 images = [im.to(self.device) for im in images]
                 preds = self.model(images)
