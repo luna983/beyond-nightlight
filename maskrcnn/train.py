@@ -51,6 +51,8 @@ class Trainer(object):
         else:
             self.train_loader, self.val_loader = make_data_loader(
                 cfg, **params)
+            # TODO: comment this out later
+            self.val_loader = self.train_loader
 
         print("Initalizing model and optimizer...")
 

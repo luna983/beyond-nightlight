@@ -1,6 +1,7 @@
 import yaml
 import argparse
 
+
 class Config(argparse.Namespace):
     """Loads config file. Modified to allow for attribute updating.
     """
@@ -16,6 +17,6 @@ class Config(argparse.Namespace):
         for path in paths:
             with open(path, 'r') as f:
                 cfg_dict = yaml.safe_load(f)
-            
+
             for key, value in cfg_dict.items():
                 setattr(self, key, value)
