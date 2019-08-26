@@ -5,7 +5,8 @@
 
 ## TODO
 
-* [ ] Training loss not going down, why?
-* [ ] Read more on the architecture of Mask-RCNN
-* [ ] Inference mode is loading last checkpoint instead of best model
-* [ ] I bet adding spacenet will improve the results
+* [ ] Evaluate training samples and generate meaningful batches (intead of logging on tb).
+* [ ] Inference mode is loading last checkpoint instead of best model.
+* [ ] Change training data to spacenet.
+* [ ] The backbone of this model is currently ResNet50 + FPN and that is not necessarily a good choice for the task at hand (small objects of relatively homogenous sizes). Would try to drop FPN (and try smaller models like mobile net or smaller resnets to increase batch sizes).
+* [ ] Add post processing that is similar to NMS in spirit.
