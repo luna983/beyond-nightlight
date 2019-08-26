@@ -5,8 +5,12 @@
 
 ## TODO
 
-* [ ] Evaluate training samples and generate meaningful batches (intead of logging on tb).
+* FEATURE ADDITION
+* [ ] Evaluate training samples and generate meaningful batches (intead of logging on tb). Add evaluation for training samples.
+* [ ] Evaluate without 100 detections (lots of question marks?)
 * [ ] Inference mode is loading last checkpoint instead of best model.
-* [ ] Change training data to spacenet.
-* [ ] The backbone of this model is currently ResNet50 + FPN and that is not necessarily a good choice for the task at hand (small objects of relatively homogenous sizes). Would try to drop FPN (and try smaller models like mobile net or smaller resnets to increase batch sizes).
+* [ ] Change training data to OpenAITanzania.
 * [ ] Add post processing that is similar to NMS in spirit.
+* DEBUGGING
+* [ ] Resize images?
+* [ ] Currently the model is not training properly. This has happened in the past when learning rate is set too low and the generated predictions (1) are clustered with lots of duplicates and (2) the predicted scores are stuck at a low level and not changing over the course of training. From the losses it seems like RPN was not really working (both objectness and rpn_box_reg). I have suspected that this is due to network architecture and switched to mobilenet_v2. (Since Feature Pyramid Network is designed for multiscale object detection which is not super relevant in this context.) I also adjusted AnchorGenerator to better fit our predominantly small object annotations, and dropped COCO pretraining (backbone was pretrained though).
