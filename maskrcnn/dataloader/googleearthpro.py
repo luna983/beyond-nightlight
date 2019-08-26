@@ -140,4 +140,4 @@ class GoogleEarthProInstSeg(Dataset):
             torchvision.transforms.Resize(
                 size=(self.cfg.resize_height, self.cfg.resize_width)),
             torchvision.transforms.ToTensor()])
-        return composed_transforms(image, target)
+        return composed_transforms(image), target

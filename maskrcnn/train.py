@@ -2,6 +2,7 @@ import os
 import json
 import argparse
 import copy
+from tqdm import tqdm
 
 import torch
 from torchvision.models.detection import maskrcnn_resnet50_fpn
@@ -165,7 +166,7 @@ class Trainer(object):
         print("Running inference...")
         cocosaver = COCOSaver(gt=False, cfg=self.cfg)
         self.model.eval()
-        for sample in self.val_loader:
+        for sample in tqdm(self.val_loader):
             images, targets = sample
             images_copy = copy.deepcopy(images)
             images = [im.to(self.device) for im in images]

@@ -39,10 +39,10 @@ resize_height: 500 # size of tensors fed into Mask R-CNN
 resize_width: 500 # size of tensors fed into Mask R-CNN
 
 # training schedule
-epochs: 200
-eval_epoch: 150
+epochs: 60
+eval_epoch: 0
 batch_size_per_gpu: 3
-num_workers: 2
+num_workers: 3
 # num_gpus inferred from torch.cuda.device_count()
 
 # model parameters
@@ -50,7 +50,7 @@ coco_pretrained: True
 
 # optimizer parameters
 lr: 0.0001
-lr_scheduler_step_size: 50
+lr_scheduler_step_size: 100
 lr_scheduler_gamma: 0.1
 
 # evaluation parameters

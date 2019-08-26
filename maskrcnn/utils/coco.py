@@ -133,6 +133,7 @@ class COCOSaver(object):
                         {'segmentation': rle,
                          'bbox': box.tolist(),
                          'score': float(score),
+                         'area': float(area),
                          'image_id': self.image_id,
                          'category_id': int(label)})
             self.image_id += 1
