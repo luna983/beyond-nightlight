@@ -3,29 +3,40 @@ from PIL import Image, ImageDraw, ImageFont
 
 from torchvision.transforms import functional as F
 
+
 class InstSegVisualization(object):
     """Visualize an image with instance segmentation annotations.
 
     Args:
         cfg (argparse Namespace): visualization configurations.
-        image (torch.FloatTensor[C, H, W]): The original image, in the 0-1 range.
-        boxes (torch.Tensor[N, 4]): the predicted boxes in [x0, y0, x1, y1] format,
-                with values between 0 and H and 0 and W
+        image (torch.FloatTensor[C, H, W]): The original image,
+            in the 0-1 range.
+        boxes (torch.Tensor[N, 4]): the predicted boxes
+            in [x0, y0, x1, y1] format,
+            with values between 0 and H and 0 and W
         labels (torch.Tensor[N]): the predicted labels for each image
         scores (torch.Tensor[N]): the scores or each prediction
-        masks (torch.Tensor[N, H, W]): the predicted masks for each instance, in 0-1 range.
-                In order to obtain the final segmentation masks, the soft masks can be thresholded,
-                generally with a value of 0.5 (mask >= 0.5).
+        masks (torch.Tensor[N, H, W]): the predicted masks for each instance,
+            in 0-1 range. In order to obtain the final segmentation masks,
+            the soft masks can be thresholded,
+            generally with a value of 0.5 (mask >= 0.5).
     """
-    def __init__(self, cfg, image, boxes=None, labels=None, scores=None, masks=None):
+
+    def __init__(self, cfg, image,
+                 boxes=None, labels=None, scores=None, masks=None):
 
         self.cfg = cfg
         self.image = image.detach().cpu()
-        self.boxes = boxes.detach().cpu().numpy() if boxes is not None else None
-        self.labels = labels.detach().cpu().numpy() if labels is not None else None
-        self.scores = scores.detach().cpu().numpy() if scores is not None else None
-        self.masks = masks.detach().cpu().numpy() if masks is not None else None
-        self.font = ImageFont.truetype(cfg.font, cfg.font_size, encoding="unic")
+        self.boxes = (boxes.detach().cpu().numpy()
+                      if boxes is not None else None)
+        self.labels = (labels.detach().cpu().numpy()
+                       if labels is not None else None)
+        self.scores = (scores.detach().cpu().numpy()
+                       if scores is not None else None)
+        self.masks = (masks.detach().cpu().numpy()
+                      if masks is not None else None)
+        self.font = ImageFont.truetype(
+            cfg.font, cfg.font_size, encoding="unic")
         self.width = np.floor(image.shape[2] * cfg.up_scale).astype(np.uint16)
         self.height = np.floor(image.shape[1] * cfg.up_scale).astype(np.uint16)
         self.up_scale = cfg.up_scale
@@ -38,7 +49,8 @@ class InstSegVisualization(object):
             mode (str): PIL Image mode, default to RGB.
         """
         output = F.to_pil_image(self.image, mode=mode)
-        self.output = output.convert('RGBA').resize(size=(self.width, self.height))
+        self.output = (output.convert('RGBA')
+                             .resize(size=(self.width, self.height)))
 
     def add_bbox(self):
         """Adds bounding boxes for all instances.
@@ -57,7 +69,8 @@ class InstSegVisualization(object):
         output_draw = ImageDraw.Draw(self.output)
         # check existence of instances
         if not self.labels.shape[0] == 0:
-            rev_label_dict = {val: name for name, val in self.cfg.label_dict.items()}
+            rev_label_dict = {
+                val: name for name, val in self.cfg.label_dict.items()}
             for box, label in zip(self.boxes, self.labels):
                 output_draw.text(
                     (box[0] * self.up_scale, box[3] * self.up_scale),
@@ -71,7 +84,8 @@ class InstSegVisualization(object):
         output_draw = ImageDraw.Draw(self.output)
         # check existence of instances
         if not self.labels.shape[0] == 0 and self.scores is not None:
-            rev_label_dict = {val: name for name, val in self.cfg.label_dict.items()}
+            rev_label_dict = {
+                val: name for name, val in self.cfg.label_dict.items()}
             for box, label, score in zip(self.boxes, self.labels, self.scores):
                 output_draw.text(
                     (box[0] * self.up_scale, box[3] * self.up_scale),
@@ -95,14 +109,17 @@ class InstSegVisualization(object):
                 binary_mask = self.masks
             # colored mask, starting out as black and transparent
             color_mask = np.zeros(
-                (binary_mask.shape[1], binary_mask.shape[2], 4), dtype=np.uint8)
+                (binary_mask.shape[1], binary_mask.shape[2], 4),
+                dtype=np.uint8)
 
             for val, color in self.cfg.category_palette.items():
-                # for every category, take the union of the binary masks of all instances
-                category_mask = np.any(binary_mask[self.labels == val, :, :], axis=0)
+                # for every category, take the union of masks of all instances
+                category_mask = np.any(
+                    binary_mask[self.labels == val, :, :], axis=0)
                 # fill color in for each category
-                color_mask += (category_mask[:, :, np.newaxis] *
-                               np.array(color, dtype=np.uint8)[np.newaxis, np.newaxis, :])
+                color_mask += (
+                    category_mask[:, :, np.newaxis] *
+                    np.array(color, dtype=np.uint8)[np.newaxis, np.newaxis, :])
             # overlay color mask and image
             color_mask = Image.fromarray(
                 color_mask, mode="RGBA").resize(size=(self.width, self.height))

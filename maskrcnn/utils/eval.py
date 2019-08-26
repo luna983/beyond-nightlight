@@ -21,8 +21,8 @@ def evaluate(cfg):
             return None
     E = COCOeval(cocoGt=GT, cocoDt=DT)
     # set new evaluation params
-    E.params.maxDets = [100] 
-    E.params.areaRng = [[0 ** 2, 1e5 ** 2]]   
+    E.params.maxDets = [100]
+    E.params.areaRng = [[0 ** 2, 1e5 ** 2]]
     E.params.areaRngLbl = ['all']
     E.evaluate()
     E.accumulate()
