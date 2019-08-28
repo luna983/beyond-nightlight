@@ -11,7 +11,7 @@ class Polygon(object):
     """
     Polygons that represents a single instance of an object mask.
 
-    Args: 
+    Args:
         width, height (int): width and height of the image, in pixels.
         category (int): value of the category of this instance.
         polygons (a list of lists of coordinates): The first level
@@ -32,34 +32,38 @@ class Polygon(object):
         return len(self.polygons)
 
     def __repr__(self):
-        s = self.__class__.__name__ + "("
-        s += "width={}, ".format(self.width)
-        s += "height={}, ".format(self.height)
-        s += "category={}, ".format(self.category)
-        s += "polygons={})".format(self.polygons)
+        s = self.__class__.__name__ + '('
+        s += 'width={}, '.format(self.width)
+        s += 'height={}, '.format(self.height)
+        s += 'category={}, '.format(self.category)
+        s += 'polygons={})'.format(self.polygons)
         return s
 
-    def from_supervisely(self, coordinates, verbose=False):
+    def from_coordinates(self, coordinates, verbose=False):
         """
-        Load an instance from the Supervisely json format.
+        Load an instance from the coordinates.
 
         Args:
-            coordinates (dict): A dict that follows the Supervisely json format.
+            coordinates (dict): coordinates formatted as follows
+                {'exterior': [x0, y0, x1, y1, ...],
+                 'interior': []}
             verbose (bool): if True, generate warnings of incorrect imports.
         """
 
         # check polygon validity - more than 2 points
         if len(coordinates['exterior']) > 2:
-            self.polygons.append(np.array(
-                [i for coord in coordinates['exterior'] for i in coord]).astype(np.float32))
+            self.polygons.append(
+                np.array([i for coord in coordinates['exterior']
+                          for i in coord]).astype(np.float32))
         else:
             if verbose:
-                warnings.warn("Invalid exterior coordinates ignored: {}".format(
+                warnings.warn('Invalid exterior coords ignored: {}'.format(
                     coordinates['exterior']))
         if verbose:
             if len(coordinates['interior']) > 0:
-                warnings.warn("Interior coordinates ignored: {}".format(
+                warnings.warn('Interior coordinates ignored: {}'.format(
                     coordinates['interior']))
+        # TODO
 
     def to_rle(self):
         """Convert instance polygons to run-length encoding (RLE).
@@ -84,7 +88,7 @@ class Polygon(object):
         """
 
         flipped_polygons = copy.deepcopy(self.polygons)
-        
+
         if FLIP_LEFT_RIGHT:
             for p in flipped_polygons:
                 p[0::2] = self.width - p[0::2]
@@ -114,17 +118,17 @@ class Polygon(object):
             Polygon: a new instance with cropped polygons
         """
 
-        assert i >= 0 and i <= self.height, "Dimension mismatch."
-        assert j >= 0 and j <= self.width, "Dimension mismatch."
-        assert i + h >= 0 and i + h <= self.height, "Dimension mismatch."
-        assert j + w >= 0 and j + w <= self.width, "Dimension mismatch."
+        assert i >= 0 and i <= self.height, 'Dimension mismatch.'
+        assert j >= 0 and j <= self.width, 'Dimension mismatch.'
+        assert i + h >= 0 and i + h <= self.height, 'Dimension mismatch.'
+        assert j + w >= 0 and j + w <= self.width, 'Dimension mismatch.'
 
         cropped_polygons = copy.deepcopy(self.polygons)
 
         for p in cropped_polygons:
             p[0::2] = p[0::2] - j
             p[1::2] = p[1::2] - i
-        
+
         return Polygon(
             polygons=cropped_polygons,
             width=w,
@@ -133,7 +137,7 @@ class Polygon(object):
 
     def resize(self, h, w):
         """Resize the input labels to the given size.
-        
+
         Args:
             h, w (int): Desired output size (height, width).
 
@@ -159,11 +163,13 @@ class InstanceMask(object):
 
     Args:
         instances (a list of Polygon): Each instance is a Polygon object.
-        label_dict (dict): a dict of category names and category values {str: int}.
+        label_dict (dict): a dict of category names and category values
+            {str: int}.
         width, height (int): (width, height) of the image.
     """
 
-    def __init__(self, instances=None, label_dict=None, width=None, height=None):
+    def __init__(self, instances=None, label_dict=None,
+                 width=None, height=None):
         self.instances = [] if instances is None else instances
         self.label_dict = label_dict
         self.width = width
@@ -173,46 +179,67 @@ class InstanceMask(object):
         return len(self.instances)
 
     def __repr__(self):
-        s = self.__class__.__name__ + "("
-        s += "instances={}, ".format(self.instances)
-        s += "label_dict={}, ".format(self.label_dict)
-        s += "width={}, ".format(self.width)
-        s += "height={})".format(self.height)
+        s = self.__class__.__name__ + '('
+        s += 'instances={}, '.format(self.instances)
+        s += 'label_dict={}, '.format(self.label_dict)
+        s += 'width={}, '.format(self.width)
+        s += 'height={})'.format(self.height)
         return s
 
-    def from_supervisely(self, file, label_dict, verbose=False):
+    def from_file(self, file, dataset, label_dict, verbose=False):
         """
-        Load all instances from an image from the Supervisely json format.
+        Load all instances from an image from a file.
 
         Args:
-            file (string): A string of the file path where instance annotations
-                are stored using the Supervisely json format.
+            file (str): A string of the file path where instance annotations
+                are stored.
+            dataset (str): Name of the dataset.
             label_dict (dict): A dict indicating {category name: int} mappings.
             verbose (bool): if True, generate warnings of incorrect imports.
         """
 
+        if dataset == 'googleearthpro':  # supervisely format
+            with open(file, 'r') as f:
+                mask = json.load(f)
+            self.width = mask['size']['width']
+            self.height = mask['size']['height']
+            for poly in mask['objects']:
+                instance = Polygon(
+                    width=self.width, height=self.height,
+                    category=label_dict[poly['classTitle']],
+                    polygons=[])
+                instance.from_coordinates(poly['points'], verbose=verbose)
+                if len(instance) > 0:
+                    self.instances.append(instance)
+        elif dataset == 'openaitanzania':
+            with open(file, 'r') as f:
+                mask = json.load(f)
+            self.width = mask['width']
+            self.height = mask['height']
+            for poly in mask['instances']:
+                instance = Polygon(
+                    width=self.width, height=self.height,
+                    category=label_dict[poly['category']],
+                    polygons=[])
+                instance.from_coordinates(poly['polygon'], verbose=verbose)
+                if len(instance) > 0:
+                    self.instances.append(instance)
+            # TODO: verbose should be moved here
+        else:
+            raise NotImplementedError
         self.label_dict = label_dict
-        with open(file, 'r') as f:
-            mask = json.load(f)
-        self.width, self.height = mask['size']['width'], mask['size']['height']
-        for poly in mask['objects']:
-            instance = Polygon(
-                width=self.width, height=self.height,
-                category=self.label_dict[poly['classTitle']],
-                polygons=[])
-            instance.from_supervisely(poly['points'], verbose=verbose)
-            if len(instance) > 0:
-                self.instances.append(instance)
 
     def to_tensor(self):
         """Convert instances to tensors. Some instances may be dropped.
 
         Returns:
             dict of torch.Tensors: following Mask-RCNN conventions.
-                boxes (Tensor[N, 4]): the ground-truth boxes in [x0, y0, x1, y1] format,
-                    with values between 0 and H and 0 and W.
+                boxes (Tensor[N, 4]): the ground-truth boxes in
+                    [x0, y0, x1, y1] format, with values
+                    between 0 and H and 0 and W.
                 labels (Tensor[N]): the class label for each ground-truth box.
-                masks (Tensor[N, H, W]): the segmentation binary masks for each instance.
+                masks (Tensor[N, H, W]): the segmentation binary masks
+                    for each instance.
         """
         # encode to RLEs
         rles = [ins.to_rle() for ins in self.instances]
@@ -220,25 +247,28 @@ class InstanceMask(object):
         # drop instances with zero area
         areas = mask.area(rles)
         rles = [rle for rle, area in zip(rles, areas) if area != 0]
-        
+
         # convert to masks
         if len(rles) > 0:
             binary_masks = mask.decode(rles)
-            binary_masks = torch.from_numpy(binary_masks.transpose((2,0,1)))
+            binary_masks = torch.from_numpy(
+                binary_masks.transpose((2, 0, 1)))
         else:
-            binary_masks = torch.empty([0, self.height, self.width], dtype=torch.uint8)
+            binary_masks = torch.empty(
+                [0, self.height, self.width], dtype=torch.uint8)
 
         # convert to bounding boxes
-        boxes = mask.toBbox(rles) # (x, y, w, h)
+        boxes = mask.toBbox(rles)  # (x, y, w, h)
         boxes[:, 2] = boxes[:, 0] + boxes[:, 2]
         boxes[:, 3] = boxes[:, 1] + boxes[:, 3]
         boxes = torch.from_numpy(boxes.astype(np.float32))
-        
+
         # collate labels
         labels = torch.tensor(
-            [ins.category for ins, area in zip(self.instances, areas) if area != 0],
+            [ins.category for ins, area in zip(self.instances, areas)
+             if area != 0],
             dtype=torch.int64)
-        
+
         return {'boxes': boxes, 'labels': labels, 'masks': binary_masks}
 
     def flip(self, FLIP_LEFT_RIGHT=False, FLIP_TOP_BOTTOM=False):
@@ -272,18 +302,18 @@ class InstanceMask(object):
             InstanceMask: a new cropped instance mask.
         """
 
-        assert i >= 0 and i <= self.height, "Dimension mismatch."
-        assert j >= 0 and j <= self.width, "Dimension mismatch."
-        assert i + h >= 0 and i + h <= self.height, "Dimension mismatch."
-        assert j + w >= 0 and j + w <= self.width, "Dimension mismatch."
-        
+        assert i >= 0 and i <= self.height, 'Dimension mismatch.'
+        assert j >= 0 and j <= self.width, 'Dimension mismatch.'
+        assert i + h >= 0 and i + h <= self.height, 'Dimension mismatch.'
+        assert j + w >= 0 and j + w <= self.width, 'Dimension mismatch.'
+
         return InstanceMask(
             instances=[ins.crop(i=i, j=j, h=h, w=w) for ins in self.instances],
-            width=w, height=h, label_dict=self.label_dict)            
+            width=w, height=h, label_dict=self.label_dict)
 
     def resize(self, h, w):
         """Resize the input labels to the given size.
-        
+
         Args:
             h, w (int): Desired output size (h, w).
 

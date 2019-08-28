@@ -8,12 +8,13 @@ from torchvision.transforms import functional as F
 
 from .mask_transforms import Polygon, InstanceMask
 
+
 class Compose(torchvision.transforms.Compose):
     """Modified to compose transforms together, with target transforms."""
-    
+
     def __call__(self, image, target):
         """Modified to compose transforms together, with target transforms.
-        
+
         Args:
             image: image to be transformed
             target: target to be transformed
@@ -24,6 +25,7 @@ class Compose(torchvision.transforms.Compose):
         for t in self.transforms:
             image, target = t(image, target)
         return image, target
+
 
 class Resize(object):
     """Modified to resize the input image-label pair to the given size.
@@ -57,6 +59,7 @@ class Resize(object):
         return self.__class__.__name__ + "(size=({0}, {1}), interpolation={2})".format(
             self.height, self.width, self.interpolation)
 
+
 class ColorJitter(torchvision.transforms.ColorJitter):
     """Modified to add instance mask in return values."""
 
@@ -73,6 +76,7 @@ class ColorJitter(torchvision.transforms.ColorJitter):
         transform = self.get_params(self.brightness, self.contrast,
                                     self.saturation, self.hue)
         return transform(image), target
+
 
 class RandomHorizontalFlip(torchvision.transforms.RandomHorizontalFlip):
     """Modified to add instance mask in return values."""
@@ -92,6 +96,7 @@ class RandomHorizontalFlip(torchvision.transforms.RandomHorizontalFlip):
             target = target.flip(FLIP_LEFT_RIGHT=True)
         return image, target
 
+
 class RandomVerticalFlip(torchvision.transforms.RandomVerticalFlip):
     """Modified to add instance mask in return values."""
     
@@ -109,6 +114,7 @@ class RandomVerticalFlip(torchvision.transforms.RandomVerticalFlip):
             image = F.vflip(image)
             target = target.flip(FLIP_TOP_BOTTOM=True)
         return image, target
+
 
 class RandomCrop(torchvision.transforms.RandomCrop):
     """Modified to add instance mask in return values."""
@@ -136,6 +142,7 @@ class RandomCrop(torchvision.transforms.RandomCrop):
         i, j, h, w = self.get_params(image, self.size)
 
         return F.crop(image, i, j, h, w), target.crop(i=i, j=j, h=h, w=w)
+
 
 class ToTensor(torchvision.transforms.ToTensor):
     """Modified to return tensors that follow the Mask R-CNN conventions."""

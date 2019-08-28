@@ -119,6 +119,7 @@ class Trainer(object):
         Args:
             epoch (int): number of epochs since training started
         """
+
         print('=' * 72)
         print("Epoch [{} / {}]".format(epoch, self.cfg.epochs - 1))
         print("Training...")
