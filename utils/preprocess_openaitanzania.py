@@ -55,7 +55,7 @@ def load_chip(dataset, col_min, row_min):
     raster_array = dataset.read(
         window=Window(col_off=col_min, row_off=row_min,
                       width=WINDOW_SIZE, height=WINDOW_SIZE),
-        out_shape=(CHIP_SIZE, CHIP_SIZE, dataset.count),
+        out_shape=(dataset.count, CHIP_SIZE, CHIP_SIZE),
         resampling=Resampling.bilinear)
     # raster array is color first, move that to color last
     im = Image.fromarray(np.moveaxis(raster_array, 0, 2), mode='RGB')
@@ -70,14 +70,14 @@ def geocode2pixel(geom, transform):
         transform (rasterio.Affine): the transform to be applied.
 
     Returns:
-        list of lists of floats: geometry that have been transformed.
-           A geometry is recorded as a list of lists of coordinates.
-           [[x0, y0, x1, y1, x2, y2, ...]]
+        list of floats: geometry that have been transformed.
+           A geometry is recorded as a list of coordinates.
+           [x0, y0, x1, y1, x2, y2, ...]
            Multipart polygon or holes are not supported.
            This is a compromise between geojson format and COCO format.
     """
     ext_coords = [(~transform) * coords for coords in geom.exterior.coords]
-    return [chain(ext_coords)]
+    return list(chain(*ext_coords))
 
 
 def process_file(file_id):
@@ -93,20 +93,24 @@ def process_file(file_id):
             file_name=os.path.join(IN_ANN_DIR, file_id + '.geojson'),
             crs=dataset.crs.data)
         # sampling random bounding boxes
-        N = ((dataset.width / WINDOW_SIZE) *
-             (dataset.height / WINDOW_SIZE) *
-             SAMPLE_RATIO).astype(int)
-        col_mins = np.random.randint(dataset.width - WINDOW_SIZE + 1, N)
-        row_mins = np.random.randint(dataset.height - WINDOW_SIZE + 1, N)
+        N = int((dataset.width / WINDOW_SIZE) *
+                (dataset.height / WINDOW_SIZE) *
+                SAMPLE_RATIO)
+        col_mins = np.random.randint(dataset.width - WINDOW_SIZE + 1,
+                                     size=N)
+        row_mins = np.random.randint(dataset.height - WINDOW_SIZE + 1,
+                                     size=N)
         # loop over sampled boxes
         for i, (col_min, row_min) in enumerate(zip(col_mins, row_mins)):
             # save the chip
             im, transform = load_chip(dataset, col_min, row_min)
             im.save(os.path.join(OUT_IMAGE_DIR,
                                  '{}_s{}.png'.format(file_id, i)))
+            x_min, y_max = dataset.transform * (col_min, row_min)
+            x_max, y_min = dataset.transform * (col_min + WINDOW_SIZE,
+                                                   row_min + WINDOW_SIZE)
             # save annotations on the chip
-            sliced = df.cx[col_min:(col_min + WINDOW_SIZE),
-                           row_min:(row_min + WINDOW_SIZE)]
+            sliced = df.cx[x_min:x_max, y_min:y_max]
             ann = {'width': CHIP_SIZE, 'height': CHIP_SIZE}
             ann['instances'] = [
                 {'category': row['condition'],
@@ -130,9 +134,11 @@ if __name__ == '__main__':
                 for f in glob(os.path.join(IN_ANN_DIR, '*.geojson'))]
     # parameters
     CHIP_SIZE = 800  # pixels
-    DOWN_RESOLUTION_FACTOR = 3  # resolution = this x 7.7cm
+    DOWN_RESOLUTION_FACTOR = 1  # resolution = this x 7.7cm
     WINDOW_SIZE = CHIP_SIZE * DOWN_RESOLUTION_FACTOR
-    SAMPLE_RATIO = 0.1
+    SAMPLE_RATIO = 0.03
     # process every file
     for file_id in tqdm(file_ids):
         process_file(file_id)
+        # TODO: comment this out
+        break
