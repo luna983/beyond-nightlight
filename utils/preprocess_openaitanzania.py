@@ -104,22 +104,23 @@ def process_file(file_id):
         for i, (col_min, row_min) in enumerate(zip(col_mins, row_mins)):
             # save the chip
             im, transform = load_chip(dataset, col_min, row_min)
-            im.save(os.path.join(OUT_IMAGE_DIR,
-                                 '{}_s{}.png'.format(file_id, i)))
             x_min, y_max = dataset.transform * (col_min, row_min)
             x_max, y_min = dataset.transform * (col_min + WINDOW_SIZE,
-                                                   row_min + WINDOW_SIZE)
+                                                row_min + WINDOW_SIZE)
             # save annotations on the chip
             sliced = df.cx[x_min:x_max, y_min:y_max]
-            ann = {'width': CHIP_SIZE, 'height': CHIP_SIZE}
-            ann['instances'] = [
-                {'category': row['condition'],
-                 'polygon': geocode2pixel(row['geometry'], transform)}
-                for _, row in sliced.iterrows()]
-            with open(os.path.join(OUT_ANN_DIR,
-                                   ('{}_s{}.json'
-                                    .format(file_id, i))), 'w') as f:
-                json.dump(ann, f)
+            if len(sliced) > 0:
+                im.save(os.path.join(OUT_IMAGE_DIR,
+                                     '{}_s{}.png'.format(file_id, i)))
+                ann = {'width': CHIP_SIZE, 'height': CHIP_SIZE}
+                ann['instances'] = [
+                    {'category': row['condition'],
+                     'polygon': geocode2pixel(row['geometry'], transform)}
+                    for _, row in sliced.iterrows()]
+                with open(os.path.join(OUT_ANN_DIR,
+                                       ('{}_s{}.json'
+                                        .format(file_id, i))), 'w') as f:
+                    json.dump(ann, f)
 
 
 if __name__ == '__main__':

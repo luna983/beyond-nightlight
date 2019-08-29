@@ -15,7 +15,7 @@ from .mask_transforms import InstanceMask
 
 
 class InstSeg(Dataset):
-    """This loads any instance segmentation dataset.
+    """This loads an instance segmentation dataset.
 
     Args:
         cfg (Config): pass all configurations into the dataloader
@@ -25,7 +25,6 @@ class InstSeg(Dataset):
     """
 
     def __init__(self, cfg, mode):
-        super().__init__()
         # initialize the train/val split
         f_exist = (os.path.isfile(os.path.join(cfg.in_trainval_dir,
                                                'train.txt')) and

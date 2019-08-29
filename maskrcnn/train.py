@@ -5,15 +5,13 @@ import copy
 from tqdm import tqdm
 
 import torch
-from torchvision.models.detection import maskrcnn_resnet50_fpn
-from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
-from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 
 from dataloader import make_data_loader
 from utils.configure import Config
 from utils.save_ckpt_log_tb import Saver
 from utils.coco import COCOSaver
 from utils.eval import evaluate
+from model import make_model
 
 
 class Trainer(object):
@@ -26,18 +24,18 @@ class Trainer(object):
     def __init__(self, cfg):
 
         print('=' * 72)
-        print("Initalizing trainer...")
+        print('Initalizing trainer...')
         # initialize saver and output config
         self.saver = Saver(cfg)
         self.saver.save_config()
         # tensorboard summary
         self.saver.create_tb_summary()
 
-        print("Initalizing data loader...")
+        print('Initalizing data loader...')
 
         # set device, detect cuda availability
-        self.device = torch.device("cuda" if torch.cuda.is_available()
-                                   else "cpu")
+        self.device = torch.device('cuda' if torch.cuda.is_available()
+                                   else 'cpu')
 
         # make data loader
         cfg.batch_size = (cfg.batch_size_per_gpu if cfg.num_gpus == 0
@@ -54,30 +52,9 @@ class Trainer(object):
             # TODO: comment this out later
             self.val_loader = self.train_loader
 
-        print("Initalizing model and optimizer...")
+        print('Initalizing model and optimizer...')
 
-        # make model
-        if cfg.coco_pretrained:
-            self.model = maskrcnn_resnet50_fpn(pretrained=True)
-            # replace the pre-trained FasterRCNN head with a new one
-            self.model.roi_heads.box_predictor = FastRCNNPredictor(
-                # in_features
-                self.model.roi_heads.box_predictor.cls_score.in_features,
-                # num_classes
-                len(cfg.label_dict) + 1)
-            # replace the pre-trained MaskRCNN head with a new one
-            self.model.roi_heads.mask_predictor = MaskRCNNPredictor(
-                # in_features_mask
-                self.model.roi_heads.mask_predictor.conv5_mask.in_channels,
-                # hidden_layer
-                self.model.roi_heads.mask_predictor.conv5_mask.out_channels,
-                # num_classes
-                len(cfg.label_dict) + 1)
-        else:
-            params = {
-                'num_classes': len(cfg.label_dict) + 1,  # including background
-                'pretrained': False}
-            self.model = maskrcnn_resnet50_fpn(**params)
+        self.model = make_model(cfg)
         self.model.to(self.device)
 
         # make optimizer
@@ -91,9 +68,9 @@ class Trainer(object):
             gamma=cfg.lr_scheduler_gamma)
 
         # load prior checkpoint
-        ckpt_file = os.path.join(cfg.run_dir, "checkpoint.pth.tar")
+        ckpt_file = os.path.join(cfg.run_dir, 'checkpoint.pth.tar')
         if os.path.isfile(ckpt_file):
-            print("Loading checkpoint {}".format(ckpt_file))
+            print('Loading checkpoint {}'.format(ckpt_file))
             ckpt = torch.load(ckpt_file)
             self.start_epoch = ckpt['epoch'] + 1
             self.model.load_state_dict(ckpt['state_dict'])
@@ -101,14 +78,14 @@ class Trainer(object):
         else:
             self.start_epoch = 0
         # load prior stats
-        metrics_file = os.path.join(cfg.run_dir, "best_metrics.json")
+        metrics_file = os.path.join(cfg.run_dir, 'best_metrics.json')
         if os.path.isfile(metrics_file):
             with open(metrics_file, 'r') as f:
                 self.best_metrics = json.load(f)
         else:
             self.best_metrics = None
         if not cfg.infer:
-            print("Starting from epoch {} to epoch {}..."
+            print('Starting from epoch {} to epoch {}...'
                   .format(self.start_epoch, cfg.epochs - 1))
         # save configurations
         self.cfg = cfg
@@ -121,8 +98,8 @@ class Trainer(object):
         """
 
         print('=' * 72)
-        print("Epoch [{} / {}]".format(epoch, self.cfg.epochs - 1))
-        print("Training...")
+        print('Epoch [{} / {}]'.format(epoch, self.cfg.epochs - 1))
+        print('Training...')
         self.model.train()
         losses = []
         loss_dicts = []
@@ -134,8 +111,8 @@ class Trainer(object):
             # forward pass
             loss_dict = self.model(images, targets)
             loss = sum([l for l in loss_dict.values()])
-            print("Iteration [{}]: loss: {:.4f}".format(i, loss))
-            print('; '.join(["{}: {:.4f}".format(k, v)
+            print('Iteration [{}]: loss: {:.4f}'.format(i, loss))
+            print('; '.join(['{}: {:.4f}'.format(k, v)
                              for k, v in loss_dict.items()]) + '.')
             losses.append(loss.detach().cpu())
             loss_dicts.append({k: v.detach().cpu()
@@ -166,7 +143,7 @@ class Trainer(object):
         Args:
             epoch (int): number of epochs since training started.
         """
-        print("Running inference...")
+        print('Running inference...')
         cocosaver = COCOSaver(gt=False, cfg=self.cfg)
         self.model.eval()
         for sample in tqdm(self.val_loader):
@@ -220,28 +197,27 @@ class Trainer(object):
         self.saver.close_tb_summary()
         print('=' * 72)
         if not self.cfg.infer:
-            print("Training finished, completed {} to {} epochs.".format(
+            print('Training finished, completed {} to {} epochs.'.format(
                 self.start_epoch, epoch))
         else:
-            print("Inference completed!")
+            print('Inference completed!')
         print('=' * 72)
 
 
 if __name__ == '__main__':
 
     # collect command line arguments
-    parser = argparse.ArgumentParser(description="Visualize inst segm masks.")
+    parser = argparse.ArgumentParser(description='Run Mask RCNN.')
     parser.add_argument('--config', nargs='+', type=str,
-                        default=["default_config.yaml"],
-                        help="Path to config files.")
-    parser.add_argument('--no-cuda', action='store_true',
-                        help="Do not use CUDA.")
-    parser.add_argument('--cuda-max-devices', type=int, default=1,
-                        help="Maximum number of available GPUs.")
-    parser.add_argument('--resume-run', type=str, default=None,
-                        help="Load existing checkpoint and resume training.")
+                        help='Path to config files.')
     parser.add_argument('--infer', action='store_true',
-                        help="Run inference.")
+                        help='Run inference.')
+    parser.add_argument('--resume-run', type=str, default=None,
+                        help='Load existing checkpoint and resume training.')
+    parser.add_argument('--no-cuda', action='store_true',
+                        help='Do not use CUDA.')
+    parser.add_argument('--cuda-max-devices', type=int, default=1,
+                        help='Maximum number of available GPUs.')
     args = parser.parse_args()
 
     # parse configurations
@@ -250,14 +226,14 @@ if __name__ == '__main__':
 
     # check CUDA
     if not args.no_cuda:
-        assert torch.cuda.is_available(), "CUDA not available."
+        assert torch.cuda.is_available(), 'CUDA not available.'
     if args.cuda_max_devices is not None:
         cfg.num_gpus = torch.cuda.device_count()
         assert cfg.num_gpus <= args.cuda_max_devices, (
-            "{} GPUs available, please set visible devices.\n"
+            '{} GPUs available, please set visible devices.\n'
             .format(cfg.num_gpus) +
-            "export CUDA_VISIBLE_DEVICES=X,X")
-    assert os.path.exists(cfg.runs_dir), "Model/log directory does not exist."
+            'export CUDA_VISIBLE_DEVICES=X,X')
+    assert os.path.exists(cfg.runs_dir), 'Model/log directory does not exist.'
     if args.resume_run is not None:
         assert os.path.exists(os.path.join(cfg.runs_dir, args.resume_run))
         cfg.resume_dir = os.path.join(cfg.runs_dir, args.resume_run)
