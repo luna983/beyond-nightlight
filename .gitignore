@@ -21,8 +21,6 @@ __pycache__/
 # symbolic links and logs
 utils/data
 utils/logs
-experiment_1/data
 maskrcnn/data
 maskrcnn/runs
 maskrcnn/logs
-maskrcnn/output
