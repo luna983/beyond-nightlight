@@ -1,31 +1,16 @@
 # dataset
-dataset: test
+dataset: googlestaticmap
 label_dict:  # values should be [1, 2, 3, ..., N]
-    'people': 1
-    'dog': 2
+    'house': 1
 # num_classes: inferred from label_dict
 
-# data loader
-train_val_init: True  # always True w/o train.txt and val.txt
-train_ratio: 0.5  # null (= None) if train_val_init = False
-
-# trainval directory
-in_tv_dir: data/Test
-in_tv_img_dir: Image
-in_tv_img_suffix: .jpg
-in_tv_mask_dir: Mask
-in_tv_mask_suffix: .jpg.json
-out_val_mask_dir: Pred
-out_val_mask_suffix: .json
-
 # inference directory
-in_infer_dir: data/Test
+in_infer_dir: data/GoogleStaticMap
 in_infer_img_dir: Image
-in_infer_img_suffix: .jpg
+in_infer_img_suffix: .png
 out_infer_mask_dir: Pred
 out_infer_mask_suffix: .json
 
 # visualization parameters
 category_palette:
     1: [255, 36, 0, 64]  # red
-    2: [150, 223, 228, 64]  # blue

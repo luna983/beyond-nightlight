@@ -3,7 +3,6 @@ import json
 import numpy as np
 from glob import glob
 from tqdm import tqdm
-from itertools import chain
 
 import geopandas as gpd
 
@@ -70,14 +69,16 @@ def geocode2pixel(geom, transform):
         transform (rasterio.Affine): the transform to be applied.
 
     Returns:
-        list of floats: geometry that have been transformed.
-           A geometry is recorded as a list of coordinates.
-           [x0, y0, x1, y1, x2, y2, ...]
-           Multipart polygon or holes are not supported.
-           This is a compromise between geojson format and COCO format.
+        dict: a geometry that has been transformed.
+           Exterior is a list of coordinates.
+           [(x0, y0), (x1, y1), (x2, y2), ...]
+           Interior is a list of lists of coordinates.
+           Multipart polygon is not supported.
     """
-    ext_coords = [(~transform) * coords for coords in geom.exterior.coords]
-    return list(chain(*ext_coords))
+    ext_coords = [(~transform) * coord for coord in geom.exterior.coords]
+    int_coords = [[(~transform) * coord for coord in interior.coords]
+                  for interior in geom.interiors]
+    return {'exterior': ext_coords, 'interiors': int_coords}
 
 
 def process_file(file_id):
@@ -102,14 +103,14 @@ def process_file(file_id):
                                      size=N)
         # loop over sampled boxes
         for i, (col_min, row_min) in enumerate(zip(col_mins, row_mins)):
-            # save the chip
-            im, transform = load_chip(dataset, col_min, row_min)
+            # sample the chip
             x_min, y_max = dataset.transform * (col_min, row_min)
             x_max, y_min = dataset.transform * (col_min + WINDOW_SIZE,
                                                 row_min + WINDOW_SIZE)
             # save annotations on the chip
             sliced = df.cx[x_min:x_max, y_min:y_max]
             if len(sliced) > 0:
+                im, transform = load_chip(dataset, col_min, row_min)
                 im.save(os.path.join(OUT_IMAGE_DIR,
                                      '{}_s{}.png'.format(file_id, i)))
                 ann = {'width': CHIP_SIZE, 'height': CHIP_SIZE}
@@ -137,9 +138,7 @@ if __name__ == '__main__':
     CHIP_SIZE = 800  # pixels
     DOWN_RESOLUTION_FACTOR = 1  # resolution = this x 7.7cm
     WINDOW_SIZE = CHIP_SIZE * DOWN_RESOLUTION_FACTOR
-    SAMPLE_RATIO = 0.03
+    SAMPLE_RATIO = 0.01
     # process every file
     for file_id in tqdm(file_ids):
         process_file(file_id)
-        # TODO: comment this out
-        break

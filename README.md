@@ -9,11 +9,10 @@
 
 ## TODOs NOW
 
-* [ ] set up the files.
+* [ ] `utils/preprocess_openaitanzania.py` almost ready to go - would need to debug the alignment between img and mask
+* [ ] `model/__init__.py` update
 * [ ] update `config/googleearthpro.yaml`, `config/googlestaticmap.yaml`, `config/openaitanzania.yaml`, `config/aerialhistory.yaml`.
-* [ ] `utils/preprocess_openaitanzania.py` almost ready to go - would need to clean up some testing code and also debug the alignment between img and mask, and set appropriate params, but this is running on one chip and the imgs are at least pretty good.
 * [ ] `dataloader/mask_transforms.py` connect with various annotation formats
 * [ ] `dataloader/__init__.py` merge all dataset loaders, drop empty images
-* [ ] `model/__init__.py` update
 * [ ] `maskrcnn/train.py`, `utils/save_ckpt_log_tb.py`, `utils/coco.py` and `utils/eval.py` clean up and make it up to date with new config files (supporting multi datasets), inference mode is loading last checkpoint instead of best model. Evaluate training samples and generate meaningful batches (intead of logging on tb). Add eval for training sample.
 * [ ] go through all the config params in all files

@@ -1,6 +1,5 @@
 import os
 import json
-import numpy as np
 from glob import glob
 from random import shuffle
 from PIL import Image
@@ -8,9 +7,9 @@ from PIL import Image
 import torchvision
 from torch.utils.data import Dataset
 
-from .transforms import Compose, ToTensor, RandomCrop
-from .transforms import Resize, ColorJitter
-from .transforms import RandomHorizontalFlip, RandomVerticalFlip
+from .transforms import (Compose, ToTensor,
+                         Resize, RandomCrop, ColorJitter,
+                         RandomHorizontalFlip, RandomVerticalFlip)
 from .mask_transforms import InstanceMask
 
 
@@ -25,49 +24,39 @@ class InstSeg(Dataset):
     """
 
     def __init__(self, cfg, mode):
-        # initialize the train/val split
-        f_exist = (os.path.isfile(os.path.join(cfg.in_trainval_dir,
-                                               'train.txt')) and
-                   os.path.isfile(os.path.join(cfg.in_trainval_dir,
-                                               'val.txt')))
-        if cfg.train_val_init or (mode in ['train', 'val'] and not f_exist):
-            files = [f for f in glob(
-                os.path.join(cfg.in_trainval_dir,
-                             cfg.in_trainval_mask_dir,
-                             '*.{}'.format(cfg.mask_suffix)))]
-            if cfg.drop_empty:
-                nonempty_files = []
-                for file in files:
-                    f = InstanceMask()
-                    f.from_coordinates(
-                        file=file, label_dict=cfg.label_dict)
-                    if not len(f) == 0:
-                        nonempty_files.append(file)
-                files = nonempty_files
-            else:
-                raise NotImplementedError
-            ids = [os.path.basename(f).split('.')[0] for f in files]
-            shuffle(ids)
-            train_idx = np.round(cfg.train_ratio * len(ids)).astype(np.uint32)
-            with open(os.path.join(cfg.in_trainval_dir,
-                                   'train.txt'), 'w') as f:
-                json.dump(ids[:train_idx], f)
-            with open(os.path.join(cfg.in_trainval_dir, 'val.txt'), 'w') as f:
-                json.dump(ids[train_idx:], f)
 
-        # load train/val/inference data
         if mode in ['train', 'val']:
-            with open(os.path.join(cfg.in_trainval_dir,
+            # initialize the train/val split, if necessary
+            split_exist = (os.path.isfile(os.path.join(cfg.in_tv_dir,
+                                                       'train.txt')) and
+                           os.path.isfile(os.path.join(cfg.in_tv_dir,
+                                                       'val.txt')))
+            if not split_exist:
+                files = [f for f in glob(
+                    os.path.join(cfg.in_tv_dir, cfg.in_tv_mask_dir,
+                                 '*' + cfg.in_tv_mask_suffix))]
+                ids = [os.path.basename(f).split('.')[0] for f in files]
+                shuffle(ids)
+                train_idx = int(cfg.train_ratio * len(ids))
+                assert 0 < train_idx < len(ids), 'train/val sample is empty'
+                with open(os.path.join(cfg.in_tv_dir, 'train.txt'), 'w') as f:
+                    json.dump(ids[:train_idx], f)
+                with open(os.path.join(cfg.in_tv_dir, 'val.txt'), 'w') as f:
+                    json.dump(ids[train_idx:], f)
+            # load train/val data
+            with open(os.path.join(cfg.in_tv_dir,
                                    mode + '.txt'), 'r') as f:
                 self.ids = json.load(f)
-            self.images = [os.path.join(cfg.in_trainval_dir,
-                                        cfg.in_trainval_img_dir,
-                                        i + '.jpg') for i in self.ids]
-            self.targets = [os.path.join(cfg.in_trainval_dir,
-                                         cfg.in_trainval_mask_dir,
-                                         i + '.jpg.json') for i in self.ids]
+            self.images = [os.path.join(cfg.in_tv_dir, cfg.in_tv_img_dir,
+                                        i + cfg.in_tv_img_suffix)
+                           for i in self.ids]
+            self.targets = [os.path.join(cfg.in_tv_dir, cfg.in_tv_mask_dir,
+                                         i + cfg.in_tv_mask_suffix)
+                            for i in self.ids]
         elif mode in ['infer']:
-            self.images = sorted(glob(os.path.join(cfg.in_infer_dir, '*.png')))
+            self.images = sorted(glob(os.path.join(
+                cfg.in_infer_dir, cfg.in_infer_img_dir,
+                '*' + cfg.in_infer_img_suffix)))
             self.ids = [os.path.basename(f).split('.')[0] for f in self.images]
             self.targets = []
         else:
@@ -78,7 +67,6 @@ class InstSeg(Dataset):
         assert all([os.path.isfile(f) for f in self.targets])
 
         # log
-        self.dataset = cfg.dataset
         self.mode = mode
         self.cfg = cfg
 
@@ -87,11 +75,14 @@ class InstSeg(Dataset):
 
         if self.mode in ['train', 'val']:
             target = InstanceMask()
-            target.from_supervisely(
-                file=self.targets[index], label_dict=self.cfg.label_dict)
-            if self.mode == 'train':
+            target.from_file(
+                file=self.targets[index],
+                ann_format=self.cfg.mask_format,
+                label_dict=self.cfg.label_dict,
+                verbose=False)
+            if self.mode in ['train']:
                 return self.transform_train(image, target)
-            elif self.mode == 'val':
+            elif self.mode in ['val']:
                 return self.transform_val(image, target)
         elif self.mode in ['infer']:
             return self.transform_infer(image, None)
@@ -99,17 +90,15 @@ class InstSeg(Dataset):
             raise NotImplementedError
 
     def __len__(self):
-        return len(self.images)
+        return len(self.ids)
 
     def __str__(self):
-        return ("{}: {} sample: {:d} images"
-                .format(self.dataset, self.mode, len(self.images)))
+        return ('{}: {} sample: {:d} images'
+                .format(self.cfg.dataset, self.mode, len(self.images)))
 
     def transform_train(self, image, target):
-        h = (np.floor(image.size[1] * self.cfg.random_crop_height)
-             .astype(np.uint16))
-        w = (np.floor(image.size[0] * self.cfg.random_crop_width)
-             .astype(np.uint16))
+        h = int(image.size[1] * self.cfg.random_crop_height)
+        w = int(image.size[0] * self.cfg.random_crop_width)
         composed_transforms = Compose([
             RandomCrop(size=(h, w)),
             RandomVerticalFlip(self.cfg.vertical_flip),

@@ -7,11 +7,11 @@ from tqdm import tqdm
 import torch
 
 from dataloader import make_data_loader
+from model import make_model
 from utils.configure import Config
 from utils.save_ckpt_log_tb import Saver
 from utils.coco import COCOSaver
 from utils.eval import evaluate
-from model import make_model
 
 
 class Trainer(object):
@@ -53,7 +53,7 @@ class Trainer(object):
             self.val_loader = self.train_loader
 
         print('Initalizing model and optimizer...')
-
+        cfg.num_classes = len(cfg.label_dict) + 1  # including background
         self.model = make_model(cfg)
         self.model.to(self.device)
 
@@ -206,14 +206,16 @@ class Trainer(object):
 
 if __name__ == '__main__':
 
+    assert torch.__version__ >= '1.1.0'
+
     # collect command line arguments
     parser = argparse.ArgumentParser(description='Run Mask RCNN.')
-    parser.add_argument('--config', nargs='+', type=str,
+    parser.add_argument('--config', nargs='+', type=str, default=None,
                         help='Path to config files.')
-    parser.add_argument('--infer', action='store_true',
-                        help='Run inference.')
+    parser.add_argument('--mode', nargs='+', type=str, default=None,
+                        help='In train, val or infer mode.')
     parser.add_argument('--resume-run', type=str, default=None,
-                        help='Load existing checkpoint and resume training.')
+                        help='Load existing checkpoint and resume.')
     parser.add_argument('--no-cuda', action='store_true',
                         help='Do not use CUDA.')
     parser.add_argument('--cuda-max-devices', type=int, default=1,
@@ -232,7 +234,7 @@ if __name__ == '__main__':
         assert cfg.num_gpus <= args.cuda_max_devices, (
             '{} GPUs available, please set visible devices.\n'
             .format(cfg.num_gpus) +
-            'export CUDA_VISIBLE_DEVICES=X,X')
+            'export CUDA_VISIBLE_DEVICES=X')
     assert os.path.exists(cfg.runs_dir), 'Model/log directory does not exist.'
     if args.resume_run is not None:
         assert os.path.exists(os.path.join(cfg.runs_dir, args.resume_run))

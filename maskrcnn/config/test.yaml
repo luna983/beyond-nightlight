@@ -1,13 +1,13 @@
 # dataset
 dataset: test
+mask_format: supervisely
 label_dict:  # values should be [1, 2, 3, ..., N]
     'people': 1
     'dog': 2
 # num_classes: inferred from label_dict
 
 # data loader
-train_val_init: True  # always True w/o train.txt and val.txt
-train_ratio: 0.5  # null (= None) if train_val_init = False
+train_ratio: 0.5  # null if train.txt and val.txt exist
 
 # trainval directory
 in_tv_dir: data/Test

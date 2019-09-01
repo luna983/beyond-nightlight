@@ -23,9 +23,9 @@ class Saver(object):
         # check and create directories
         self.runs_dir = cfg.runs_dir
         if cfg.resume_dir is None:
-            runs = sorted(glob(os.path.join(self.runs_dir, "run_*")))
+            runs = sorted(glob(os.path.join(self.runs_dir, 'run_*')))
             run_id = int(runs[-1].split('_')[-1]) + 1 if runs else 0
-            self.run_dir = os.path.join(self.runs_dir, "run_{:02d}"
+            self.run_dir = os.path.join(self.runs_dir, 'run_{:02d}'
                                                        .format(run_id))
             if not os.path.exists(self.run_dir):
                 os.mkdir(self.run_dir)
@@ -37,7 +37,7 @@ class Saver(object):
 
     def save_config(self):
         """Saves the config files."""
-        with open(os.path.join(self.run_dir, "config.yaml"), 'w') as f:
+        with open(os.path.join(self.run_dir, 'config.yaml'), 'w') as f:
             yaml.dump(self.cfg, f)
 
     def save_checkpoint(self, state_dict, save_best=True,
@@ -56,13 +56,13 @@ class Saver(object):
         """
         # save current checkpoint
         torch.save(state_dict, os.path.join(self.run_dir,
-                                            "checkpoint.pth.tar"))
+                                            'checkpoint.pth.tar'))
         if metrics is not None:
-            with open(os.path.join(self.run_dir, "metrics.json"), 'w') as f:
+            with open(os.path.join(self.run_dir, 'metrics.json'), 'w') as f:
                 json.dump(metrics, f)
 
         if save_best:
-            assert key_metric_name is not None, "No metric provided."
+            assert key_metric_name is not None, 'No metric provided.'
             if best_metrics is None:
                 is_best = True
             else:
@@ -72,12 +72,12 @@ class Saver(object):
                     is_best = False
             if is_best:
                 shutil.copyfile(
-                    os.path.join(self.run_dir, "checkpoint.pth.tar"),
-                    os.path.join(self.run_dir, "best.pth.tar"))
+                    os.path.join(self.run_dir, 'checkpoint.pth.tar'),
+                    os.path.join(self.run_dir, 'best.pth.tar'))
                 if metrics is not None:
                     shutil.copyfile(
-                        os.path.join(self.run_dir, "metrics.json"),
-                        os.path.join(self.run_dir, "best.json"))
+                        os.path.join(self.run_dir, 'metrics.json'),
+                        os.path.join(self.run_dir, 'best.json'))
 
     def create_tb_summary(self):
         self.writer = SummaryWriter(log_dir=self.run_dir)
@@ -126,7 +126,7 @@ class Saver(object):
             pred (dict of torch.Tensor): a dict of torch tensors
                 following Mask RCNN conventions. Predictions.
         """
-        if np.random.random() < self.cfg.prob_train_visualization:
+        if np.random.random() < self.cfg.prob_visualization:
             # ground truth
             if target is not None:
                 v = InstSegVisualization(
@@ -137,7 +137,7 @@ class Saver(object):
                 v.add_bbox()
                 v.add_label()
                 v.add_binary_mask()
-                v.save(os.path.join(self.run_dir, "visualization_gt.png"))
+                v.save(os.path.join(self.run_dir, 'visualization_gt.png'))
                 self.writer.add_image(
                     '/'.join((mode, 'ground_truth')),
                     np.array(v.output),
@@ -153,7 +153,7 @@ class Saver(object):
                 v.add_bbox()
                 v.add_label_score()
                 v.add_binary_mask()
-                v.save(os.path.join(self.run_dir, "visualization_pred.png"))
+                v.save(os.path.join(self.run_dir, 'visualization_pred.png'))
                 self.writer.add_image(
                     '/'.join((mode, 'predictions')),
                     np.array(v.output),

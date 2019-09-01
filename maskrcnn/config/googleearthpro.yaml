@@ -1,16 +1,18 @@
 # dataset
-dataset: test
+dataset: googleearthpro
+mask_format: supervisely
 label_dict:  # values should be [1, 2, 3, ..., N]
-    'people': 1
-    'dog': 2
+    'N/A': 1
+    'Unfinished House': 2
+    'Tin Roof': 3
+    'Colored Roof': 4
 # num_classes: inferred from label_dict
 
 # data loader
-train_val_init: True  # always True w/o train.txt and val.txt
-train_ratio: 0.5  # null (= None) if train_val_init = False
+train_ratio: 0.85  # null if train.txt and val.txt exist
 
 # trainval directory
-in_tv_dir: data/Test
+in_tv_dir: data/GoogleEarthPro
 in_tv_img_dir: Image
 in_tv_img_suffix: .jpg
 in_tv_mask_dir: Mask
@@ -18,14 +20,9 @@ in_tv_mask_suffix: .jpg.json
 out_val_mask_dir: Pred
 out_val_mask_suffix: .json
 
-# inference directory
-in_infer_dir: data/Test
-in_infer_img_dir: Image
-in_infer_img_suffix: .jpg
-out_infer_mask_dir: Pred
-out_infer_mask_suffix: .json
-
 # visualization parameters
 category_palette:
-    1: [255, 36, 0, 64]  # red
-    2: [150, 223, 228, 64]  # blue
+    1: [255, 255, 255, 64] # white
+    2: [255, 36, 0, 64] # red
+    3: [150, 223, 228, 64] # blue
+    4: [255, 213, 0, 64] # yellow

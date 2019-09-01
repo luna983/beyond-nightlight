@@ -2,7 +2,7 @@ import json
 import numpy as np
 import copy
 import warnings
-from pycocotools import mask
+import pycocotools.mask as maskutils
 
 import torch
 
@@ -14,7 +14,7 @@ class Polygon(object):
     Args:
         width, height (int): width and height of the image, in pixels.
         category (int): value of the category of this instance.
-        polygons (a list of lists of coordinates): The first level
+        polygons (list of numpy.ndarray): The first level
             refers to all the polygons that compose the object, and
             the second level to the polygon coordinates. This is consistent
             with the COCO annotation format. Multipart polygon is supported,
@@ -22,11 +22,11 @@ class Polygon(object):
             and can be outside of the bounding box.
     """
 
-    def __init__(self, width, height, category, polygons):
+    def __init__(self, width=None, height=None, category=None, polygons=None):
         self.width = width
         self.height = height
         self.category = category
-        self.polygons = polygons
+        self.polygons = [] if polygons is None else polygons
 
     def __len__(self):
         return len(self.polygons)
@@ -39,31 +39,16 @@ class Polygon(object):
         s += 'polygons={})'.format(self.polygons)
         return s
 
-    def from_coordinates(self, coordinates, verbose=False):
+    def load_single_polygon(self, coordinates):
         """
         Load an instance from the coordinates.
 
         Args:
-            coordinates (dict): coordinates formatted as follows
-                {'exterior': [x0, y0, x1, y1, ...],
-                 'interior': []}
-            verbose (bool): if True, generate warnings of incorrect imports.
+            coordinates (list/tuple of list/tuple of float):
+                coordinates formatted as [[x0, y0], [x1, y1], ...],
+                with more than 2 points
         """
-
-        # check polygon validity - more than 2 points
-        if len(coordinates['exterior']) > 2:
-            self.polygons.append(
-                np.array([i for coord in coordinates['exterior']
-                          for i in coord]).astype(np.float32))
-        else:
-            if verbose:
-                warnings.warn('Invalid exterior coords ignored: {}'.format(
-                    coordinates['exterior']))
-        if verbose:
-            if len(coordinates['interior']) > 0:
-                warnings.warn('Interior coordinates ignored: {}'.format(
-                    coordinates['interior']))
-        # TODO
+        self.polygons.append(np.array(coordinates).astype(np.float32))
 
     def to_rle(self):
         """Convert instance polygons to run-length encoding (RLE).
@@ -71,8 +56,9 @@ class Polygon(object):
         Returns:
             dict: Run-length encoding (RLE) of the binary mask.
         """
-        rles = mask.frPyObjects(self.polygons, self.height, self.width)
-        rle = mask.merge(rles)
+        polygons = [list(poly.flatten()) for poly in self.polygons]
+        rles = maskutils.frPyObjects(polygons, self.height, self.width)
+        rle = maskutils.merge(rles)
         return rle
 
     def flip(self, FLIP_LEFT_RIGHT=False, FLIP_TOP_BOTTOM=False):
@@ -91,11 +77,11 @@ class Polygon(object):
 
         if FLIP_LEFT_RIGHT:
             for p in flipped_polygons:
-                p[0::2] = self.width - p[0::2]
+                p[:, 0] = self.width - p[:, 0]
 
         if FLIP_TOP_BOTTOM:
             for p in flipped_polygons:
-                p[1::2] = self.height - p[1::2]
+                p[:, 1] = self.height - p[:, 1]
 
         return Polygon(
             polygons=flipped_polygons,
@@ -126,8 +112,8 @@ class Polygon(object):
         cropped_polygons = copy.deepcopy(self.polygons)
 
         for p in cropped_polygons:
-            p[0::2] = p[0::2] - j
-            p[1::2] = p[1::2] - i
+            p[:, 0] = p[:, 0] - j
+            p[:, 1] = p[:, 1] - i
 
         return Polygon(
             polygons=cropped_polygons,
@@ -147,8 +133,8 @@ class Polygon(object):
         ratio_w, ratio_h = w / self.width, h / self.height
         resized_polygons = copy.deepcopy(self.polygons)
         for p in resized_polygons:
-            p[0::2] *= ratio_w
-            p[1::2] *= ratio_h
+            p[:, 0] *= ratio_w
+            p[:, 1] *= ratio_h
 
         return Polygon(
             polygons=resized_polygons,
@@ -186,45 +172,61 @@ class InstanceMask(object):
         s += 'height={})'.format(self.height)
         return s
 
-    def from_file(self, file, dataset, label_dict, verbose=False):
+    def from_file(self, file, ann_format, label_dict, verbose=False):
         """
         Load all instances from an image from a file.
 
         Args:
             file (str): A string of the file path where instance annotations
                 are stored.
-            dataset (str): Name of the dataset.
+            ann_format (str): Format of the annotations.
             label_dict (dict): A dict indicating {category name: int} mappings.
             verbose (bool): if True, generate warnings of incorrect imports.
         """
 
-        if dataset == 'googleearthpro':  # supervisely format
+        if ann_format == 'supervisely':
             with open(file, 'r') as f:
-                mask = json.load(f)
-            self.width = mask['size']['width']
-            self.height = mask['size']['height']
-            for poly in mask['objects']:
+                ann = json.load(f)
+            self.width = ann['size']['width']
+            self.height = ann['size']['height']
+            for ins in ann['objects']:
                 instance = Polygon(
                     width=self.width, height=self.height,
-                    category=label_dict[poly['classTitle']],
-                    polygons=[])
-                instance.from_coordinates(poly['points'], verbose=verbose)
-                if len(instance) > 0:
+                    category=label_dict[ins['classTitle']])
+                coordinates = ins['points']
+                # check polygon validity - more than 2 points
+                if len(coordinates['exterior']) > 2:
+                    instance.load_single_polygon(coordinates['exterior'])
                     self.instances.append(instance)
-        elif dataset == 'openaitanzania':
+                else:
+                    if verbose:
+                        warnings.warn('Invalid exterior coords ignored: {}'
+                                      .format(coordinates['exterior']))
+                if verbose and (len(coordinates['interior']) > 0):
+                    warnings.warn('Interior coordinates ignored: {}'
+                                  .format(coordinates['interior']))
+
+        elif ann_format == 'openaitanzania':
             with open(file, 'r') as f:
-                mask = json.load(f)
-            self.width = mask['width']
-            self.height = mask['height']
-            for poly in mask['instances']:
+                ann = json.load(f)
+            self.width = ann['width']
+            self.height = ann['height']
+            for ins in ann['instances']:
                 instance = Polygon(
                     width=self.width, height=self.height,
-                    category=label_dict[poly['category']],
-                    polygons=[])
-                instance.from_coordinates(poly['polygon'], verbose=verbose)
-                if len(instance) > 0:
+                    category=label_dict[ins['category']])
+                coordinates = ins['polygon']
+                # check polygon validity - more than 2 points
+                if len(coordinates['exterior']) > 2:
+                    instance.load_single_polygon(coordinates['exterior'])
                     self.instances.append(instance)
-            # TODO: verbose should be moved here
+                else:
+                    if verbose:
+                        warnings.warn('Invalid exterior coords ignored: {}'
+                                      .format(coordinates['exterior']))
+                if verbose and (len(coordinates['interior']) > 0):
+                    warnings.warn('Interior coordinates ignored: {}'
+                                  .format(coordinates['interior']))
         else:
             raise NotImplementedError
         self.label_dict = label_dict
@@ -245,24 +247,21 @@ class InstanceMask(object):
         rles = [ins.to_rle() for ins in self.instances]
 
         # drop instances with zero area
-        areas = mask.area(rles)
+        areas = maskutils.area(rles)
         rles = [rle for rle, area in zip(rles, areas) if area != 0]
 
+        # return None for empty images
+        if len(rles) == 0:
+            return None
         # convert to masks
-        if len(rles) > 0:
-            binary_masks = mask.decode(rles)
-            binary_masks = torch.from_numpy(
-                binary_masks.transpose((2, 0, 1)))
-        else:
-            binary_masks = torch.empty(
-                [0, self.height, self.width], dtype=torch.uint8)
-
+        binary_masks = maskutils.decode(rles)
+        binary_masks = torch.from_numpy(
+            binary_masks.transpose((2, 0, 1)))
         # convert to bounding boxes
-        boxes = mask.toBbox(rles)  # (x, y, w, h)
+        boxes = maskutils.toBbox(rles)  # (x, y, w, h)
         boxes[:, 2] = boxes[:, 0] + boxes[:, 2]
         boxes[:, 3] = boxes[:, 1] + boxes[:, 3]
         boxes = torch.from_numpy(boxes.astype(np.float32))
-
         # collate labels
         labels = torch.tensor(
             [ins.category for ins, area in zip(self.instances, areas)

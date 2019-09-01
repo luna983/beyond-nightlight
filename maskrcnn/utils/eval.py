@@ -1,24 +1,16 @@
-import os
-import json
 from pycocotools.coco import COCO
 from utils.coco import COCOeval
 
 
-def evaluate(cfg):
+def evaluate(pred_file, gt_file):
     """This evaluates the difference between predictions and ground truth.
 
     Args:
-        cfg (Config): stores all configurations.
+        pred_file (str): file storing the prediction results.
+        gt_file (str): file storing the ground truth.
     """
-    GT = COCO(os.path.join(cfg.run_dir, "annotations_gt.json"))
-    try:
-        DT = GT.loadRes(os.path.join(cfg.run_dir, "annotations_pred.json"))
-    except IndexError:
-        # in case no instances were predicted
-        with open(os.path.join(cfg.run_dir, "annotations_pred.json"), 'r') as f:
-            DT = json.load(f)
-            assert len(DT) == 0
-            return None
+    GT = COCO(gt_file)
+    DT = GT.loadRes(pred_file)
     E = COCOeval(cocoGt=GT, cocoDt=DT)
     # set new evaluation params
     E.params.maxDets = [100]
