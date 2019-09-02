@@ -1,16 +1,19 @@
+import os
 from pycocotools.coco import COCO
 from utils.coco import COCOeval
 
 
-def evaluate(pred_file, gt_file):
+def evaluate(cfg, mode):
     """This evaluates the difference between predictions and ground truth.
 
     Args:
-        pred_file (str): file storing the prediction results.
-        gt_file (str): file storing the ground truth.
+        cfg (Config): stores all configurations.
+        mode (str): the sample to be evaluated (train/val).
     """
-    GT = COCO(gt_file)
-    DT = GT.loadRes(pred_file)
+    GT = COCO(os.path.join(cfg.out_mask_dir, mode,
+                           'annotations_gt.json'))
+    DT = GT.loadRes(os.path.join(cfg.out_mask_dir, mode,
+                                 'annotations_pred.json'))
     E = COCOeval(cocoGt=GT, cocoDt=DT)
     # set new evaluation params
     E.params.maxDets = [100]

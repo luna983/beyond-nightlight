@@ -9,6 +9,9 @@
 
 ## TODOs NOW
 
+* [ ] Google Static Map image id needs to be padded, otherwise there can be a potential conflict
+* [ ] Make sure that OpenAITanzania has a unique (padded) id too
+
 * [ ] `utils/preprocess_openaitanzania.py` almost ready to go - would need to debug the alignment between img and mask
 * [ ] `model/__init__.py` update
 * [ ] update `config/googleearthpro.yaml`, `config/googlestaticmap.yaml`, `config/openaitanzania.yaml`, `config/aerialhistory.yaml`.

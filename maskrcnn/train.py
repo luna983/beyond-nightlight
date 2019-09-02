@@ -24,7 +24,8 @@ class Trainer(object):
     def __init__(self, cfg):
 
         print('=' * 72)
-        print('Initalizing trainer...')
+
+        print('Initalizing saver...')
         # initialize saver and output config
         self.saver = Saver(cfg)
         self.saver.save_config()
@@ -32,43 +33,36 @@ class Trainer(object):
         self.saver.create_tb_summary()
 
         print('Initalizing data loader...')
-
         # set device, detect cuda availability
         self.device = torch.device('cuda' if torch.cuda.is_available()
                                    else 'cpu')
-
         # make data loader
-        cfg.batch_size = (cfg.batch_size_per_gpu if cfg.num_gpus == 0
-                          else cfg.batch_size_per_gpu * cfg.num_gpus)
         params = {
             'batch_size': cfg.batch_size,
             'num_workers': cfg.num_workers}
         if cfg.infer:
-            self.val_loader = make_data_loader(
-                cfg, modes=['infer'], **params)[0]
+            (self.val_loader,), (self.val_ids,) = make_data_loader(
+                cfg, modes=['infer'], **params)
         else:
-            self.train_loader, self.val_loader = make_data_loader(
-                cfg, **params)
-            # TODO: comment this out later
-            self.val_loader = self.train_loader
+            ((self.train_loader, self.val_loader),
+             (self.train_ids, self.val_ids)) = make_data_loader(
+                cfg, modes=['train', 'val'], **params)
 
         print('Initalizing model and optimizer...')
-        cfg.num_classes = len(cfg.label_dict) + 1  # including background
+        # make model
         self.model = make_model(cfg)
         self.model.to(self.device)
-
         # make optimizer
-        params = {
-            'lr': cfg.lr}
         self.optimizer = torch.optim.Adam(
             [p for p in self.model.parameters() if p.requires_grad],
-            **params)
+            lr=cfg.lr)
         self.lr_scheduler = torch.optim.lr_scheduler.StepLR(
-            self.optimizer, step_size=cfg.lr_scheduler_step_size,
+            self.optimizer,
+            step_size=cfg.lr_scheduler_step_size,
             gamma=cfg.lr_scheduler_gamma)
 
         # load prior checkpoint
-        ckpt_file = os.path.join(cfg.run_dir, 'checkpoint.pth.tar')
+        ckpt_file = os.path.join(cfg.run_dir, cfg.model_to_load)
         if os.path.isfile(ckpt_file):
             print('Loading checkpoint {}'.format(ckpt_file))
             ckpt = torch.load(ckpt_file)
@@ -84,21 +78,21 @@ class Trainer(object):
                 self.best_metrics = json.load(f)
         else:
             self.best_metrics = None
-        if not cfg.infer:
+        if 'train' in cfg.mode:
             print('Starting from epoch {} to epoch {}...'
                   .format(self.start_epoch, cfg.epochs - 1))
+            self.epoch = self.start_epoch
+        else:
+            self.start_epoch = 0  # placeholder
+            self.epoch = 0  # placeholder
         # save configurations
         self.cfg = cfg
 
-    def train(self, epoch):
-        """Train the model.
-
-        Args:
-            epoch (int): number of epochs since training started
-        """
+    def train(self):
+        """Train the model."""
 
         print('=' * 72)
-        print('Epoch [{} / {}]'.format(epoch, self.cfg.epochs - 1))
+        print('Epoch [{} / {}]'.format(self.epoch, self.cfg.epochs - 1))
         print('Training...')
         self.model.train()
         losses = []
@@ -124,29 +118,45 @@ class Trainer(object):
             # update the learning rate
             self.lr_scheduler.step()
         self.saver.log_tb_loss(mode='train', losses=losses,
-                               loss_dicts=loss_dicts, epoch=epoch)
+                               loss_dicts=loss_dicts, epoch=self.epoch)
+        self.epoch += 1
 
-    def save_val_annotations(self):
-        """Saves the validation set annotations as COCO format.
+    def save_gt_annotations(self, mode):
+        """Saves the ground truth annotations as COCO format.
+
+        Args:
+            mode (str): the sample to be evaluated (train/val).
         """
         cocosaver = COCOSaver(gt=True, cfg=self.cfg)
-        for i, sample in enumerate(self.val_loader):
+        if mode == 'train':
+            loader, image_ids = self.train_loader, self.train_ids
+        elif mode == 'val':
+            loader, image_ids = self.val_loader, self.val_ids
+        else:
+            raise NotImplementedError
+        for i, (sample, image_id) in enumerate(zip(loader, image_ids)):
             _, targets = sample
             for target in targets:
-                cocosaver.add(target)
-        cocosaver.save()
+                cocosaver.add(target, image_id)
+        cocosaver.save(mode)
 
     @torch.no_grad()
-    def infer(self, epoch):
+    def infer(self, mode):
         """Run inference on the model.
 
         Args:
-            epoch (int): number of epochs since training started.
+            mode (str): the sample to be evaluated (train/val/infer).
         """
         print('Running inference...')
+        if mode == 'train':
+            loader, image_ids = self.train_loader, self.train_ids
+        elif mode in ['val', 'infer']:
+            loader, image_ids = self.val_loader, self.val_ids
+        else:
+            raise NotImplementedError
         cocosaver = COCOSaver(gt=False, cfg=self.cfg)
         self.model.eval()
-        for sample in tqdm(self.val_loader):
+        for sample, image_id in tqdm(zip(loader, image_ids)):
             images, targets = sample
             images_copy = copy.deepcopy(images)
             images = [im.to(self.device) for im in images]
@@ -154,53 +164,49 @@ class Trainer(object):
             for image, target, pred in zip(images_copy, targets, preds):
                 pred['masks'] = (pred['masks'].squeeze(1) >
                                  self.cfg.mask_threshold)
-                cocosaver.add(pred)
+                cocosaver.add(pred, image_id)
                 self.saver.log_tb_visualization(
-                    mode=('infer' if self.cfg.infer else 'val'),
-                    epoch=epoch,
+                    mode=mode,
+                    epoch=self.epoch,
                     image=image,
                     target=target,
                     pred=pred)
-        cocosaver.save()
+        cocosaver.save(mode)
 
-    def evaluate(self, epoch):
+    def evaluate(self, mode):
         """Evaluates the saved predicted annotations versus ground truth.
 
         Args:
-            epoch (int): number of epochs since training started.
+            mode (str): the sample to be evaluated (train/val/infer).
         """
-        self.metrics = evaluate(self.cfg)
-        self.saver.log_tb_eval(mode='val', metrics=self.metrics, epoch=epoch)
+        metrics = evaluate(self.cfg)
+        self.saver.log_tb_eval(
+            mode=mode, metrics=metrics, epoch=self.epoch)
+        if mode == 'val':
+            self.metrics = metrics
 
-    def save_checkpoint(self, epoch):
-        """Saves the checkpoint.
-
-        Args:
-            epoch (int): number of epochs since training started.
-        """
-        # save checkpoint every epoch
-        self.saver.save_checkpoint(
-            state_dict={'epoch': epoch,
-                        'state_dict': self.model.state_dict(),
-                        'optimizer': self.optimizer.state_dict()},
-            save_best=True,
-            metrics=self.metrics,
-            key_metric_name=self.cfg.key_metric_name,
-            best_metrics=self.best_metrics)
-
-    def close(self, epoch):
-        """Properly finish training.
-
-        Args:
-            epoch (int): current epoch
-        """
-        self.saver.close_tb_summary()
-        print('=' * 72)
-        if not self.cfg.infer:
-            print('Training finished, completed {} to {} epochs.'.format(
-                self.start_epoch, epoch))
+    def save_checkpoint(self):
+        """Saves the checkpoint."""
+        if 'val' in self.cfg.mode:
+            self.saver.save_checkpoint(
+                state_dict={'epoch': self.epoch,
+                            'state_dict': self.model.state_dict(),
+                            'optimizer': self.optimizer.state_dict()},
+                save_best=True,
+                metrics=self.metrics,
+                key_metric_name=self.cfg.key_metric_name,
+                best_metrics=self.best_metrics)
         else:
-            print('Inference completed!')
+            self.saver.save_checkpoint(
+                state_dict={'epoch': self.epoch,
+                            'state_dict': self.model.state_dict(),
+                            'optimizer': self.optimizer.state_dict()},
+                save_best=False)
+
+    def close(self):
+        """Properly finish training."""
+        self.saver.close_tb_summary()
+        print('Finished!')
         print('=' * 72)
 
 
@@ -226,37 +232,44 @@ if __name__ == '__main__':
     cfg = Config()
     cfg.update(args.config)
 
-    # check CUDA
+    # update config
     if not args.no_cuda:
         assert torch.cuda.is_available(), 'CUDA not available.'
-    if args.cuda_max_devices is not None:
-        cfg.num_gpus = torch.cuda.device_count()
-        assert cfg.num_gpus <= args.cuda_max_devices, (
-            '{} GPUs available, please set visible devices.\n'
-            .format(cfg.num_gpus) +
-            'export CUDA_VISIBLE_DEVICES=X')
+    cfg.num_gpus = torch.cuda.device_count()
+    assert cfg.num_gpus <= args.cuda_max_devices, (
+        '{} GPUs available, please set visible devices.\n'
+        'export CUDA_VISIBLE_DEVICES=X'
+        .format(cfg.num_gpus))
+    cfg.batch_size = (cfg.batch_size_per_gpu if cfg.num_gpus == 0
+                      else cfg.batch_size_per_gpu * cfg.num_gpus)
     assert os.path.exists(cfg.runs_dir), 'Model/log directory does not exist.'
-    if args.resume_run is not None:
-        assert os.path.exists(os.path.join(cfg.runs_dir, args.resume_run))
-        cfg.resume_dir = os.path.join(cfg.runs_dir, args.resume_run)
-    else:
+    if args.resume_run is None:
         cfg.resume_dir = None
-
-    # check for inference flag
-    cfg.infer = args.infer
-    if not args.infer:
-        # train
-        trainer = Trainer(cfg)
-        trainer.save_val_annotations()
-        for epoch in range(trainer.start_epoch, cfg.epochs):
-            trainer.train(epoch)
-            if epoch >= cfg.eval_epoch:
-                trainer.infer(epoch)
-                trainer.evaluate(epoch)
-                trainer.save_checkpoint(epoch)
-        trainer.close(epoch)
     else:
-        epoch = cfg.epochs + 1
-        trainer = Trainer(cfg)
-        trainer.infer(epoch)
-        trainer.close(epoch)
+        cfg.resume_dir = os.path.join(cfg.runs_dir, args.resume_run)
+        assert os.path.exists(cfg.resume_dir)
+    cfg.num_classes = len(cfg.label_dict) + 1  # including background
+    cfg.mode = args.mode
+
+    # train/val/infer starts
+    trainer = Trainer(cfg)
+    if 'train' in cfg.mode:
+        # training
+        while trainer.epoch < cfg.epochs:
+            trainer.train()
+            # evaluate
+            eval_samples = []
+            if cfg.evaluate_training_sample:
+                eval_samples.append('train')
+            if 'val' in cfg.mode:
+                eval_samples.append('val')
+            for eval_sample in eval_samples:
+                trainer.save_gt_annotations(eval_sample)
+                trainer.infer(eval_sample)
+                trainer.evaluate(eval_sample)
+            trainer.save_checkpoint()
+    if 'infer' in cfg.mode:
+        trainer.save_gt_annotations('infer')
+        trainer.infer('infer')
+        trainer.evaluate('infer')
+    trainer.close()

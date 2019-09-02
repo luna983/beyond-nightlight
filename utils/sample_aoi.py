@@ -73,7 +73,7 @@ if __name__ == '__main__':
     df_image['lat'] = df_image['lat'] + df_image['lat_shift']
 
     df_image['index'] = df_image.apply(
-        lambda x: 'ENT{:.0f}MUN{:.0f}LOC{:.0f}CHIP{:.0f}'
+        lambda x: 'ENT{:02d}MUN{:03d}LOC{:04d}CHIP{:02d}'
                   .format(x['ent'], x['mun'], x['loc'], x['chip']),
         axis=1)
     df_image.set_index('index', inplace=True, drop=True)

@@ -16,8 +16,12 @@ in_tv_img_dir: Image
 in_tv_img_suffix: .png
 in_tv_mask_dir: Mask
 in_tv_mask_suffix: .json
-out_val_mask_dir: Pred
-out_val_mask_suffix: .json
+
+# output directory
+out_mask_dir: data/Pred
+
+# visualization directory
+out_visual_dir: data/Visual
 
 # visualization parameters
 category_palette:

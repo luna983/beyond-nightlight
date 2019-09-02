@@ -30,8 +30,13 @@ def make_data_loader(cfg, modes, **kwargs):
         cfg (Config object): pass in all configurations.
         modes (list of str): list of data loader modes to be executed.
         kwargs: passed to DataLoader.
+
+    Returns
+        list of torch.utils.data.DataLoader: list of data loaders
+        list of str: list of image_id
     """
     data_loaders = []
+    ids = []
 
     for mode in modes:
         data_set = InstSeg(cfg=cfg, mode=mode)
@@ -50,5 +55,6 @@ def make_data_loader(cfg, modes, **kwargs):
             raise NotImplementedError
 
         data_loaders.append(data_loader)
+        ids.append(data_set.int_ids)
 
-    return data_loaders
+    return data_loaders, ids

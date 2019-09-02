@@ -9,8 +9,12 @@ label_dict:  # values should be [1, 2, 3, ..., N]
 in_infer_dir: data/AerialHistory
 in_infer_img_dir: Image
 in_infer_img_suffix: .png
-out_infer_mask_dir: Pred
-out_infer_mask_suffix: .json
+
+# output directory
+out_mask_dir: data/Pred
+
+# visualization directory
+out_visual_dir: data/Visual
 
 # visualization parameters
 category_palette:

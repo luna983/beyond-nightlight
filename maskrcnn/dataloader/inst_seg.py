@@ -1,4 +1,5 @@
 import os
+import re
 import json
 from glob import glob
 from random import shuffle
@@ -61,6 +62,10 @@ class InstSeg(Dataset):
             self.targets = []
         else:
             raise NotImplementedError
+        # construct a integer id for every image
+        # as it is expected by the COCO API
+        # this is done via simply dropping all characters
+        self.int_ids = [re.sub('\D', '', i) for i in self.ids]
 
         # check file existence
         assert all([os.path.isfile(f) for f in self.images])

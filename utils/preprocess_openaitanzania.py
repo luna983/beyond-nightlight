@@ -112,14 +112,14 @@ def process_file(file_id):
             if len(sliced) > 0:
                 im, transform = load_chip(dataset, col_min, row_min)
                 im.save(os.path.join(OUT_IMAGE_DIR,
-                                     '{}_s{}.png'.format(file_id, i)))
+                                     '{}_s{:06d}.png'.format(file_id, i)))
                 ann = {'width': CHIP_SIZE, 'height': CHIP_SIZE}
                 ann['instances'] = [
                     {'category': row['condition'],
                      'polygon': geocode2pixel(row['geometry'], transform)}
                     for _, row in sliced.iterrows()]
                 with open(os.path.join(OUT_ANN_DIR,
-                                       ('{}_s{}.json'
+                                       ('{}_s{:06d}.json'
                                         .format(file_id, i))), 'w') as f:
                     json.dump(ann, f)
 

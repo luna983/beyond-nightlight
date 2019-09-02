@@ -75,17 +75,15 @@ class COCOSaver(object):
         self.annotations = []
         if gt:
             self.images = []
-        else:
-            self.image_id = 0
 
-    def add(self, annotation):
+    def add(self, annotation, image_id):
         """This updates the annotation list.
 
         Args:
             annotation (dict of torch.Tensor): follow Mask RCNN output format.
+            image_id (str): the id of the image.
         """
         if self.gt:
-            image_id = len(self.images)
             labels = annotation['labels'].numpy()
             masks = annotation['masks'].numpy().astype(np.uint8)
             boxes = annotation['boxes'].numpy()
@@ -134,15 +132,17 @@ class COCOSaver(object):
                          'bbox': box.tolist(),
                          'score': float(score),
                          'area': float(area),
-                         'image_id': self.image_id,
+                         'image_id': image_id,
                          'category_id': int(label)})
-            self.image_id += 1
 
-    def save(self):
+    def save(self, mode):
         """This saves the annotations to the default log directory.
+
+        Args:
+            mode (str): the sample to be evaluated (train/val).
         """
         if self.gt:
-            with open(os.path.join(self.cfg.run_dir,
+            with open(os.path.join(self.cfg.out_mask_dir, mode,
                                    'annotations_gt.json'), 'w') as f:
                 json.dump({
                     'annotations': self.annotations,
@@ -151,11 +151,6 @@ class COCOSaver(object):
                         {'id': i, 'name': name}
                         for name, i in self.cfg.label_dict.items()]}, f)
         else:
-            if self.cfg.infer:
-                with open(os.path.join(self.cfg.run_dir,
-                                       'annotations_infer.json'), 'w') as f:
-                    json.dump(self.annotations, f)
-            else:
-                with open(os.path.join(self.cfg.run_dir,
-                                       'annotations_pred.json'), 'w') as f:
-                    json.dump(self.annotations, f)
+            with open(os.path.join(self.cfg.out_mask_dir, mode,
+                                   'annotations_pred.json'), 'w') as f:
+                json.dump(self.annotations, f)

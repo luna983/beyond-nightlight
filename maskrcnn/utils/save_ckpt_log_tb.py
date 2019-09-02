@@ -127,6 +127,7 @@ class Saver(object):
                 following Mask RCNN conventions. Predictions.
         """
         if np.random.random() < self.cfg.prob_visualization:
+            i = np.random.randint(self.cfg.num_visualization)
             # ground truth
             if target is not None:
                 v = InstSegVisualization(
@@ -137,7 +138,9 @@ class Saver(object):
                 v.add_bbox()
                 v.add_label()
                 v.add_binary_mask()
-                v.save(os.path.join(self.run_dir, 'visualization_gt.png'))
+                v.save(os.path.join(
+                    self.cfg.out_visual_dir, mode,
+                    'gt_{}.png'.format(i)))
                 self.writer.add_image(
                     '/'.join((mode, 'ground_truth')),
                     np.array(v.output),
@@ -153,7 +156,9 @@ class Saver(object):
                 v.add_bbox()
                 v.add_label_score()
                 v.add_binary_mask()
-                v.save(os.path.join(self.run_dir, 'visualization_pred.png'))
+                v.save(os.path.join(
+                    self.cfg.out_visual_dir, mode,
+                    'pred_{}.png'.format(i)))
                 self.writer.add_image(
                     '/'.join((mode, 'predictions')),
                     np.array(v.output),
