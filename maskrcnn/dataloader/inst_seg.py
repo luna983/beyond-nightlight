@@ -65,7 +65,7 @@ class InstSeg(Dataset):
         # construct a integer id for every image
         # as it is expected by the COCO API
         # this is done via simply dropping all characters
-        self.int_ids = [re.sub('\D', '', i) for i in self.ids]
+        self.int_ids = [int(re.sub('\D', '', i)) for i in self.ids]
 
         # check file existence
         assert all([os.path.isfile(f) for f in self.images])
