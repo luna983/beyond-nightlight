@@ -45,7 +45,7 @@ key_metric_name: mAP
 evaluate_training_sample: True
 
 # visualization parameters
-prob_visualization: 0.1
+prob_visualization: 1
 num_visualization: 30
 bbox_outline: [255, 255, 255, 255]  # white
 label_fill: [255, 255, 255, 255]  # white

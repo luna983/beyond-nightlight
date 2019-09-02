@@ -10,10 +10,10 @@ in_infer_img_dir: Image
 in_infer_img_suffix: .png
 
 # output directory
-out_mask_dir: data/Pred
+out_mask_dir: data/AerialHistory/Pred
 
 # visualization directory
-out_visual_dir: data/Visual
+out_visual_dir: data/AerialHistory/Visual
 
 # visualization parameters
 category_palette:

@@ -19,10 +19,10 @@ in_tv_mask_dir: Mask
 in_tv_mask_suffix: .jpg.json
 
 # output directory
-out_mask_dir: data/Pred
+out_mask_dir: data/GoogleEarthPro/Pred
 
 # visualization directory
-out_visual_dir: data/Visual
+out_visual_dir: data/GoogleEarthPro/Visual
 
 # visualization parameters
 category_palette:

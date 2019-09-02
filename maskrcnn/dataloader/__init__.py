@@ -3,24 +3,31 @@ from torch.utils.data import DataLoader
 from .inst_seg import InstSeg
 
 
-def collate_fn(batch, mode):
+def collate_fn_train(batch):
     """Helper function to collate lists of image/target pairs into a batch.
 
     Args:
         batch (tuple): image target pairs.
-        mode (str): in ['train', 'val', 'infer']
 
     Returns:
         tuple[N]: containing N (image, target) pairs, dropping empty images
             in training mode
     """
-    if mode in ['train']:
-        return tuple([(image, target) for image, target in zip(*batch)
-                      if target is not None])
-    elif mode in ['val', 'infer']:
-        return tuple(zip(*batch))
-    else:
-        raise NotImplementedError
+    return tuple([(image, target) for image, target in zip(*batch)
+                  if target is not None])
+
+
+def collate_fn_infer(batch):
+    """Helper function to collate lists of image/target pairs into a batch.
+
+    Args:
+        batch (tuple): image target pairs.
+
+    Returns:
+        tuple[N]: containing N (image, target) pairs, dropping empty images
+            in training mode
+    """
+    return tuple(zip(*batch))
 
 
 def make_data_loader(cfg, modes, **kwargs):
@@ -44,12 +51,12 @@ def make_data_loader(cfg, modes, **kwargs):
         if mode in ['train']:
             data_loader = DataLoader(
                 data_set, shuffle=True,
-                collate_fn=collate_fn, pin_memory=True,
+                collate_fn=collate_fn_train, pin_memory=True,
                 **kwargs)
         elif mode in ['val', 'infer']:
             data_loader = DataLoader(
                 data_set, shuffle=False,
-                collate_fn=collate_fn, pin_memory=True,
+                collate_fn=collate_fn_infer, pin_memory=True,
                 **kwargs)
         else:
             raise NotImplementedError

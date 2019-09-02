@@ -40,7 +40,7 @@ class Trainer(object):
         params = {
             'batch_size': cfg.batch_size,
             'num_workers': cfg.num_workers}
-        if cfg.infer:
+        if 'infer' in cfg.mode:
             (self.val_loader,), (self.val_ids,) = make_data_loader(
                 cfg, modes=['infer'], **params)
         else:
@@ -230,7 +230,7 @@ if __name__ == '__main__':
 
     # parse configurations
     cfg = Config()
-    cfg.update(args.config)
+    cfg.update([os.path.join('config', f) for f in args.config])
 
     # update config
     if not args.no_cuda:
@@ -249,6 +249,7 @@ if __name__ == '__main__':
         cfg.resume_dir = os.path.join(cfg.runs_dir, args.resume_run)
         assert os.path.exists(cfg.resume_dir)
     cfg.num_classes = len(cfg.label_dict) + 1  # including background
+    assert args.mode in [['infer'], ['train'], ['train', 'val']]
     cfg.mode = args.mode
 
     # train/val/infer starts
@@ -269,7 +270,5 @@ if __name__ == '__main__':
                 trainer.evaluate(eval_sample)
             trainer.save_checkpoint()
     if 'infer' in cfg.mode:
-        trainer.save_gt_annotations('infer')
         trainer.infer('infer')
-        trainer.evaluate('infer')
     trainer.close()
