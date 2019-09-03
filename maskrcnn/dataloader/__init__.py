@@ -3,7 +3,7 @@ from torch.utils.data import DataLoader
 from .inst_seg import InstSeg
 
 
-def collate_fn_train(batch):
+def collate_fn_trainval(batch):
     """Helper function to collate lists of image/target pairs into a batch.
 
     Args:
@@ -51,10 +51,16 @@ def make_data_loader(cfg, modes, **kwargs):
         if mode in ['train']:
             data_loader = DataLoader(
                 data_set, shuffle=True,
-                collate_fn=collate_fn_train, pin_memory=True,
+                collate_fn=collate_fn_trainval, pin_memory=True,
                 **kwargs)
             ids.append(DataLoader(range(len(data_set)), **kwargs))
-        elif mode in ['val', 'infer']:
+        elif mode in ['val']:
+            data_loader = DataLoader(
+                data_set, shuffle=False,
+                collate_fn=collate_fn_trainval, pin_memory=True,
+                **kwargs)
+            ids.append(DataLoader(data_set.int_ids, **kwargs))
+        elif mode in ['infer']:
             data_loader = DataLoader(
                 data_set, shuffle=False,
                 collate_fn=collate_fn_infer, pin_memory=True,

@@ -262,11 +262,10 @@ if __name__ == '__main__':
 
     # train/val/infer starts
     trainer = Trainer(cfg)
-    if 'val' in cfg.mode:
-        for eval_sample in eval_samples:
-            trainer.save_gt_annotations(eval_sample)
-            trainer.infer(eval_sample)
-            trainer.evaluate(eval_sample)
+    for eval_sample in eval_samples:
+        trainer.save_gt_annotations(eval_sample) 
+        trainer.infer(eval_sample)
+        trainer.evaluate(eval_sample)
     if 'train' in cfg.mode:
         # training
         while trainer.epoch < cfg.epochs:
