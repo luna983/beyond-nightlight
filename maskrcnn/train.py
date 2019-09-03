@@ -134,10 +134,10 @@ class Trainer(object):
             loader, image_ids = self.val_loader, self.val_ids
         else:
             raise NotImplementedError
-        for i, (sample, image_id) in enumerate(zip(loader, image_ids)):
+        for i, (sample, id_batch) in enumerate(zip(loader, image_ids)):
             _, targets = sample
-            for target in targets:
-                cocosaver.add(target, image_id)
+            for target, image_id in (targets, id_batch):
+                cocosaver.add(target, image_id.item())
         cocosaver.save(mode)
 
     @torch.no_grad()
@@ -156,15 +156,16 @@ class Trainer(object):
             raise NotImplementedError
         cocosaver = COCOSaver(gt=False, cfg=self.cfg)
         self.model.eval()
-        for sample, image_id in tqdm(zip(loader, image_ids)):
+        for sample, id_batch in tqdm(zip(loader, image_ids)):
             images, targets = sample
             images_copy = copy.deepcopy(images)
             images = [im.to(self.device) for im in images]
             preds = self.model(images)
-            for image, target, pred in zip(images_copy, targets, preds):
+            for image, target, pred, image_id in zip(
+                images_copy, targets, preds, id_batch):
                 pred['masks'] = (pred['masks'].squeeze(1) >
                                  self.cfg.mask_threshold)
-                cocosaver.add(pred, image_id)
+                cocosaver.add(pred, image_id.item())
                 self.saver.log_tb_visualization(
                     mode=mode,
                     epoch=self.epoch,
@@ -179,7 +180,7 @@ class Trainer(object):
         Args:
             mode (str): the sample to be evaluated (train/val/infer).
         """
-        metrics = evaluate(self.cfg)
+        metrics = evaluate(self.cfg, mode)
         self.saver.log_tb_eval(
             mode=mode, metrics=metrics, epoch=self.epoch)
         if mode == 'val':

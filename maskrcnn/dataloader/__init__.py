@@ -53,15 +53,16 @@ def make_data_loader(cfg, modes, **kwargs):
                 data_set, shuffle=True,
                 collate_fn=collate_fn_train, pin_memory=True,
                 **kwargs)
+            ids.append(DataLoader(range(len(data_set)), **kwargs))
         elif mode in ['val', 'infer']:
             data_loader = DataLoader(
                 data_set, shuffle=False,
                 collate_fn=collate_fn_infer, pin_memory=True,
                 **kwargs)
+            ids.append(DataLoader(data_set.int_ids, **kwargs))
         else:
             raise NotImplementedError
 
         data_loaders.append(data_loader)
-        ids.append(data_set.int_ids)
 
     return data_loaders, ids
