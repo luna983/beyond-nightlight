@@ -9,6 +9,7 @@ import geopandas as gpd
 import rasterio
 from rasterio.windows import Window
 from rasterio.enums import Resampling
+from affine import Affine
 
 from PIL import Image
 
@@ -46,10 +47,14 @@ def load_chip(dataset, col_min, row_min):
         rasterio.Affine: the updated transform.
     """
     # update transforms
-    transform = dataset.transform
-    x_min, y_max = transform * (col_min, row_min)
-    transform = (transform.scale(DOWN_RESOLUTION_FACTOR)
-                          .translation(x_min, y_max))
+    x_min, y_max = dataset.transform * (col_min, row_min)
+    transform = Affine(
+        dataset.transform.a * DOWN_RESOLUTION_FACTOR,
+        dataset.transform.b,
+        x_min,
+        dataset.transform.d,
+        dataset.transform.e * DOWN_RESOLUTION_FACTOR,
+        y_max)
     # read array from raster
     raster_array = dataset.read(
         window=Window(col_off=col_min, row_off=row_min,
