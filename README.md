@@ -5,6 +5,9 @@
 
 ## TODOs NOW
 
-* [ ] `utils/preprocess_openaitanzania.py` is up and running but obviously GT images need to be inspected
-* [ ] I'm worried that int ids combined with instance ids will be too large, and pycocotools are using this integer to actually do calculations, it seems...for test datat this should be fine, but for google static maps this is really concerning...
-* [ ] w/o any pretraining, inference from a pretrained model produces very good results on a test image (within the COCO dataset), and a reasonable number of predictions. There is a mystery as to why the no. of predictions is consistently 100 for my model and I think that may either be due to failure to train, or be the reason why the model is not training.
+* [ ] I'm worried that int ids combined with instance ids will be too large, and pycocotools are using this integer to actually do calculations, it seems...for test datat this should be fine, but for google static maps this is really concerning... - not having an issue with it for the moment with openaitanzania, but we will see! Maybe this does slow down eval uncessaraily though. - Look, just do an instance counter would solve a lot of the problems, we could even have a separate image id and a real id, just to make sure that eval is efficient and we can connect this to postprocessing easily.
+* [ ] There remains to be a mystery as to why there are so many duplicate instances (of different classes) on any given instance. This is true for train images also, so not an issue of overfitting, but if you look closely, some do look like there is a dominant class actually. Need to look into computation of losses more, but I wonder if adjusting the weights of losses would help.
+* [ ] anchor generator definitely seems like a promosing thing to try
+* [ ] noticing some dramatic errors on unsupported empty images (forests, etc.)
+* [ ] tuning (increasing) nms max would help (reduce instances) I think. For aerial images, overlapping houses are not that common anyways.
+* [ ] a feature needs to be added (sampled training sample eval) as the training sample is large and evaling the whole sample is unnecessary.
