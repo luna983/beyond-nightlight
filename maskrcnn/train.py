@@ -252,15 +252,16 @@ if __name__ == '__main__':
     assert args.mode in [['infer'], ['train'], ['val'], ['train', 'val']]
     cfg.mode = args.mode
 
+    # construct eval sample
+    eval_samples = []
+    if cfg.evaluate_training_sample:
+        eval_samples.append('train')
+    if 'val' in cfg.mode:
+        eval_samples.append('val')
+
     # train/val/infer starts
     trainer = Trainer(cfg)
     if 'val' in cfg.mode:
-        # evaluate
-        eval_samples = []
-        if cfg.evaluate_training_sample:
-            eval_samples.append('train')
-        if 'val' in cfg.mode:
-            eval_samples.append('val')
         for eval_sample in eval_samples:
             trainer.save_gt_annotations(eval_sample)
             trainer.infer(eval_sample)
@@ -269,12 +270,6 @@ if __name__ == '__main__':
         # training
         while trainer.epoch < cfg.epochs:
             trainer.train()
-            # evaluate
-            eval_samples = []
-            if cfg.evaluate_training_sample:
-                eval_samples.append('train')
-            if 'val' in cfg.mode:
-                eval_samples.append('val')
             for eval_sample in eval_samples:
                 trainer.save_gt_annotations(eval_sample)
                 trainer.infer(eval_sample)
