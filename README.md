@@ -6,4 +6,5 @@
 ## TODOs NOW
 
 * [ ] `utils/preprocess_openaitanzania.py` is up and running but obviously GT images need to be inspected
+* [ ] I'm worried that int ids combined with instance ids will be too large, and pycocotools are using this integer to actually do calculations, it seems...for test datat this should be fine, but for google static maps this is really concerning...
 * [ ] w/o any pretraining, inference from a pretrained model produces very good results on a test image (within the COCO dataset), and a reasonable number of predictions. There is a mystery as to why the no. of predictions is consistently 100 for my model and I think that may either be due to failure to train, or be the reason why the model is not training.

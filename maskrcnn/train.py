@@ -216,8 +216,8 @@ if __name__ == '__main__':
 
     # collect command line arguments
     parser = argparse.ArgumentParser(description='Run Mask RCNN.')
-    parser.add_argument('--config', nargs='+', type=str, default=None,
-                        help='Path to config files.')
+    parser.add_argument('--dataset', type=str, default=None,
+                        help='Specify dataset.')
     parser.add_argument('--mode', nargs='+', type=str, default=None,
                         help='In train, val or infer mode.')
     parser.add_argument('--resume-run', type=str, default=None,
@@ -230,7 +230,8 @@ if __name__ == '__main__':
 
     # parse configurations
     cfg = Config()
-    cfg.update([os.path.join('config', f) for f in args.config])
+    cfg.update([os.path.join('config', f + '.yaml')
+                for f in ['main', args.dataset]])
 
     # update config
     if not args.no_cuda:

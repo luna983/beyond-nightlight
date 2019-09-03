@@ -107,7 +107,7 @@ class COCOSaver(object):
                     'category_id': int(label),
                     # assuming no more than 1000 annotations per image
                     # create instance id
-                    'id': image_id * 1000 + i})
+                    'id': image_id * 1000 + i + 1})  # 0 is reserved, count from 1
             self.images.append({
                 'id': image_id,
                 'height': height,

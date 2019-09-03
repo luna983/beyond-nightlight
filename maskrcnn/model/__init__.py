@@ -11,9 +11,11 @@ def make_model(cfg):
     """
 
     if cfg.model_name == 'maskrcnn_resnet50_fpn':
-        model = maskrcnn_resnet50_fpn(
-            num_classes=cfg.num_classes,
-            pretrained=cfg.coco_pretrained)
+        if cfg.coco_pretrained:
+            model = maskrcnn_resnet50_fpn(pretrained=True)
+        else:
+            model = maskrcnn_resnet50_fpn(
+                num_classes=cfg.num_classes, pretrained=False)
         pretrained_num_classes = (model.roi_heads
                                        .mask_predictor
                                        .mask_fcn_logits
