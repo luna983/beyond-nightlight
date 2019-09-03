@@ -143,7 +143,7 @@ if __name__ == '__main__':
     CHIP_SIZE = 800  # pixels
     DOWN_RESOLUTION_FACTOR = 1  # resolution = this x 7.7cm
     WINDOW_SIZE = CHIP_SIZE * DOWN_RESOLUTION_FACTOR
-    SAMPLE_RATIO = 0.01
+    SAMPLE_RATIO = 1
     # process every file
     for file_id in tqdm(file_ids):
         process_file(file_id)

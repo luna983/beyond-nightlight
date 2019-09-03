@@ -14,17 +14,17 @@ num_workers: 3
 # training data augmentation params
 random_crop_height: 1  # (0, 1], ratio of random crop
 random_crop_width: 1  # (0, 1], ratio of random crop
-brightness: 0
-contrast: 0
-saturation: 0
-hue: 0
-vertical_flip: 0
-horizontal_flip: 0
+brightness: 0.05
+contrast: 0.05
+saturation: 0.05
+hue: 0.05
+vertical_flip: 0.5
+horizontal_flip: 0.5
 resize_height: 800  # size of tensors fed into Mask R-CNN
 resize_width: 800  # size of tensors fed into Mask R-CNN
 
 # training schedule
-epochs: 50
+epochs: 100
 batch_size_per_gpu: 3
 # num_gpus: inferred from torch.cuda.device_count()
 # batch_size: inferred from num_gpus and batch_size_per_gpu
