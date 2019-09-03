@@ -8,7 +8,7 @@ label_dict:  # values should be [1, 2, 3, ..., N]
 # num_classes: inferred from label_dict
 
 # data loader
-train_ratio: 0.5  # null if train.txt and val.txt exist
+train_ratio: 0.9  # null if train.txt and val.txt exist
 
 # trainval directory
 in_tv_dir: data/OpenAITanzania
