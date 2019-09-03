@@ -130,7 +130,7 @@ if __name__ == '__main__':
     IN_IMAGE_DIR = 'data/OpenAITanzania/GeoTIFF/'
     IN_ANN_DIR = 'data/OpenAITanzania/GeoJSON/'
     OUT_IMAGE_DIR = 'data/OpenAITanzania/Image/'
-    OUT_ANN_DIR = 'data/OpenAITanzania/Ann/'
+    OUT_ANN_DIR = 'data/OpenAITanzania/Mask/'
     # construct list of training file ids
     file_ids = [os.path.basename(f).split('.')[0]
                 for f in glob(os.path.join(IN_ANN_DIR, '*.geojson'))]
