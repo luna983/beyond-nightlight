@@ -66,7 +66,7 @@ class Trainer(object):
         if os.path.isfile(ckpt_file):
             print('Loading checkpoint {}'.format(ckpt_file))
             ckpt = torch.load(ckpt_file)
-            self.start_epoch = ckpt['epoch'] + 1
+            self.start_epoch = ckpt['epoch']
             self.model.load_state_dict(ckpt['state_dict'])
             self.optimizer.load_state_dict(ckpt['optimizer'])
         else:
@@ -80,7 +80,7 @@ class Trainer(object):
             self.best_metrics = None
         if 'train' in cfg.mode:
             print('Starting from epoch {} to epoch {}...'
-                  .format(self.start_epoch, cfg.epochs - 1))
+                  .format(self.start_epoch, cfg.epochs))
             self.epoch = self.start_epoch
         else:
             self.start_epoch = 0  # placeholder
@@ -90,9 +90,9 @@ class Trainer(object):
 
     def train(self):
         """Train the model."""
-
+        self.epoch += 1
         print('=' * 72)
-        print('Epoch [{} / {}]'.format(self.epoch, self.cfg.epochs - 1))
+        print('Epoch [{}]'.format(self.epoch))
         print('Training...')
         self.model.train()
         losses = []
@@ -119,7 +119,6 @@ class Trainer(object):
             self.lr_scheduler.step()
         self.saver.log_tb_loss(mode='train', losses=losses,
                                loss_dicts=loss_dicts, epoch=self.epoch)
-        self.epoch += 1
 
     def save_gt_annotations(self, mode):
         """Saves the ground truth annotations as COCO format.
@@ -136,7 +135,7 @@ class Trainer(object):
             raise NotImplementedError
         for i, (sample, id_batch) in enumerate(zip(loader, image_ids)):
             _, targets = sample
-            for target, image_id in (targets, id_batch):
+            for target, image_id in zip(targets, id_batch):
                 cocosaver.add(target, image_id.item())
         cocosaver.save(mode)
 
@@ -250,11 +249,22 @@ if __name__ == '__main__':
         cfg.resume_dir = os.path.join(cfg.runs_dir, args.resume_run)
         assert os.path.exists(cfg.resume_dir)
     cfg.num_classes = len(cfg.label_dict) + 1  # including background
-    assert args.mode in [['infer'], ['train'], ['train', 'val']]
+    assert args.mode in [['infer'], ['train'], ['val'], ['train', 'val']]
     cfg.mode = args.mode
 
     # train/val/infer starts
     trainer = Trainer(cfg)
+    if 'val' in cfg.mode:
+        # evaluate
+        eval_samples = []
+        if cfg.evaluate_training_sample:
+            eval_samples.append('train')
+        if 'val' in cfg.mode:
+            eval_samples.append('val')
+        for eval_sample in eval_samples:
+            trainer.save_gt_annotations(eval_sample)
+            trainer.infer(eval_sample)
+            trainer.evaluate(eval_sample)
     if 'train' in cfg.mode:
         # training
         while trainer.epoch < cfg.epochs:

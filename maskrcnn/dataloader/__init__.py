@@ -10,11 +10,11 @@ def collate_fn_train(batch):
         batch (tuple): image target pairs.
 
     Returns:
-        tuple[N]: containing N (image, target) pairs, dropping empty images
+        tuple: containing N images and N targets, dropping empty images
             in training mode
     """
-    return tuple([(image, target) for image, target in zip(*batch)
-                  if target is not None])
+    nonempty = [(image, target) for image, target in batch if target is not None]
+    return tuple(zip(*nonempty))
 
 
 def collate_fn_infer(batch):
@@ -24,7 +24,7 @@ def collate_fn_infer(batch):
         batch (tuple): image target pairs.
 
     Returns:
-        tuple[N]: containing N (image, target) pairs, dropping empty images
+        tuple: containing N images and N targets, dropping empty images
             in training mode
     """
     return tuple(zip(*batch))

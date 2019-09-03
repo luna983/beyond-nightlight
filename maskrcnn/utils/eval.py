@@ -1,4 +1,5 @@
 import os
+import json
 from pycocotools.coco import COCO
 from utils.coco import COCOeval
 
@@ -12,8 +13,16 @@ def evaluate(cfg, mode):
     """
     GT = COCO(os.path.join(cfg.out_mask_dir, mode,
                            'annotations_gt.json'))
-    DT = GT.loadRes(os.path.join(cfg.out_mask_dir, mode,
-                                 'annotations_pred.json'))
+    try:
+        DT = GT.loadRes(os.path.join(cfg.out_mask_dir, mode,
+                                     'annotations_pred.json'))
+    except IndexError:
+        # in case no instances were predicted
+        with open(os.path.join(cfg.out_mask_dir, mode,
+                               'annotations_pred.json'), 'r') as f:
+            DT = json.load(f)
+            assert len(DT) == 0
+            return None
     E = COCOeval(cocoGt=GT, cocoDt=DT)
     # set new evaluation params
     E.params.maxDets = [100]
