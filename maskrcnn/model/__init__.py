@@ -1,6 +1,8 @@
 from torchvision.models.detection import maskrcnn_resnet50_fpn
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
-from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
+from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor, MaskRCNN
+from torchvision.models.detection.rpn import AnchorGenerator
+from torchvision.models.detection.backbone_utils import resnet_fpn_backbone
 
 
 def make_model(cfg):
@@ -38,6 +40,17 @@ def make_model(cfg):
                 model.roi_heads.mask_predictor.conv5_mask.out_channels,
                 # num_classes
                 cfg.num_classes)
+    elif cfg.model_name == 'adjust_anchor':
+        anchor_generator = AnchorGenerator(
+            sizes=((16, 32, 64, 128),),
+            aspect_ratios=((1.0,),))
+        backbone = resnet_fpn_backbone('resnet50', pretrained=True)
+        model = MaskRCNN(
+            backbone=backbone,
+            num_classes=cfg.num_classes,
+            rpn_anchor_generator=anchor_generator,
+            rpn_nms_thresh=0.5,
+            box_score_thresh=0.4)
     else:
         raise NotImplementedError
     return model

@@ -75,10 +75,10 @@ def geocode2pixel(geom, transform):
 
     Returns:
         dict: a geometry that has been transformed.
-           Exterior is a list of coordinates.
-           [(x0, y0), (x1, y1), (x2, y2), ...]
-           Interior is a list of lists of coordinates.
-           Multipart polygon is not supported.
+            Exterior is a list of coordinates.
+            [(x0, y0), (x1, y1), (x2, y2), ...]
+            Interior is a list of lists of coordinates.
+            Multipart polygon is not supported.
     """
     ext_coords = [(~transform) * coord for coord in geom.exterior.coords]
     int_coords = [[(~transform) * coord for coord in interior.coords]

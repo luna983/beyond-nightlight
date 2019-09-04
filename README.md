@@ -1,3 +1,6 @@
+## Mask RCNN
+[This medium article on Faster RCNN](https://medium.com/@fractaldle/guide-to-build-faster-rcnn-in-pytorch-95b10c273439) and [this medium article on Mask RCNN] is really helpful in explaining the mechanics of the model.
+
 ## Known Issues
 
 * Empty images cannot be handled by the current model (the error is intentional and thrown when trying to go through matchers, not sure how an empty image should be evaluated and what loss should be returned, our data contain plenty of empty space in a non-empty image anyways, so I'm not going to try and fix that; right now the empty images are dropped when going through the collate function, and when preprocessing empty images are sometimes dropped to improve efficiency. Note that because of this, val and infer images will have a much high proportion of images that are empty, which may or may not be a problem).
