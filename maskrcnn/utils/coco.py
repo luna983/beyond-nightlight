@@ -73,6 +73,8 @@ class COCOSaver(object):
         self.gt = gt
         self.cfg = cfg
         self.annotations = []
+        self.coco_image_id = 0
+        self.coco_instance_id = 0
         if gt:
             self.images = []
 
@@ -83,6 +85,7 @@ class COCOSaver(object):
             annotation (dict of torch.Tensor): follow Mask RCNN output format.
             image_id (str): the id of the image.
         """
+        self.coco_image_id += 1
         if self.gt:
             labels = annotation['labels'].numpy()
             masks = annotation['masks'].numpy().astype(np.uint8)
@@ -97,19 +100,19 @@ class COCOSaver(object):
             # loop over every instance in the image
             for i, (rle, area, label, mask, box) in enumerate(zip(
                 rles, areas, labels, masks, boxes)):
+                self.coco_instance_id += 1
                 rle['counts'] = rle['counts'].decode('ascii')
                 self.annotations.append({
                     'segmentation': rle,
                     'area': int(area),
                     'iscrowd': 0,  # set this to 0, otherwise eval fails
                     'bbox': box.tolist(),
-                    'image_id': image_id,
+                    'image_id_str': image_id,  # for postprocessing
+                    'image_id': self.coco_image_id,  # internal coco eval
                     'category_id': int(label),
-                    # assuming no more than 1000 annotations per image
-                    # create instance id
-                    'id': image_id * 1000 + i + 1})  # 0 is reserved, count from 1
+                    'id': self.coco_instance_id})  # 0 reserved, count from 1
             self.images.append({
-                'id': image_id,
+                'id': self.coco_image_id,
                 'height': height,
                 'width': width})
         else:
@@ -132,7 +135,8 @@ class COCOSaver(object):
                          'bbox': box.tolist(),
                          'score': float(score),
                          'area': float(area),
-                         'image_id': image_id,
+                         'image_id_str': image_id,  # for postprocessing
+                         'image_id': self.coco_image_id,  # internal coco eval
                          'category_id': int(label)})
 
     def save(self, mode):

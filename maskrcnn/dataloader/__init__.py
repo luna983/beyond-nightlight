@@ -13,7 +13,8 @@ def collate_fn_trainval(batch):
         tuple: containing N images and N targets, dropping empty images
             in training mode
     """
-    nonempty = [(image, target) for image, target in batch if target is not None]
+    nonempty = [(image, target)
+                for image, target in batch if target is not None]
     return tuple(zip(*nonempty))
 
 
@@ -53,19 +54,19 @@ def make_data_loader(cfg, modes, **kwargs):
                 data_set, shuffle=True,
                 collate_fn=collate_fn_trainval, pin_memory=True,
                 **kwargs)
-            ids.append(DataLoader(range(len(data_set)), **kwargs))
+            ids.append(DataLoader([''] * len(data_set), **kwargs))
         elif mode in ['val']:
             data_loader = DataLoader(
                 data_set, shuffle=False,
                 collate_fn=collate_fn_trainval, pin_memory=True,
                 **kwargs)
-            ids.append(DataLoader(data_set.int_ids, **kwargs))
+            ids.append(DataLoader(data_set.ids, **kwargs))
         elif mode in ['infer']:
             data_loader = DataLoader(
                 data_set, shuffle=False,
                 collate_fn=collate_fn_infer, pin_memory=True,
                 **kwargs)
-            ids.append(DataLoader(data_set.int_ids, **kwargs))
+            ids.append(DataLoader(data_set.ids, **kwargs))
         else:
             raise NotImplementedError
 
