@@ -95,6 +95,7 @@ class Trainer(object):
         print('Epoch [{}]'.format(self.epoch))
         print('Training...')
         self.model.train()
+        self.optimizer.zero_grad()
         losses = []
         loss_dicts = []
         for i, sample in enumerate(self.train_loader):
@@ -112,9 +113,10 @@ class Trainer(object):
             loss_dicts.append({k: v.detach().cpu()
                                for k, v in loss_dict.items()})
             # backward pass
-            self.optimizer.zero_grad()
             loss.backward()
-            self.optimizer.step()
+            if (i + 1) % self.cfg.batch_size_multiplier == 0:
+                self.optimizer.step()
+                self.optimizer.zero_grad()
             # update the learning rate
             self.lr_scheduler.step()
         self.saver.log_tb_loss(mode='train', losses=losses,
@@ -136,16 +138,15 @@ class Trainer(object):
         for i, (sample, id_batch) in enumerate(zip(loader, image_ids)):
             _, targets = sample
             for target, image_id in zip(targets, id_batch):
-                cocosaver.add(target, image_id.item())
+                cocosaver.add(target, image_id)
         cocosaver.save(mode)
 
     @torch.no_grad()
-    def infer(self, mode, max_batch=None):
+    def infer(self, mode):
         """Run inference on the model.
 
         Args:
             mode (str): the sample to be evaluated (train/val/infer).
-            max_batch (int): max no. of batches to be evaluted.
         """
         print('Running inference...')
         if mode == 'train':
@@ -156,10 +157,7 @@ class Trainer(object):
             raise NotImplementedError
         cocosaver = COCOSaver(gt=False, cfg=self.cfg)
         self.model.eval()
-        for i, (sample, id_batch) in tqdm(enumerate(zip(loader, image_ids))):
-            if max_batch is not None:
-                if i >= max_batch:
-                    break
+        for sample, id_batch in tqdm(zip(loader, image_ids)):
             images, targets = sample
             images_copy = copy.deepcopy(images)
             images = [im.to(self.device) for im in images]
@@ -168,7 +166,7 @@ class Trainer(object):
                 images_copy, targets, preds, id_batch):
                 pred['masks'] = (pred['masks'].squeeze(1) >
                                  self.cfg.mask_threshold)
-                cocosaver.add(pred, image_id.item())
+                cocosaver.add(pred, image_id)
                 self.saver.log_tb_visualization(
                     mode=mode,
                     epoch=self.epoch,
@@ -268,7 +266,7 @@ if __name__ == '__main__':
     trainer = Trainer(cfg)
     for eval_sample in eval_samples:
         trainer.save_gt_annotations(eval_sample)
-        trainer.infer(eval_sample, max_batch=cfg.eval_max_batch)
+        trainer.infer(eval_sample)
         trainer.evaluate(eval_sample)
     if 'train' in cfg.mode:
         # training
@@ -276,7 +274,7 @@ if __name__ == '__main__':
             trainer.train()
             for eval_sample in eval_samples:
                 trainer.save_gt_annotations(eval_sample)
-                trainer.infer(eval_sample, max_batch=cfg.eval_max_batch)
+                trainer.infer(eval_sample)
                 trainer.evaluate(eval_sample)
             trainer.save_checkpoint()
     if 'infer' in cfg.mode:

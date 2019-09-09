@@ -10,7 +10,7 @@ model_to_load: checkpoint.pth.tar
 
 # data loader
 num_workers: 3
-grayscale: False
+grayscale: True
 
 # training data augmentation params
 random_crop_height: 1  # (0, 1], ratio of random crop
@@ -27,6 +27,7 @@ resize_width: 800  # size of tensors fed into Mask R-CNN
 # training schedule
 epochs: 100
 batch_size_per_gpu: 3
+batch_size_multiplier: 8
 # num_gpus: inferred from torch.cuda.device_count()
 # batch_size: inferred from num_gpus and batch_size_per_gpu
 
@@ -36,15 +37,14 @@ coco_pretrained: True
 swap_model_predictors: False  # always True if num_classes differ
 
 # optimizer parameters
-lr: 0.0001
-lr_scheduler_step_size: 50
+lr: 0.01
+lr_scheduler_step_size: 100
 lr_scheduler_gamma: 0.1
 
 # evaluation parameters
 mask_threshold: 0.5
 key_metric_name: mAP
 evaluate_training_sample: False
-eval_max_batch: 50
 
 # visualization parameters
 prob_visualization: .05
