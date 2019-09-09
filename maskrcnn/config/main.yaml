@@ -27,7 +27,7 @@ resize_width: 800  # size of tensors fed into Mask R-CNN
 # training schedule
 epochs: 100
 batch_size_per_gpu: 3
-batch_size_multiplier: 8
+batch_size_multiplier: 4
 # num_gpus: inferred from torch.cuda.device_count()
 # batch_size: inferred from num_gpus and batch_size_per_gpu
 
@@ -37,7 +37,7 @@ coco_pretrained: True
 swap_model_predictors: False  # always True if num_classes differ
 
 # optimizer parameters
-lr: 0.01
+lr: 0.001
 lr_scheduler_step_size: 100
 lr_scheduler_gamma: 0.1
 

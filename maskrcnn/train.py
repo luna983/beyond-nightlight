@@ -218,6 +218,8 @@ if __name__ == '__main__':
 
     # collect command line arguments
     parser = argparse.ArgumentParser(description='Run Mask RCNN.')
+    parser.add_argument('--comment', type=str, default=None,
+                        help='Name of the run.')
     parser.add_argument('--config', nargs='+', type=str, default=None,
                         help='Specify config files.')
     parser.add_argument('--mode', nargs='+', type=str, default=None,
@@ -254,6 +256,7 @@ if __name__ == '__main__':
     cfg.num_classes = len(cfg.label_dict) + 1  # including background
     assert args.mode in [['infer'], ['train'], ['val'], ['train', 'val']]
     cfg.mode = args.mode
+    cfg.comment = args.comment
 
     # construct eval sample
     eval_samples = []
