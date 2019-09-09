@@ -10,6 +10,7 @@ model_to_load: checkpoint.pth.tar
 
 # data loader
 num_workers: 3
+grayscale: False
 
 # training data augmentation params
 random_crop_height: 1  # (0, 1], ratio of random crop
@@ -43,6 +44,7 @@ lr_scheduler_gamma: 0.1
 mask_threshold: 0.5
 key_metric_name: mAP
 evaluate_training_sample: False
+eval_max_batch: 50
 
 # visualization parameters
 prob_visualization: .05

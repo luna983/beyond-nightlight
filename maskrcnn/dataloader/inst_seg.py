@@ -76,8 +76,11 @@ class InstSeg(Dataset):
         self.cfg = cfg
 
     def __getitem__(self, index):
-        image = Image.open(self.images[index]).convert('RGB')
-
+        image = Image.open(self.images[index])
+        if self.cfg.grayscale:
+            image = image.convert('L').convert('RGB')
+        else:
+            image = image.convert('RGB')
         if self.mode in ['train', 'val']:
             target = InstanceMask()
             target.from_file(

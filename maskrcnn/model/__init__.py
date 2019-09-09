@@ -42,15 +42,15 @@ def make_model(cfg):
                 cfg.num_classes)
     elif cfg.model_name == 'adjust_anchor':
         anchor_generator = AnchorGenerator(
-            sizes=((16, 32, 64, 128),),
-            aspect_ratios=((1.0,),))
+            sizes=((16,), (32,), (64,), (128,), (256,)),
+            aspect_ratios=((0.8, 1.0, 1.25),) * 5)
         backbone = resnet_fpn_backbone('resnet50', pretrained=True)
         model = MaskRCNN(
             backbone=backbone,
             num_classes=cfg.num_classes,
-            rpn_anchor_generator=anchor_generator,
-            rpn_nms_thresh=0.5,
-            box_score_thresh=0.4)
+            # rpn_anchor_generator=anchor_generator,
+            # rpn_nms_thresh=0.5,
+            box_score_thresh=0.05)
     else:
         raise NotImplementedError
     return model

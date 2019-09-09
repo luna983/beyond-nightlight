@@ -140,11 +140,12 @@ class Trainer(object):
         cocosaver.save(mode)
 
     @torch.no_grad()
-    def infer(self, mode):
+    def infer(self, mode, max_batch=None):
         """Run inference on the model.
 
         Args:
             mode (str): the sample to be evaluated (train/val/infer).
+            max_batch (int): max no. of batches to be evaluted.
         """
         print('Running inference...')
         if mode == 'train':
@@ -155,7 +156,10 @@ class Trainer(object):
             raise NotImplementedError
         cocosaver = COCOSaver(gt=False, cfg=self.cfg)
         self.model.eval()
-        for sample, id_batch in tqdm(zip(loader, image_ids)):
+        for i, (sample, id_batch) in tqdm(enumerate(zip(loader, image_ids))):
+            if max_batch is not None:
+                if i >= max_batch:
+                    break
             images, targets = sample
             images_copy = copy.deepcopy(images)
             images = [im.to(self.device) for im in images]
@@ -264,7 +268,7 @@ if __name__ == '__main__':
     trainer = Trainer(cfg)
     for eval_sample in eval_samples:
         trainer.save_gt_annotations(eval_sample)
-        trainer.infer(eval_sample)
+        trainer.infer(eval_sample, max_batch=cfg.eval_max_batch)
         trainer.evaluate(eval_sample)
     if 'train' in cfg.mode:
         # training
@@ -272,7 +276,7 @@ if __name__ == '__main__':
             trainer.train()
             for eval_sample in eval_samples:
                 trainer.save_gt_annotations(eval_sample)
-                trainer.infer(eval_sample)
+                trainer.infer(eval_sample, max_batch=cfg.eval_max_batch)
                 trainer.evaluate(eval_sample)
             trainer.save_checkpoint()
     if 'infer' in cfg.mode:
