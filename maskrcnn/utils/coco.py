@@ -153,7 +153,7 @@ class COCOSaver(object):
                     'images': self.images,
                     'categories': [
                         {'id': i, 'name': name}
-                        for name, i in self.cfg.label_dict.items()]}, f)
+                        for i, name in self.cfg.int_dict.items()]}, f)
         else:
             with open(os.path.join(self.cfg.out_mask_dir, mode,
                                    'annotations_pred.json'), 'w') as f:

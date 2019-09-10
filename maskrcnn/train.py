@@ -247,10 +247,12 @@ if __name__ == '__main__':
     else:
         cfg.resume_dir = os.path.join(cfg.runs_dir, args.resume_run)
         assert os.path.exists(cfg.resume_dir)
-    cfg.num_classes = len(cfg.label_dict) + 1  # including background
     assert args.mode in [['infer'], ['train'], ['val'], ['train', 'val']]
     cfg.mode = args.mode
     cfg.comment = args.comment
+    # construct int-str mapping
+    if cfg.int_dict is None:
+        cfg.int_dict = {i: name for name, i in cfg.label_dict.items()}
 
     # construct eval sample
     eval_samples = []

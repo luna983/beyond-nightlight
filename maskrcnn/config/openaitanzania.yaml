@@ -2,10 +2,12 @@
 dataset: openaitanzania
 mask_format: openaitanzania
 label_dict:  # values should be [1, 2, 3, ..., N]
-    'Foundation': 1
-    'Incomplete': 2
-    'Complete': 3
-# num_classes: inferred from label_dict
+    'Foundation': 0
+    'Incomplete': 1
+    'Complete': 1
+int_dict:
+    1: 'house'
+num_classes: 2  # including background
 
 # data loader
 train_ratio: 0.9  # null if train.txt and val.txt exist

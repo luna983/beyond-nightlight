@@ -7,10 +7,10 @@
 * This code is not compatible with the `torch.nn.DataParallel` utilities. This is because when distribution happens within the `DataParallel` module, only `torch.Tensor` objects are treated as mini-batches and can be distributed (`scatter()`ed). This results in errors when the module attempts to split single image onto multiple GPUs and the color dimension is corrupted. `DistributedDataParallel()` have to be used and some sample code is available in [`torchvision/references/detection/train.py`](https://github.com/pytorch/vision/blob/master/references/detection/train.py).
 
 ## TODOs
-- [ ] rerun preprocessing code to sample larger images
-- [ ] change data augmentation to make the images smaller
-- [ ] some concerns over whether AP is calculated properly
-- [ ] implement a feature dropping low confidence instances when visualizing
-- [ ] collapse categories in label_dict, and visualize/save another set of labels
+- [x] rerun preprocessing code to sample larger images
+- [x] change data augmentation to make the images smaller
+- [x] implement a feature dropping low confidence instances when visualizing
+- [x] collapse categories in label_dict, and visualize/save another set of labels
 - [ ] try a larger lr
 - [ ] try larger batch size
+- [ ] some concerns over whether AP is calculated properly

@@ -6,7 +6,8 @@ label_dict:  # values should be [1, 2, 3, ..., N]
     'Unfinished House': 2
     'Tin Roof': 3
     'Colored Roof': 4
-# num_classes: inferred from label_dict
+int_dict: null
+num_classes: 5  # including background
 
 # data loader
 train_ratio: 0.85  # null if train.txt and val.txt exist

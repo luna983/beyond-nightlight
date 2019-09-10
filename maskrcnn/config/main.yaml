@@ -13,8 +13,8 @@ num_workers: 3
 grayscale: True
 
 # training data augmentation params
-random_crop_height: 1  # (0, 1], ratio of random crop
-random_crop_width: 1  # (0, 1], ratio of random crop
+random_crop_height: 0.7  # (0, 1], ratio of random crop
+random_crop_width: 0.7  # (0, 1], ratio of random crop
 brightness: 0.05
 contrast: 0.05
 saturation: 0.05
@@ -45,10 +45,11 @@ key_metric_name: mAP
 evaluate_training_sample: False
 
 # visualization parameters
-prob_visualization: .05
+prob_visualization: .5
 num_visualization: 30
+visual_score_cutoff: 0.1
 bbox_outline: [255, 255, 255, 255]  # white
 label_fill: [255, 255, 255, 255]  # white
 up_scale: 2  # to improve visualization quality
-font: utils/fonts/helvetica-light.ttf
+font: utils/fonts/UbuntuMono-B.ttf
 font_size: 25

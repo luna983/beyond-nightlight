@@ -58,10 +58,11 @@ class InstSegVisualization(object):
         output_draw = ImageDraw.Draw(self.output)
         # check existence of instances
         if not self.boxes.shape[0] == 0:
-            for box in self.boxes:
-                output_draw.rectangle(
-                    box * self.up_scale,
-                    outline=tuple(self.cfg.bbox_outline))
+            for box, score in zip(self.boxes, self.scores):
+                if score > self.cfg.visual_score_cutoff:
+                    output_draw.rectangle(
+                        box * self.up_scale,
+                        outline=tuple(self.cfg.bbox_outline))
 
     def add_label(self):
         """Adds labels for all instances.
@@ -69,14 +70,13 @@ class InstSegVisualization(object):
         output_draw = ImageDraw.Draw(self.output)
         # check existence of instances
         if not self.labels.shape[0] == 0:
-            rev_label_dict = {
-                val: name for name, val in self.cfg.label_dict.items()}
-            for box, label in zip(self.boxes, self.labels):
-                output_draw.text(
-                    (box[0] * self.up_scale, box[3] * self.up_scale),
-                    rev_label_dict[label],
-                    font=self.font,
-                    fill=tuple(self.cfg.label_fill))
+            for box, label, score in zip(self.boxes, self.labels, self.scores):
+                if score > self.cfg.visual_score_cutoff:
+                    output_draw.text(
+                        (box[0] * self.up_scale, box[3] * self.up_scale),
+                        self.cfg.int_dict[label],
+                        font=self.font,
+                        fill=tuple(self.cfg.label_fill))
 
     def add_label_score(self):
         """Adds labels and predicted scores for all instances.
@@ -84,14 +84,14 @@ class InstSegVisualization(object):
         output_draw = ImageDraw.Draw(self.output)
         # check existence of instances
         if not self.labels.shape[0] == 0 and self.scores is not None:
-            rev_label_dict = {
-                val: name for name, val in self.cfg.label_dict.items()}
             for box, label, score in zip(self.boxes, self.labels, self.scores):
-                output_draw.text(
-                    (box[0] * self.up_scale, box[3] * self.up_scale),
-                    "{}: {:.2f}".format(rev_label_dict[label], score),
-                    font=self.font,
-                    fill=tuple(self.cfg.label_fill))
+                if score > self.cfg.visual_score_cutoff:
+                    output_draw.text(
+                        (box[0] * self.up_scale, box[3] * self.up_scale),
+                        '{}: {:d}%'.format(self.cfg.int_dict[label],
+                                           int(score * 100)),
+                        font=self.font,
+                        fill=tuple(self.cfg.label_fill))
 
     def add_binary_mask(self, threshold=None):
         """Adds binary masks for all instances.
@@ -107,11 +107,13 @@ class InstSegVisualization(object):
                 binary_mask = self.masks > threshold
             else:
                 binary_mask = self.masks
+            # drop low score instances
+            binary_mask = binary_mask[
+                self.scores > self.cfg.visual_score_cutoff, :, :]
             # colored mask, starting out as black and transparent
             color_mask = np.zeros(
                 (binary_mask.shape[1], binary_mask.shape[2], 4),
                 dtype=np.uint8)
-
             for val, color in self.cfg.category_palette.items():
                 # for every category, take the union of masks of all instances
                 category_mask = np.any(
