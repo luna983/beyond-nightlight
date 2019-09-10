@@ -190,21 +190,22 @@ class InstanceMask(object):
             self.width = ann['size']['width']
             self.height = ann['size']['height']
             for ins in ann['objects']:
-                instance = Polygon(
-                    width=self.width, height=self.height,
-                    category=label_dict[ins['classTitle']])
-                coordinates = ins['points']
-                # check polygon validity - more than 2 points
-                if len(coordinates['exterior']) > 2:
-                    instance.load_single_polygon(coordinates['exterior'])
-                    self.instances.append(instance)
-                else:
-                    if verbose:
-                        warnings.warn('Invalid exterior coords ignored: {}'
-                                      .format(coordinates['exterior']))
-                if verbose and (len(coordinates['interior']) > 0):
-                    warnings.warn('Interior coordinates ignored: {}'
-                                  .format(coordinates['interior']))
+                if not label_dict[ins['classTitle']] == 0:
+                    instance = Polygon(
+                        width=self.width, height=self.height,
+                        category=label_dict[ins['classTitle']])
+                    coordinates = ins['points']
+                    # check polygon validity - more than 2 points
+                    if len(coordinates['exterior']) > 2:
+                        instance.load_single_polygon(coordinates['exterior'])
+                        self.instances.append(instance)
+                    else:
+                        if verbose:
+                            warnings.warn('Invalid exterior coords ignored: {}'
+                                          .format(coordinates['exterior']))
+                    if verbose and (len(coordinates['interior']) > 0):
+                        warnings.warn('Interior coordinates ignored: {}'
+                                      .format(coordinates['interior']))
 
         elif ann_format == 'openaitanzania':
             with open(file, 'r') as f:
@@ -212,21 +213,22 @@ class InstanceMask(object):
             self.width = ann['width']
             self.height = ann['height']
             for ins in ann['instances']:
-                instance = Polygon(
-                    width=self.width, height=self.height,
-                    category=label_dict[ins['category']])
-                coordinates = ins['polygon']
-                # check polygon validity - more than 2 points
-                if len(coordinates['exterior']) > 2:
-                    instance.load_single_polygon(coordinates['exterior'])
-                    self.instances.append(instance)
-                else:
-                    if verbose:
-                        warnings.warn('Invalid exterior coords ignored: {}'
-                                      .format(coordinates['exterior']))
-                if verbose and (len(coordinates['interior']) > 0):
-                    warnings.warn('Interior coordinates ignored: {}'
-                                  .format(coordinates['interior']))
+                if not label_dict[ins['category']] == 0:
+                    instance = Polygon(
+                        width=self.width, height=self.height,
+                        category=label_dict[ins['category']])
+                    coordinates = ins['polygon']
+                    # check polygon validity - more than 2 points
+                    if len(coordinates['exterior']) > 2:
+                        instance.load_single_polygon(coordinates['exterior'])
+                        self.instances.append(instance)
+                    else:
+                        if verbose:
+                            warnings.warn('Invalid exterior coords ignored: {}'
+                                          .format(coordinates['exterior']))
+                    if verbose and (len(coordinates['interior']) > 0):
+                        warnings.warn('Interior coordinates ignored: {}'
+                                      .format(coordinates['interior']))
         else:
             raise NotImplementedError
         self.label_dict = label_dict

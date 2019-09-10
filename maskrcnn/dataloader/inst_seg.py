@@ -1,5 +1,4 @@
 import os
-import re
 import json
 from glob import glob
 from random import shuffle
