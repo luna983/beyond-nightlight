@@ -56,10 +56,6 @@ class Trainer(object):
         self.optimizer = torch.optim.Adam(
             [p for p in self.model.parameters() if p.requires_grad],
             lr=cfg.lr)
-        self.lr_scheduler = torch.optim.lr_scheduler.StepLR(
-            self.optimizer,
-            step_size=cfg.lr_scheduler_step_size,
-            gamma=cfg.lr_scheduler_gamma)
 
         # load prior checkpoint
         ckpt_file = os.path.join(cfg.run_dir, cfg.model_to_load)
@@ -117,8 +113,6 @@ class Trainer(object):
             if (i + 1) % self.cfg.batch_size_multiplier == 0:
                 self.optimizer.step()
                 self.optimizer.zero_grad()
-            # update the learning rate
-            self.lr_scheduler.step()
         self.saver.log_tb_loss(mode='train', losses=losses,
                                loss_dicts=loss_dicts, epoch=self.epoch)
 
