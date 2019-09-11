@@ -1,4 +1,5 @@
 ## Mask RCNN
+
 [This medium article on Faster RCNN](https://medium.com/@fractaldle/guide-to-build-faster-rcnn-in-pytorch-95b10c273439) and [this medium article on Mask RCNN](https://medium.com/@fractaldle/mask-r-cnn-unmasked-c029aa2f1296) is really helpful in explaining the mechanics of the model.
 
 ## Known Issues
@@ -7,6 +8,7 @@
 * This code is not compatible with the `torch.nn.DataParallel` utilities. This is because when distribution happens within the `DataParallel` module, only `torch.Tensor` objects are treated as mini-batches and can be distributed (`scatter()`ed). This results in errors when the module attempts to split single image onto multiple GPUs and the color dimension is corrupted. `DistributedDataParallel()` have to be used and some sample code is available in [`torchvision/references/detection/train.py`](https://github.com/pytorch/vision/blob/master/references/detection/train.py).
 
 ## TODOs
+
 - [x] rerun preprocessing code to sample larger images
 - [x] change data augmentation to make the images smaller
 - [x] implement a feature dropping low confidence instances when visualizing
