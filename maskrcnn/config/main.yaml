@@ -45,9 +45,9 @@ key_metric_name: mAP
 evaluate_training_sample: False
 
 # visualization parameters
-prob_visualization: .5
+prob_visualization: 1
 num_visualization: 30
-visual_score_cutoff: 0.1
+visual_score_cutoff: 0.5
 bbox_outline: [255, 255, 255, 255]  # white
 label_fill: [255, 255, 255, 255]  # white
 up_scale: 2  # to improve visualization quality
