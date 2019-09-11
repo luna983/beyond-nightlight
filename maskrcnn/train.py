@@ -95,6 +95,8 @@ class Trainer(object):
         losses = []
         loss_dicts = []
         for i, sample in enumerate(self.train_loader):
+            if len(sample) == 0:
+                continue
             images, targets = sample
             images = [im.to(self.device) for im in images]
             targets = [{k: v.to(self.device) for k, v in t.items()}
@@ -152,6 +154,8 @@ class Trainer(object):
         cocosaver = COCOSaver(gt=False, cfg=self.cfg)
         self.model.eval()
         for sample, id_batch in tqdm(zip(loader, image_ids)):
+            if len(sample) == 0:
+                continue
             images, targets = sample
             images_copy = copy.deepcopy(images)
             images = [im.to(self.device) for im in images]
