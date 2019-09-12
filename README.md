@@ -4,15 +4,15 @@
 
 ## Known Issues
 
-* Empty images cannot be handled by the current model (the error is intentional and thrown when trying to go through matchers, not sure how an empty image should be evaluated and what loss should be returned, our data contain plenty of empty space in a non-empty image anyways, so I'm not going to try and fix that; right now the empty images are dropped when going through the collate function, and when preprocessing empty images are sometimes dropped to improve efficiency. Note that because of this, val and infer images will have a much high proportion of images that are empty, which may or may not be a problem).
+* Empty images cannot be handled by the current model (the error is intentional and thrown when trying to go through matchers, not sure how an empty image should be evaluated and what loss should be returned, our data contain plenty of empty space in a non-empty image anyways, so I'm not going to try and fix that; right now the empty images are dropped when going through the collate function, and when preprocessing empty images are sometimes dropped to improve efficiency. Note that because of this, infer images will have a much high proportion of images that are empty, which may or may not be a problem).
 * This code is not compatible with the `torch.nn.DataParallel` utilities. This is because when distribution happens within the `DataParallel` module, only `torch.Tensor` objects are treated as mini-batches and can be distributed (`scatter()`ed). This results in errors when the module attempts to split single image onto multiple GPUs and the color dimension is corrupted. `DistributedDataParallel()` have to be used and some sample code is available in [`torchvision/references/detection/train.py`](https://github.com/pytorch/vision/blob/master/references/detection/train.py).
 
 ## TODOs
 
-- [x] rerun preprocessing code to sample larger images
-- [x] change data augmentation to make the images smaller
-- [x] implement a feature dropping low confidence instances when visualizing
-- [x] collapse categories in label_dict, and visualize/save another set of labels
-- [ ] try a larger lr
-- [ ] try larger batch size
+- [ ] tune model: try fiddling with anchor, etc.
+- [ ] clean up codes
+- [ ] google static map record no image instances
+- [ ] link inference image with its identifier
 - [ ] some concerns over whether AP is calculated properly
+- [ ] texts on images were classified as houses (remove manually? train with samples?)
+- [ ] add data augmentation of blurrier images
