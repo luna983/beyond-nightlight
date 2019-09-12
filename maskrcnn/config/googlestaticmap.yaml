@@ -11,10 +11,10 @@ in_infer_img_dir: Image
 in_infer_img_suffix: .png
 
 # output directory
-out_mask_dir: data/AerialHistory/Pred
+out_mask_dir: data/GoogleStaticMap/Pred
 
 # visualization directory
-out_visual_dir: data/AerialHistory/Visual
+out_visual_dir: data/GoogleStaticMap/Visual
 
 # visualization parameters
 category_palette:

@@ -18,7 +18,9 @@ if __name__ == '__main__':
     # satellite derived data
     SAT_IN_DIR = 'data/GoogleStaticMap/Pred/infer/annotations_pred.json'
     # output path
-    OUT_DIR = 'data/GoogleStaticMap/output/'
+    OUT_DIR = 'data/GoogleStaticMap/Output/'
+    # score cutoff
+    SCORE_CUTOFF = 0.8
     # read data frame
     df_cen = pd.read_csv(CEN_IN_DIR)
     df_image_id = df_cen[['ent', 'mun', 'loc', 'index']]
@@ -33,21 +35,17 @@ if __name__ == '__main__':
               for ins in df_sat]
     df_sat = pd.DataFrame(
         df_sat, columns=['index', 'category_id', 'score', 'area'])
+    df_sat = df_sat.loc[df_sat['score'] > SCORE_CUTOFF, :]
     df_sat = pd.merge(df_sat, df_image_id, on='index', how='left')
     df_sat = df_sat.groupby(['ent', 'mun', 'loc']).agg(
         house_count=pd.NamedAgg(column='area', aggfunc='count'),
         house_area_sum=pd.NamedAgg(column='area', aggfunc=np.sum),
         house_area_mean=pd.NamedAgg(column='area', aggfunc=np.mean),
         house_area_std=pd.NamedAgg(column='area', aggfunc=np.std),
-        house_area_25p=pd.NamedAgg(
-            column='area',
-            aggfunc=lambda x: np.percentile(x, 25)),
-        house_area_median=pd.NamedAgg(column='area', aggfunc=np.median),
-        house_area_75p=pd.NamedAgg(
-            column='area',
-            aggfunc=lambda x: np.percentile(x, 75)))
+        house_area_median=pd.NamedAgg(column='area', aggfunc=np.median))
     df = pd.merge(
-        df_sat, df_cen, how='inner', on=['ent', 'mun', 'loc'])
+        df_cen, df_sat, how='left', on=['ent', 'mun', 'loc'])
+    df.fillna(0.0, inplace=True)
     # plotting begins
     plot_scatter('houses', 'house_count')
     plot_scatter('inhabited_houses', 'house_count')
