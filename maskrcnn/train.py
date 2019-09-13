@@ -280,7 +280,6 @@ if __name__ == '__main__':
                 for mode in cfg.mode:
                     if (mode == 'train') and (not cfg.eval_train):
                         continue
-                    trainer.save_gt_annotations(mode)
                     trainer.infer(mode)
                     trainer.evaluate(mode)
                 trainer.save_checkpoint()
