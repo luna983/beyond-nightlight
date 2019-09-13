@@ -114,11 +114,11 @@ class Trainer(object):
         self.saver.log_tb_loss(mode='train', losses=losses,
                                loss_dicts=loss_dicts, epoch=self.epoch)
 
-    def save_gt_annotations(self, mode):
+    def save_gt_annotations(self, mode='val'):
         """Saves the ground truth annotations as COCO format.
 
         Args:
-            mode (str): the sample to be evaluated (train/val).
+            mode (str): the sample to be evaluated (val).
         """
         print('Saving ground truth annotations for mode {}...'.format(mode))
         cocosaver = COCOSaver(gt=True, cfg=self.cfg)
@@ -174,28 +174,26 @@ class Trainer(object):
                     file_name=file_name)
         cocosaver.save(mode)
 
-    def evaluate(self, mode):
+    def evaluate(self, mode='val'):
         """Evaluates the saved predicted annotations versus ground truth.
 
         Args:
-            mode (str): the sample to be evaluated (train/val).
+            mode (str): the sample to be evaluated (val).
         """
-        metrics = evaluate(self.cfg, mode)
+        self.metrics = evaluate(self.cfg, mode)
         self.saver.log_tb_eval(
-            mode=mode, metrics=metrics, epoch=self.epoch)
-        if mode == 'val':
-            self.metrics = metrics
-            # flag epoch if it is the best so far
-            if self.best_metrics is None:
-                self.epoch_is_best = True
-            elif (self.metrics[self.cfg.key_metric_name] >
-                  self.best_metrics[self.cfg.key_metric_name]):
-                self.epoch_is_best = True
-            else:
-                self.epoch_is_best = False
-            # record best
-            if self.epoch_is_best:
-                self.best_metrics = self.metrics
+            mode=mode, metrics=self.metrics, epoch=self.epoch)
+        # flag epoch if it is the best so far
+        if self.best_metrics is None:
+            self.epoch_is_best = True
+        elif (self.metrics[self.cfg.key_metric_name] >
+              self.best_metrics[self.cfg.key_metric_name]):
+            self.epoch_is_best = True
+        else:
+            self.epoch_is_best = False
+        # record best
+        if self.epoch_is_best:
+            self.best_metrics = self.metrics
 
     def save_checkpoint(self):
         """Saves the checkpoint."""
@@ -267,20 +265,16 @@ if __name__ == '__main__':
     if 'infer' in cfg.mode:
         trainer.infer('infer')
     else:
-        for mode in cfg.mode:
-            if (mode == 'train') and (not cfg.eval_train):
-                continue
-            trainer.save_gt_annotations(mode)
-            trainer.infer(mode)
-            trainer.evaluate(mode)
+        if 'val' in cfg.mode:
+            trainer.save_gt_annotations()
+            trainer.infer('val')
+            trainer.evaluate()
         if 'train' in cfg.mode:
             # training
             while trainer.epoch < cfg.epochs:
                 trainer.train()
-                for mode in cfg.mode:
-                    if (mode == 'train') and (not cfg.eval_train):
-                        continue
-                    trainer.infer(mode)
-                    trainer.evaluate(mode)
+                if 'val' in cfg.mode:
+                    trainer.infer('val')
+                    trainer.evaluate()
                 trainer.save_checkpoint()
     trainer.close()

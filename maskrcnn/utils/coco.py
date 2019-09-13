@@ -90,26 +90,25 @@ class COCOSaver(object):
             rles = maskutils.encode(
                 np.asfortranarray(masks.transpose(1, 2, 0)))
             areas = maskutils.area(rles)
-            if len(areas) > 0:
-                # loop over every instance in the image
-                for i, (rle, area, label, mask, box) in enumerate(zip(
-                        rles, areas, labels, masks, boxes)):
-                    self.coco_instance_id += 1
-                    rle['counts'] = rle['counts'].decode('ascii')
-                    self.annotations.append({
-                        'segmentation': rle,
-                        'area': int(area),
-                        'iscrowd': 0,  # set this to 0, otherwise eval fails
-                        'bbox': box.tolist(),
-                        'image_id_str': image_id,  # for postprocessing
-                        'image_id': self.coco_image_id,  # internal coco eval
-                        'category_id': int(label),
-                        # 0 reserved, id count from 1
-                        'id': self.coco_instance_id})
-                self.images.append({
-                    'id': self.coco_image_id,
-                    'height': height,
-                    'width': width})
+            # loop over every instance in the image
+            for i, (rle, area, label, mask, box) in enumerate(zip(
+                    rles, areas, labels, masks, boxes)):
+                self.coco_instance_id += 1
+                rle['counts'] = rle['counts'].decode('ascii')
+                self.annotations.append({
+                    'segmentation': rle,
+                    'area': int(area),
+                    'iscrowd': 0,  # set this to 0, otherwise eval fails
+                    'bbox': box.tolist(),
+                    'image_id_str': image_id,  # for postprocessing
+                    'image_id': self.coco_image_id,  # internal coco eval
+                    'category_id': int(label),
+                    # 0 reserved, id count from 1
+                    'id': self.coco_instance_id})
+            self.images.append({
+                'id': self.coco_image_id,
+                'height': height,
+                'width': width})
         else:
             labels = annotation['labels'].detach().cpu().numpy()
             masks = annotation['masks'].detach().cpu().numpy().astype(np.uint8)
