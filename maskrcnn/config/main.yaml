@@ -19,6 +19,7 @@ brightness: 0.05
 contrast: 0.05
 saturation: 0.05
 hue: 0.05
+blur_radius: 0
 vertical_flip: 0.5
 horizontal_flip: 0.5
 resize_height: 800  # size of tensors fed into Mask R-CNN

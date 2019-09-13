@@ -1,5 +1,6 @@
 import random
 import PIL.Image
+from PIL.ImageFilter import GaussianBlur
 
 import torchvision
 from torchvision.transforms import functional as F
@@ -50,6 +51,30 @@ class Resize(object):
         """
         return (F.resize(image, (self.height, self.width), self.interpolation),
                 target.resize(h=self.height, w=self.width))
+
+
+class Blur(object):
+    """Add blurring of the original images.
+
+    Args:
+        radius (int): blue radius.
+    """
+
+    def __init__(self, radius):
+        self.blur = GaussianBlur(radius=radius)
+
+    def __call__(self, image, target):
+        """Blurs the images.
+
+        Args:
+            image (PIL Image): image to be transformed
+            target (InstanceMask object): instance masks
+
+        Returns:
+            image (PIL Image): blurred image
+            target (InstanceMask object): original instance masks
+        """
+        return GaussianBlur.filter(image), target
 
 
 class ColorJitter(torchvision.transforms.ColorJitter):

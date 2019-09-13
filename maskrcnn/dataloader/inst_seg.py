@@ -8,7 +8,7 @@ import torchvision
 from torch.utils.data import Dataset
 
 from .transforms import (Compose, ToTensor,
-                         Resize, RandomCrop, ColorJitter,
+                         Resize,  Blur, RandomCrop, ColorJitter,
                          RandomHorizontalFlip, RandomVerticalFlip)
 from .mask_transforms import InstanceMask
 
@@ -109,6 +109,7 @@ class InstSeg(Dataset):
             ColorJitter(
                 brightness=self.cfg.brightness, contrast=self.cfg.contrast,
                 saturation=self.cfg.saturation, hue=self.cfg.hue),
+            Blur(radius=self.cfg.blur_radius),
             Resize(width=self.cfg.resize_width, height=self.cfg.resize_height),
             ToTensor()])
         return composed_transforms(image, target)

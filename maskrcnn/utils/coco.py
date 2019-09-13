@@ -5,60 +5,53 @@ import pycocotools.mask as maskutils
 import pycocotools.cocoeval
 
 
-class COCOeval(pycocotools.cocoeval.COCOeval):
-    """Modified to summarize results with alternative parameter setting.
-    """
+class Evaluator(pycocotools.cocoeval.COCOeval):
+    """Modified to summarize results with alternative parameter setting."""
+
+    def _summarize_precision(self, iouThr, areaRng='all', maxDets=100):
+        """Internal function to summarize average precision.
+
+        Args:
+            iouThr (float or NoneType): IoU threshold(s).
+            areaRng (str): area range for size of objects.
+            maxDets (int): max number of detections per image.
+
+        Returns:
+            float: average precision.
+        """
+        # parameter settings
+        aind = [i for i, aRng in enumerate(self.params.areaRngLbl)
+                if aRng == areaRng]
+        mind = [i for i, mDet in enumerate(self.params.maxDets)
+                if mDet == maxDets]
+        # retrieve precision matrix
+        s = self.eval['precision']
+        # dimension of precision: [TxRxKxAxM]
+        # area under precision-recall curve, given a certain IoU
+        s = s[..., aind, mind]
+        # IoU
+        if iouThr is not None:
+            t = np.where(iouThr == self.params.iouThrs)[0]
+            s = s[t, ...]
+        if len(s[s > -1]) == 0:
+            mean_s = -1  # no gt object
+        else:
+            mean_s = np.mean(s[s > -1])
+        # print results
+        titleStr = 'Average Precision'
+        iouStr = ('{:0.2f}:{:0.2f}'
+                  .format(self.params.iouThrs[0], self.params.iouThrs[-1])
+                  if iouThr is None else '{:0.2f}'.format(iouThr))
+        print('{:<18} @[ IoU={:<9} ] = {:0.3f}'
+              .format(titleStr, iouStr, mean_s))
+        return mean_s
 
     def summarize(self):
-
-        def _summarize(ap=1, iouThr=None, areaRng='all', maxDets=100):
-            p = self.params
-            iStr = (' {:<18} {} @[ IoU={:<9} | area={:>6s} | maxDets={:>3d} ] '
-                    '= {:0.3f}')
-            titleStr = 'Average Precision' if ap == 1 else 'Average Recall'
-            typeStr = '(AP)' if ap == 1 else '(AR)'
-            iouStr = ('{:0.2f}:{:0.2f}'.format(p.iouThrs[0], p.iouThrs[-1])
-                      if iouThr is None else '{:0.2f}'.format(iouThr))
-            aind = [i for i, aRng in enumerate(p.areaRngLbl)
-                    if aRng == areaRng]
-            mind = [i for i, mDet in enumerate(p.maxDets) if mDet == maxDets]
-            if ap == 1:
-                # dimension of precision: [TxRxKxAxM]
-                s = self.eval['precision']
-                # IoU
-                if iouThr is not None:
-                    t = np.where(iouThr == p.iouThrs)[0]
-                    s = s[t]
-                s = s[:, :, :, aind, mind]
-            else:
-                # dimension of recall: [TxKxAxM]
-                s = self.eval['recall']
-                if iouThr is not None:
-                    t = np.where(iouThr == p.iouThrs)[0]
-                    s = s[t]
-                s = s[:, :, aind, mind]
-            if len(s[s > -1]) == 0:
-                mean_s = -1
-            else:
-                mean_s = np.mean(s[s > -1])
-            print(iStr.format(titleStr, typeStr, iouStr,
-                              areaRng, maxDets, mean_s))
-            return mean_s
-
-        def _summarizeDets():
-            stats = {'mAP': _summarize(1),
-                     'AP50': _summarize(1, iouThr=.5),
-                     'AP75': _summarize(1, iouThr=.75)}
-            return stats
-
-        if not self.eval:
-            raise Exception('Please run accumulate() first')
-        iouType = self.params.iouType
-        if iouType == 'segm' or iouType == 'bbox':
-            summarize = _summarizeDets
-        else:
-            raise NotImplementedError
-        self.stats = summarize()
+        """This generates the summarized statistics."""
+        self.stats = {
+            'mAP': self._summarize_precision(iouThr=None),
+            'AP50': self._summarize_precision(iouThr=.5),
+            'AP75': self._summarize_precision(iouThr=.75)}
 
 
 class COCOSaver(object):
@@ -99,7 +92,7 @@ class COCOSaver(object):
             areas = maskutils.area(rles)
             # loop over every instance in the image
             for i, (rle, area, label, mask, box) in enumerate(zip(
-                rles, areas, labels, masks, boxes)):
+                    rles, areas, labels, masks, boxes)):
                 self.coco_instance_id += 1
                 rle['counts'] = rle['counts'].decode('ascii')
                 self.annotations.append({
@@ -127,7 +120,7 @@ class COCOSaver(object):
                 np.asfortranarray(masks.transpose(1, 2, 0)))
             areas = maskutils.area(rles)
             for i, (rle, area, label, box, score) in enumerate(zip(
-                rles, areas, labels, boxes, scores)):
+                    rles, areas, labels, boxes, scores)):
                 if area > 0:
                     rle['counts'] = rle['counts'].decode('ascii')
                     self.annotations.append(
@@ -143,7 +136,7 @@ class COCOSaver(object):
         """This saves the annotations to the default log directory.
 
         Args:
-            mode (str): the sample to be evaluated (train/val).
+            mode (str): the sample to be evaluated (train/val/infer).
         """
         if self.gt:
             with open(os.path.join(self.cfg.out_mask_dir, mode,
