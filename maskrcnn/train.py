@@ -129,6 +129,8 @@ class Trainer(object):
         else:
             raise NotImplementedError
         for i, (sample, id_batch) in enumerate(zip(loader, image_ids)):
+            if len(sample) == 0:
+                continue
             _, targets = sample
             for target, image_id in zip(targets, id_batch):
                 cocosaver.add(target, image_id)

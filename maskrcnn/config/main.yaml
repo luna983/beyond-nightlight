@@ -19,7 +19,7 @@ brightness: 0.05
 contrast: 0.05
 saturation: 0.05
 hue: 0.05
-blur_radius: 0
+blur: False
 vertical_flip: 0.5
 horizontal_flip: 0.5
 resize_height: 800  # size of tensors fed into Mask R-CNN
@@ -43,7 +43,7 @@ lr: 0.0003
 # evaluation parameters
 mask_threshold: 0.5
 key_metric_name: mAP
-eval_train: False
+eval_train: True
 
 # visualization parameters
 prob_visualization: 0.1

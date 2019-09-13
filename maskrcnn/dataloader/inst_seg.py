@@ -109,7 +109,7 @@ class InstSeg(Dataset):
             ColorJitter(
                 brightness=self.cfg.brightness, contrast=self.cfg.contrast,
                 saturation=self.cfg.saturation, hue=self.cfg.hue),
-            Blur(radius=self.cfg.blur_radius),
+            Blur(blur=self.cfg.blur),
             Resize(width=self.cfg.resize_width, height=self.cfg.resize_height),
             ToTensor()])
         return composed_transforms(image, target)
