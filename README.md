@@ -9,10 +9,20 @@
 
 ## TODOs
 
-- [ ] tune model: try fiddling with anchor, etc.
-- [ ] clean up codes
-- [ ] google static map record no image instances
-- [ ] link inference image with its identifier
-- [ ] some concerns over whether AP is calculated properly
-- [ ] texts on images were classified as houses (remove manually? train with samples?)
+- [x] link inference image with its identifier
+- [x] add comment to run dir, do not overwrite config
+- [x] tune model: try fiddling with anchor, etc.
 - [ ] add data augmentation of blurrier images
+- [ ] jupyter notebook to see step by step
+- [ ] google static map record no image instances
+- [ ] some concerns over whether AP is calculated properly, add AUC
+- [ ] texts on images were classified as houses (remove manually? train with samples?)
+- [ ] clean up codes, reorganize into different experiments, reproduce figures
+
+
+Codes to be cleared:
+
+- utils
+- maskrcnn/utils
+    - eval.py
+    - coco.py

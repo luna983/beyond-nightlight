@@ -51,7 +51,7 @@ class InstSegVisualization(object):
         self.width = np.floor(image.shape[2] * cfg.up_scale).astype(np.uint16)
         self.height = np.floor(image.shape[1] * cfg.up_scale).astype(np.uint16)
         self.font = ImageFont.truetype(
-            cfg.font, cfg.font_size, encoding="unic")
+            cfg.font, cfg.font_size, encoding='unic')
         self.up_scale = cfg.up_scale
         self.output = None
 
@@ -70,7 +70,7 @@ class InstSegVisualization(object):
         """
         output_draw = ImageDraw.Draw(self.output)
         # check existence of instances
-        if not self.boxes.shape[0] == 0:
+        if self.boxes.shape[0] != 0:
             for box in self.boxes:
                 output_draw.rectangle(
                     box * self.up_scale,
@@ -81,7 +81,7 @@ class InstSegVisualization(object):
         """
         output_draw = ImageDraw.Draw(self.output)
         # check existence of instances
-        if not self.labels.shape[0] == 0:
+        if self.labels.shape[0] != 0:
             for box, label in zip(self.boxes, self.labels):
                 output_draw.text(
                     (box[0] * self.up_scale, box[3] * self.up_scale),
@@ -94,12 +94,12 @@ class InstSegVisualization(object):
         """
         output_draw = ImageDraw.Draw(self.output)
         # check existence of instances
-        if not self.labels.shape[0] == 0 and self.scores is not None:
+        if self.labels.shape[0] != 0 and self.scores is not None:
             for box, label, score in zip(self.boxes, self.labels, self.scores):
                 output_draw.text(
                     (box[0] * self.up_scale, box[3] * self.up_scale),
-                    '{}: {:d}%'.format(self.cfg.int_dict[label],
-                                       int(score * 100)),
+                    '{}:{:d}%'.format(self.cfg.int_dict[label],
+                                      int(score * 100)),
                     font=self.font,
                     fill=tuple(self.cfg.label_fill))
 
@@ -111,12 +111,12 @@ class InstSegVisualization(object):
         """
 
         # check existence of instances
-        if not self.masks.shape[0] == 0:
+        if self.masks.shape[0] != 0:
             # threshold to get a [N, H, W] binary mask
-            if threshold is not None:
-                binary_mask = self.masks > threshold
-            else:
+            if threshold is None:
                 binary_mask = self.masks
+            else:
+                binary_mask = self.masks > threshold
             # colored mask, starting out as black and transparent
             color_mask = np.zeros(
                 (binary_mask.shape[1], binary_mask.shape[2], 4),

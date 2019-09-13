@@ -27,6 +27,4 @@ out_visual_dir: data/OpenAITanzania/Visual
 
 # visualization parameters
 category_palette:
-    1: [255, 36, 0, 64]  # red
-    2: [150, 223, 228, 64]  # blue
-    3: [255, 213, 0, 64] # yellow
+    1: [135, 206, 235, 64]  # sky blue

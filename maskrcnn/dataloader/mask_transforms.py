@@ -32,12 +32,12 @@ class Polygon(object):
         return len(self.polygons)
 
     def __repr__(self):
-        s = self.__class__.__name__ + '('
-        s += 'width={}, '.format(self.width)
-        s += 'height={}, '.format(self.height)
-        s += 'category={}, '.format(self.category)
-        s += 'polygons={})'.format(self.polygons)
-        return s
+        return ('{}(width={}, height={}, category={}, polygons={})'
+                .format(self.__class__.__name__,
+                        self.width,
+                        self.height,
+                        self.category,
+                        self.polygons))
 
     def load_single_polygon(self, coordinates):
         """
@@ -149,15 +149,12 @@ class InstanceMask(object):
 
     Args:
         instances (a list of Polygon): Each instance is a Polygon object.
-        label_dict (dict): a dict of category names and category values
-            {str: int}.
         width, height (int): (width, height) of the image.
     """
 
-    def __init__(self, instances=None, label_dict=None,
+    def __init__(self, instances=None,
                  width=None, height=None):
         self.instances = [] if instances is None else instances
-        self.label_dict = label_dict
         self.width = width
         self.height = height
 
@@ -165,12 +162,11 @@ class InstanceMask(object):
         return len(self.instances)
 
     def __repr__(self):
-        s = self.__class__.__name__ + '('
-        s += 'instances={}, '.format(self.instances)
-        s += 'label_dict={}, '.format(self.label_dict)
-        s += 'width={}, '.format(self.width)
-        s += 'height={})'.format(self.height)
-        return s
+        return ('{}(instances={}, width={}, height={})'
+                .format(self.__class__.__name__,
+                        self.instances,
+                        self.width,
+                        self.height))
 
     def from_file(self, file, ann_format, label_dict, verbose=False):
         """
@@ -231,7 +227,6 @@ class InstanceMask(object):
                                       .format(coordinates['interior']))
         else:
             raise NotImplementedError
-        self.label_dict = label_dict
 
     def to_tensor(self):
         """Convert instances to tensors. Some instances may be dropped.
@@ -247,11 +242,9 @@ class InstanceMask(object):
         """
         # encode to RLEs
         rles = [ins.to_rle() for ins in self.instances]
-
         # drop instances with zero area
         areas = maskutils.area(rles)
-        rles = [rle for rle, area in zip(rles, areas) if area != 0]
-
+        rles = [rle for rle, area in zip(rles, areas) if area > 0]
         # return None for empty images
         if len(rles) == 0:
             return None
@@ -267,9 +260,8 @@ class InstanceMask(object):
         # collate labels
         labels = torch.tensor(
             [ins.category for ins, area in zip(self.instances, areas)
-             if area != 0],
+             if area > 0],
             dtype=torch.int64)
-
         return {'boxes': boxes, 'labels': labels, 'masks': binary_masks}
 
     def flip(self, FLIP_LEFT_RIGHT=False, FLIP_TOP_BOTTOM=False):
@@ -286,7 +278,7 @@ class InstanceMask(object):
             instances=[ins.flip(
                 FLIP_LEFT_RIGHT=FLIP_LEFT_RIGHT,
                 FLIP_TOP_BOTTOM=FLIP_TOP_BOTTOM) for ins in self.instances],
-            width=self.width, height=self.height, label_dict=self.label_dict)
+            width=self.width, height=self.height)
 
     def crop(self, i, j, h, w):
         """Crop the given instances.
@@ -310,7 +302,7 @@ class InstanceMask(object):
 
         return InstanceMask(
             instances=[ins.crop(i=i, j=j, h=h, w=w) for ins in self.instances],
-            width=w, height=h, label_dict=self.label_dict)
+            width=w, height=h)
 
     def resize(self, h, w):
         """Resize the input labels to the given size.
@@ -323,4 +315,4 @@ class InstanceMask(object):
         """
         return InstanceMask(
             instances=[ins.resize(h=h, w=w) for ins in self.instances],
-            width=w, height=h, label_dict=self.label_dict)
+            width=w, height=h)

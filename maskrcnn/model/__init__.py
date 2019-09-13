@@ -40,11 +40,6 @@ def make_model(cfg):
                 model.roi_heads.mask_predictor.conv5_mask.out_channels,
                 # num_classes
                 cfg.num_classes)
-    elif cfg.model_name == 'maskrcnn_resnet18_fpn':
-        backbone = resnet_fpn_backbone('resnet18', pretrained=True)
-        model = MaskRCNN(
-            backbone=backbone,
-            num_classes=cfg.num_classes)
     elif cfg.model_name == 'adjust_anchor':
         anchor_generator = AnchorGenerator(
             sizes=((16,), (32,), (64,), (128,), (256,)),

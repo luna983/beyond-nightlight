@@ -18,4 +18,4 @@ out_visual_dir: data/GoogleStaticMap/Visual
 
 # visualization parameters
 category_palette:
-    1: [255, 36, 0, 64]  # red
+    1: [135, 206, 235, 64]  # sky blue

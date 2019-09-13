@@ -42,7 +42,7 @@ lr: 0.0003
 # evaluation parameters
 mask_threshold: 0.5
 key_metric_name: mAP
-evaluate_training_sample: False
+eval_train: False
 
 # visualization parameters
 prob_visualization: 0.1

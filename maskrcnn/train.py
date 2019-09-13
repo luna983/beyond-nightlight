@@ -33,9 +33,6 @@ class Trainer(object):
         self.saver.create_tb_summary()
 
         print('Initalizing data loader...')
-        # set device, detect cuda availability
-        self.device = torch.device('cuda' if torch.cuda.is_available()
-                                   else 'cpu')
         # make data loader
         params = {
             'batch_size': cfg.batch_size,
@@ -49,6 +46,9 @@ class Trainer(object):
                 cfg, modes=['train', 'val'], **params)
 
         print('Initalizing model and optimizer...')
+        # set device, detect cuda availability
+        self.device = torch.device('cuda' if torch.cuda.is_available()
+                                   else 'cpu')
         # make model
         self.model = make_model(cfg)
         self.model.to(self.device)
@@ -67,6 +67,7 @@ class Trainer(object):
             self.optimizer.load_state_dict(ckpt['optimizer'])
         else:
             self.start_epoch = 0
+        self.epoch = self.start_epoch
         # load prior stats
         metrics_file = os.path.join(cfg.run_dir, 'best_metrics.json')
         if os.path.isfile(metrics_file):
@@ -74,13 +75,8 @@ class Trainer(object):
                 self.best_metrics = json.load(f)
         else:
             self.best_metrics = None
-        if 'train' in cfg.mode:
-            print('Starting from epoch {} to epoch {}...'
-                  .format(self.start_epoch, cfg.epochs))
-            self.epoch = self.start_epoch
-        else:
-            self.start_epoch = 0  # placeholder
-            self.epoch = 0  # placeholder
+        self.metrics = None
+        self.epoch_is_best = False
         # save configurations
         self.cfg = cfg
 
@@ -124,6 +120,7 @@ class Trainer(object):
         Args:
             mode (str): the sample to be evaluated (train/val).
         """
+        print('Saving ground truth annotations for mode {}...'.format(mode))
         cocosaver = COCOSaver(gt=True, cfg=self.cfg)
         if mode == 'train':
             loader, image_ids = self.train_loader, self.train_ids
@@ -144,7 +141,7 @@ class Trainer(object):
         Args:
             mode (str): the sample to be evaluated (train/val/infer).
         """
-        print('Running inference...')
+        print('Running inference with mode {}...'.format(mode))
         if mode == 'train':
             loader, image_ids = self.train_loader, self.train_ids
         elif mode in ['val', 'infer']:
@@ -161,47 +158,51 @@ class Trainer(object):
             images = [im.to(self.device) for im in images]
             preds = self.model(images)
             for image, target, pred, image_id in zip(
-                images_copy, targets, preds, id_batch):
+                    images_copy, targets, preds, id_batch):
                 pred['masks'] = (pred['masks'].squeeze(1) >
                                  self.cfg.mask_threshold)
                 cocosaver.add(pred, image_id)
+                file_name = image_id if mode == 'infer' else None
                 self.saver.log_tb_visualization(
                     mode=mode,
                     epoch=self.epoch,
                     image=image,
                     target=target,
-                    pred=pred)
+                    pred=pred,
+                    file_name=file_name)
         cocosaver.save(mode)
 
     def evaluate(self, mode):
         """Evaluates the saved predicted annotations versus ground truth.
 
         Args:
-            mode (str): the sample to be evaluated (train/val/infer).
+            mode (str): the sample to be evaluated (train/val).
         """
         metrics = evaluate(self.cfg, mode)
         self.saver.log_tb_eval(
             mode=mode, metrics=metrics, epoch=self.epoch)
         if mode == 'val':
             self.metrics = metrics
+            # flag epoch if it is the best so far
+            if self.best_metrics is None:
+                self.epoch_is_best = True
+            elif (self.metrics[self.cfg.key_metric_name] >
+                  self.best_metrics[self.cfg.key_metric_name]):
+                self.epoch_is_best = True
+            else:
+                self.epoch_is_best = False
+            # record best
+            if self.epoch_is_best:
+                self.best_metrics = self.metrics
 
     def save_checkpoint(self):
         """Saves the checkpoint."""
-        if 'val' in self.cfg.mode:
-            self.saver.save_checkpoint(
-                state_dict={'epoch': self.epoch,
-                            'state_dict': self.model.state_dict(),
-                            'optimizer': self.optimizer.state_dict()},
-                save_best=True,
-                metrics=self.metrics,
-                key_metric_name=self.cfg.key_metric_name,
-                best_metrics=self.best_metrics)
-        else:
-            self.saver.save_checkpoint(
-                state_dict={'epoch': self.epoch,
-                            'state_dict': self.model.state_dict(),
-                            'optimizer': self.optimizer.state_dict()},
-                save_best=False)
+        self.saver.save_checkpoint(
+            state_dict={'epoch': self.epoch,
+                        'state_dict': self.model.state_dict(),
+                        'optimizer': self.optimizer.state_dict()},
+            metrics=self.metrics,
+            is_best=self.epoch_is_best)
 
     def close(self):
         """Properly finish training."""
@@ -212,11 +213,9 @@ class Trainer(object):
 
 if __name__ == '__main__':
 
-    assert torch.__version__ >= '1.1.0'
-
     # collect command line arguments
     parser = argparse.ArgumentParser(description='Run Mask RCNN.')
-    parser.add_argument('--comment', type=str, default=None,
+    parser.add_argument('--comment', type=str, default='tmp',
                         help='Name of the run.')
     parser.add_argument('--config', nargs='+', type=str, default=None,
                         help='Specify config files.')
@@ -235,6 +234,8 @@ if __name__ == '__main__':
     cfg.update([os.path.join('config', f + '.yaml')
                 for f in args.config])
 
+    # sanity checks
+    assert torch.__version__ >= '1.1.0'
     # update config
     if not args.no_cuda:
         assert torch.cuda.is_available(), 'CUDA not available.'
@@ -251,35 +252,34 @@ if __name__ == '__main__':
     else:
         cfg.resume_dir = os.path.join(cfg.runs_dir, args.resume_run)
         assert os.path.exists(cfg.resume_dir)
-    assert args.mode in [['infer'], ['train'], ['val'], ['train', 'val']]
+    assert not (('infer' in args.mode) and
+                (('train' in args.mode) or ('val' in args.mode)))
     cfg.mode = args.mode
     cfg.comment = args.comment
     # construct int-str mapping
     if cfg.int_dict is None:
         cfg.int_dict = {i: name for name, i in cfg.label_dict.items()}
 
-    # construct eval sample
-    eval_samples = []
-    if cfg.evaluate_training_sample:
-        eval_samples.append('train')
-    if 'val' in cfg.mode:
-        eval_samples.append('val')
-
     # train/val/infer starts
     trainer = Trainer(cfg)
-    for eval_sample in eval_samples:
-        trainer.save_gt_annotations(eval_sample)
-        trainer.infer(eval_sample)
-        trainer.evaluate(eval_sample)
-    if 'train' in cfg.mode:
-        # training
-        while trainer.epoch < cfg.epochs:
-            trainer.train()
-            for eval_sample in eval_samples:
-                trainer.save_gt_annotations(eval_sample)
-                trainer.infer(eval_sample)
-                trainer.evaluate(eval_sample)
-            trainer.save_checkpoint()
     if 'infer' in cfg.mode:
         trainer.infer('infer')
+    else:
+        for mode in cfg.mode:
+            if (mode == 'train') and (not cfg.eval_train):
+                continue
+            trainer.save_gt_annotations(mode)
+            trainer.infer(mode)
+            trainer.evaluate(mode)
+        if 'train' in cfg.mode:
+            # training
+            while trainer.epoch < cfg.epochs:
+                trainer.train()
+                for mode in cfg.mode:
+                    if (mode == 'train') and (not cfg.eval_train):
+                        continue
+                    trainer.save_gt_annotations(mode)
+                    trainer.infer(mode)
+                    trainer.evaluate(mode)
+                trainer.save_checkpoint()
     trainer.close()

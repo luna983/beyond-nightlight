@@ -1,12 +1,8 @@
 import random
-import PIL
-from PIL import Image
+import PIL.Image
 
-import torch
 import torchvision
 from torchvision.transforms import functional as F
-
-from .mask_transforms import Polygon, InstanceMask
 
 
 class Compose(torchvision.transforms.Compose):
@@ -52,12 +48,8 @@ class Resize(object):
             image (PIL Image): resized image
             target (InstanceMask object): resized instance masks
         """
-        return (F.resize(image,(self.height, self.width), self.interpolation),
+        return (F.resize(image, (self.height, self.width), self.interpolation),
                 target.resize(h=self.height, w=self.width))
-
-    def __repr__(self):
-        return self.__class__.__name__ + "(size=({0}, {1}), interpolation={2})".format(
-            self.height, self.width, self.interpolation)
 
 
 class ColorJitter(torchvision.transforms.ColorJitter):
@@ -99,7 +91,7 @@ class RandomHorizontalFlip(torchvision.transforms.RandomHorizontalFlip):
 
 class RandomVerticalFlip(torchvision.transforms.RandomVerticalFlip):
     """Modified to add instance mask in return values."""
-    
+
     def __call__(self, image, target):
         """
         Args:
@@ -134,10 +126,12 @@ class RandomCrop(torchvision.transforms.RandomCrop):
 
         # pad the width if needed
         if self.pad_if_needed and image.size[0] < self.size[1]:
-            image = F.pad(image, (self.size[1] - image.size[0], 0), self.fill, self.padding_mode)
+            image = F.pad(image, (self.size[1] - image.size[0], 0),
+                          self.fill, self.padding_mode)
         # pad the height if needed
         if self.pad_if_needed and image.size[1] < self.size[0]:
-            image = F.pad(image, (0, self.size[0] - image.size[1]), self.fill, self.padding_mode)
+            image = F.pad(image, (0, self.size[0] - image.size[1]),
+                          self.fill, self.padding_mode)
 
         i, j, h, w = self.get_params(image, self.size)
 
@@ -150,7 +144,7 @@ class ToTensor(torchvision.transforms.ToTensor):
     def __call__(self, image, target):
         """
         Args:
-            image (PIL Image or numpy.ndarray): Image to be converted to tensor.
+            image (PIL Image or numpy.ndarray): Image to be converted.
             target (InstanceMask): Instance Mask to be converted to tensor.
 
         Returns:
