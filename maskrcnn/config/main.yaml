@@ -19,8 +19,8 @@ brightness: 0.2
 contrast: 0.2
 saturation: 0.2
 hue: 0.2
-blur_prob: null
-blur_times: null
+blur_prob: 0.3
+blur_times: 2
 vertical_flip: 0.5
 horizontal_flip: 0.5
 resize_height: 800  # size of tensors fed into Mask R-CNN
@@ -48,7 +48,7 @@ key_metric_name: mAP
 # visualization parameters
 visual_train: False
 prob_visualization: 0.1
-num_visualization: 10
+num_visualization: 30
 visual_score_cutoff: 0.5
 bbox_outline: [255, 255, 255, 255]  # white
 label_fill: [255, 255, 255, 255]  # white
