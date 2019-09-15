@@ -1,1 +1,2 @@
-blur_radius: True
+blur_prob: 0.3
+blur_times: 2

@@ -57,11 +57,14 @@ class Blur(object):
     """Add blurring of the original images.
 
     Args:
-        blur (bool): whether blurring is carried out.
+        blur_prob (float): blurring is off if None,
+            probability of blurring
+        blur_times (int): times of blurring
     """
 
-    def __init__(self, blur):
-        self.blur = blur
+    def __init__(self, blur_prob, blur_times):
+        self.blur_prob = blur_prob
+        self.blur_times = blur_times
 
     def __call__(self, image, target):
         """Blurs the images.
@@ -74,8 +77,10 @@ class Blur(object):
             image (PIL Image): blurred image
             target (InstanceMask object): original instance masks
         """
-        if self.blur:
-            image = image.filter(ImageFilter.BLUR)
+        if self.blur_prob is not None:
+            for _ in range(self.blur_times):
+                if random.random() < self.blur_prob:
+                    image = image.filter(PIL.ImageFilter.BLUR)
         return image, target
 
 

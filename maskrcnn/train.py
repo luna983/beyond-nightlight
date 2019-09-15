@@ -94,6 +94,8 @@ class Trainer(object):
             if len(sample) == 0:
                 continue
             images, targets = sample
+            if self.cfg.visual_train:
+                images_copy = copy.deepcopy(images)
             images = [im.to(self.device) for im in images]
             targets = [{k: v.to(self.device) for k, v in t.items()}
                        for t in targets]
@@ -111,6 +113,13 @@ class Trainer(object):
             if (i + 1) % self.cfg.batch_size_multiplier == 0:
                 self.optimizer.step()
                 self.optimizer.zero_grad()
+            if self.cfg.visual_train:
+                self.saver.log_tb_visualization(
+                    mode='train',
+                    epoch=self.epoch,
+                    image=images_copy[0],
+                    target=targets[0],
+                    pred=None)
         self.saver.log_tb_loss(mode='train', losses=losses,
                                loss_dicts=loss_dicts, epoch=self.epoch)
 
