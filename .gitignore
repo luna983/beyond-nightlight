@@ -19,6 +19,7 @@ __pycache__/
 *.Rhistory
 
 # symbolic links and logs
+experiment0/data
 utils/data
 utils/logs
 maskrcnn/data
