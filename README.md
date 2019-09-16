@@ -9,7 +9,8 @@
 
 ## TODOs
 
-- [ ] jupyter notebook to see step by step
-- [ ] google static map record no image instances
-- [ ] clean up codes, reorganize `utils/` into different experiments, reproduce figures
-- [ ] texts on images were classified as houses (remove manually? train with samples?)
+- [ ] for experiment0/sample_aoi.py it may be helpful to generate a location specific lat jitter. The approach now is introducing quite a bit of misalignment between chips.
+- [ ] for visualizations, tune up the bounding box width and text font size, it is super hard to read when chips are stitched together
+- [ ] post processing annotations
+    - [ ] texts on images were classified as houses (remove manually? train with samples?)
+    - [ ] drop overlapping annotations

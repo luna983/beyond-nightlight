@@ -2,18 +2,18 @@
 
 Usage:
     $ python download_googlestaticmap.py \
-    >   --initialize data/DataFrame/sampled_localities.csv \
-    >   > logs/download_googlestaticmap.log
+    >   --log LOG_FILE.csv \
+    >   --initialize INIT_FILE.csv
     $ nohup python download_googlestaticmap.py \
-    >   --num 2 \
-    >   --download-dir data/GoogleStaticMap \
-    >   >> logs/download_googlestaticmap.log &
+    >   --log LOG_FILE.csv \
+    >   --num 3 \
+    >   --download-dir DIR \
+    >   > logs/download_googlestaticmap.log &
 """
 
 import os
 import pandas as pd
-from urllib.request import urlopen, urlretrieve
-from urllib.error import URLError
+import requests
 from argparse import ArgumentParser
 from tqdm import tqdm
 
@@ -59,8 +59,7 @@ class Downloader(object):
 
     def download(self, num, download_dir,
                  test_page='https://www.google.com',
-                 suffix='.png',
-                 content_type='image/png'):
+                 suffix='.png', min_size=20000):
         """This method downloads objects.
 
         Args:
@@ -68,7 +67,7 @@ class Downloader(object):
             download_dir (str): downloading directory.
             test_page (str): url to try in order to check internet connection.
             suffix (str): suffix for saved files.
-            content_type (str): valid content type of downloaded files.
+            min_size (int): minimum file size. Helps drop NA images.
         """
 
         # check local directory
@@ -76,7 +75,7 @@ class Downloader(object):
             raise Exception('Download directory does not exist.')
 
         # check internet connection
-        urlopen(test_page, timeout=2)
+        _ = requests.get(test_page, timeout=1)
 
         # extract items already downloaded
         mask = self.queue['status']
@@ -98,33 +97,23 @@ class Downloader(object):
                     self.queue.loc[idx, 'status'] = True
                     print('{} already exists.'.format(file_name))
                 else:
-                    try:
-                        _, HTTPresponse = urlretrieve(url, file_name)
-                        # check file integrity
-                        if HTTPresponse.get_content_type() == content_type:
-                            # update status
-                            self.queue.loc[idx, 'status'] = True
-                            print('{} successfully downloaded.'
-                                  .format(file_name))
-                        else:
-                            try:
-                                print('{} NOT valid content type.'
-                                      .format(file_name))
-                                os.remove(file_name)
-                            except FileNotFoundError:
-                                pass
-                    except URLError:
-                        try:
-                            print('{} NOT downloaded.'.format(file_name))
-                            os.remove(file_name)
-                        except FileNotFoundError:
-                            pass
+                    r = requests.get(url)
+                    if int(r.headers['Content-Length']) > min_size:
+                        with open(file_name, 'wb') as f:
+                            _ = f.write(r.content)
+                        # update status
+                        self.queue.loc[idx, 'status'] = True
+                        print('{} successfully downloaded.'.format(file_name))
+                    else:
+                        print('{} skipped - file too small: {} bytes.'.format(
+                            file_name, int(r.headers['Content-Length'])))
+                        self.queue.drop(idx, inplace=True)
         if mask.all():
             print('Downloading completed.')
 
 
 def make_url(idx):
-    """Generate the urls for the Google Static Maps API.
+    """Helper function to generate the urls for the Google Static Maps API.
 
     Args:
         index (str): Identifies an image.
@@ -146,11 +135,11 @@ def make_url(idx):
 
 
 if __name__ == '__main__':
-    # parse arguments passed in command-line tools, all arguments optional
+    # parse arguments passed from the command line
     parser = ArgumentParser(
         description='Downloads satellite images from Google Statics Maps API.')
-    parser.add_argument('--log', default='logs/GoogleStaticMap.csv',
-                        help='name of log file')
+    parser.add_argument('--log', default=None, type=str,
+                        help='name of log file (.csv)')
     # request
     parser.add_argument('--initialize', default=None, type=str,
                         help='a new list of files to be downloaded')
@@ -161,10 +150,12 @@ if __name__ == '__main__':
     parser.add_argument(
         '--num', default=None, type=int,
         help='number of downloads to perform, this flag turns on downloading')
-    parser.add_argument('--download-dir', default='data/GoogleStaticMap',
+    parser.add_argument('--download-dir', default=None, type=str,
                         help='downloading directory')
     # parse
     args = parser.parse_args()
+
+    assert args.log is not None, 'Input log file path!'
 
     # parse and make url list
     if args.initialize is not None:
@@ -172,16 +163,17 @@ if __name__ == '__main__':
         # fetch authentication key
         with open(args.api_key, 'r') as f:
             GOOGLE_API_KEY = f.read()
-        # read household coordinates
+        # read coordinates and index
         df = pd.read_csv(args.initialize, index_col='index')
         df = df.filter(items=['lon', 'lat'])
         d.request(indices=df.index.values, mapping=make_url)
     else:
-        q = pd.read_csv(args.log, index_col=['index'])
+        q = pd.read_csv(args.log, index_col='index')
         d = Downloader(queue=q)
 
     # download
     if args.num is not None:
+        assert args.download_dir is not None, 'Input download directory!'
         d.download(num=args.num, download_dir=args.download_dir)
 
     # save the log
