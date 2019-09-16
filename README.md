@@ -9,10 +9,7 @@
 
 ## TODOs
 
-- [ ] unittest eval
-- [ ] add data augmentation of blurrier images
 - [ ] jupyter notebook to see step by step
 - [ ] google static map record no image instances
 - [ ] clean up codes, reorganize `utils/` into different experiments, reproduce figures
-
 - [ ] texts on images were classified as houses (remove manually? train with samples?)
