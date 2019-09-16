@@ -74,7 +74,8 @@ class InstSegVisualization(object):
             for box in self.boxes:
                 output_draw.rectangle(
                     box * self.up_scale,
-                    outline=tuple(self.cfg.bbox_outline))
+                    outline=tuple(self.cfg.bbox_outline),
+                    width=self.cfg.bbox_width)
 
     def add_label(self):
         """Adds labels for all instances.
