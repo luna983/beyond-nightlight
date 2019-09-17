@@ -18,13 +18,12 @@ $ nohup python download_googlestaticmap.py \
 """
 
 
-import os
 import numpy as np
 import pandas as pd
 
 
-def tile_to_degree(latitude, zoom_level=19,
-                   width=640, height=640):
+def tile_width_in_degree(latitude, zoom_level=19,
+                         width=640, height=640):
     """Calculates the width/height of Google Static Map images.
 
     This is based on the Pseudo Mercator Projection.
@@ -39,7 +38,7 @@ def tile_to_degree(latitude, zoom_level=19,
             in degrees.
     """
 
-    phi = latitude / 180  # in radians
+    phi = latitude * np.pi / 180  # in radians
     lon_degree = 360 / 256 / (2 ** zoom_level) * width  # in degrees
     lat_degree = np.abs(360 / 256 / (2 ** zoom_level) * height *
                         2 * np.sin(np.pi / 4 + phi / 2) *
@@ -57,13 +56,17 @@ def dms_to_dd(n):
 
 
 if __name__ == '__main__':
+
     # define paths
     IN_DIR = 'data/CPV/Raw/ITER2010/ITER_NALDBF10.csv'
     OUT_DIR = 'data/Experiment0/census.csv'
-    
+
     # specify tiles to be pulled
     LON_TILE_SHIFT = [-1, 0, 1]
     LAT_TILE_SHIFT = [-1, 0, 1]
+
+    # number of sampled localities
+    N = 200
 
     # read data frame
     df = pd.read_csv(IN_DIR)
@@ -71,7 +74,7 @@ if __name__ == '__main__':
     # select localities with 1-249 residents
     df = df[df['TAM_LOC'] == 1]
     # sample localities to reduce no. of files downloaded
-    df = df.sample(n=200, replace=True)
+    df = df.sample(n=N, replace=True)
 
     # select key variables
     df = df.filter(items=['ENTIDAD', 'MUN', 'LOC',
@@ -79,26 +82,34 @@ if __name__ == '__main__':
                           'POBTOT', 'VIVTOT', 'TVIVHAB'])
     df.columns = ['ent', 'mun', 'loc', 'lon', 'lat',
                   'pop', 'houses', 'inhabited_houses']
+    df.dropna(how='any', inplace=True)
 
     # convert lon and lat into degree decimal
     df['lon'] = - df['lon'].astype('int64').apply(dms_to_dd)
     df['lat'] = df['lat'].astype('int64').apply(dms_to_dd)
-    
+
     # construct lon/lat jitters
-    lon_tile_shifts, lat_tile_shifts = np.meshgrid(LON_TILE_SHIFT, LAT_TILE_SHIFT)
-    lon_tile_shifts, lat_tile_shifts = lon_tile_shifts.flatten(), lat_tile_shifts.flatten()
-    
-    # TODO
+    lon_tile_shifts, lat_tile_shifts = np.meshgrid(
+        LON_TILE_SHIFT, LAT_TILE_SHIFT)
+    lon_tile_shifts = lon_tile_shifts.flatten()
+    lat_tile_shifts = lat_tile_shifts.flatten()
+
     df_image = pd.concat(
-        [df.assign(lon_shift=shift[0], lat_shift=shift[1], chip=i)
-         for i, lon_tile_shift, lat_tile_shift
+        [df.assign(lon_shift=lambda x: (tile_width_in_degree(x['lat'])[0] *
+                                        lon_tile_shift),
+                   lat_shift=lambda x: (tile_width_in_degree(x['lat'])[1] *
+                                        lat_tile_shift),
+                   chip=i)
+         for i, (lon_tile_shift, lat_tile_shift)
          in enumerate(zip(lon_tile_shifts, lat_tile_shifts))])
+
     df_image['lon'] = df_image['lon'] + df_image['lon_shift']
     df_image['lat'] = df_image['lat'] + df_image['lat_shift']
 
     df_image['index'] = df_image.apply(
         lambda x: 'ENT{:02d}MUN{:03d}LOC{:04d}CHIP{:02d}'
-                  .format(x['ent'], x['mun'], x['loc'], x['chip']),
+                  .format(int(x['ent']), int(x['mun']),
+                          int(x['loc']), int(x['chip'])),
         axis=1)
     df_image.set_index('index', inplace=True, drop=True)
     df_image.sort_values(['ent', 'mun', 'loc', 'chip'], inplace=True)

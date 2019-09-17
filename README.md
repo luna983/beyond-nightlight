@@ -9,8 +9,7 @@
 
 ## TODOs
 
-- [ ] for experiment0/sample_aoi.py it may be helpful to generate a location specific lat jitter. The approach now is introducing quite a bit of misalignment between chips.
-- [ ] for visualizations, tune up the bounding box width and text font size, it is super hard to read when chips are stitched together
+- [ ] as `sample_aoi.py` is updated, the codes for stitching together images also need to be updated. see example in `tmp.py`
 - [ ] post processing annotations
     - [ ] texts on images were classified as houses (remove manually? train with samples?)
     - [ ] drop overlapping annotations
