@@ -9,8 +9,6 @@
 
 ## TODOs
 
-- [ ] check that the lat lon conversion in the data frame is correct (str to num)
-- [ ] as `sample_aoi.py` is updated, the codes for stitching together images also need to be updated. see example in `tmp.py`
 - [ ] post processing annotations
     - [ ] texts on images were classified as houses (remove manually? train with samples?)
     - [ ] drop overlapping annotations

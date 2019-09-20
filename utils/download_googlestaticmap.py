@@ -159,22 +159,22 @@ if __name__ == '__main__':
 
     # parse and make url list
     if args.initialize is not None:
-        d = Downloader()
+        downloader = Downloader()
         # fetch authentication key
         with open(args.api_key, 'r') as f:
             GOOGLE_API_KEY = f.read()
         # read coordinates and index
         df = pd.read_csv(args.initialize, index_col='index')
         df = df.filter(items=['lon', 'lat'])
-        d.request(indices=df.index.values, mapping=make_url)
+        downloader.request(indices=df.index.values, mapping=make_url)
     else:
-        q = pd.read_csv(args.log, index_col='index')
-        d = Downloader(queue=q)
+        queue = pd.read_csv(args.log, index_col='index')
+        downloader = Downloader(queue=queue)
 
     # download
     if args.num is not None:
         assert args.download_dir is not None, 'Input download directory!'
-        d.download(num=args.num, download_dir=args.download_dir)
+        downloader.download(num=args.num, download_dir=args.download_dir)
 
     # save the log
-    d.queue.to_csv(args.log)
+    downloader.queue.to_csv(args.log)
