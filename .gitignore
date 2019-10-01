@@ -1,27 +1,28 @@
 # tmp folder and scripts
-tmp/
-tmp*.ipynb
-tmp*.py
+**/tmp/
+**/tmp*.ipynb
+**/tmp*.py
 
 # API keys
-**API_KEY.txt
+**/*_API_KEY.txt
 
 # OS generated files
-*.DS_Store
+**/.DS_Store
 
 # Python files
-__pycache__/
+**/__pycache__/
 
 # Jupyter Notebook
-.ipynb_checkpoints
+**/.ipynb_checkpoints
 
 # R files
-*.Rhistory
+**/.Rhistory
 
 # symbolic links and logs
-experiment0/data
-utils/data
-utils/logs
-maskrcnn/data
-maskrcnn/runs
-maskrcnn/logs
+**/data
+**/data/
+**/logs
+**/logs/
+**/runs
+**/runs/
+
