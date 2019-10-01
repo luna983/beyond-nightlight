@@ -8,10 +8,10 @@ Then from `utils/`, run
 
 $ ls data/GoogleStaticMap/Image | head -10
 $ python download_googlestaticmap.py \
->   --log data/Experiment0/census_download_log.csv \
->   --initialize data/Experiment0/init_image.csv
+>   --log data/Experiment0/satellite_download_log.csv \
+>   --initialize data/Experiment0/satellite_initialization.csv
 $ nohup python download_googlestaticmap.py \
->   --log data/Experiment0/census_download_log.csv \
+>   --log data/Experiment0/satellite_download_log.csv \
 >   --num 3000 \
 >   --download-dir data/GoogleStaticMap/Image \
 >   > logs/download.log &
@@ -61,7 +61,7 @@ if __name__ == '__main__':
     # define paths
     IN_DIR = 'data/CPV/Raw/ITER2010/ITER_NALDBF10.csv'
     OUT_LOC_DIR = 'data/Experiment0/census.csv'
-    OUT_IMG_DIR = 'data/Experiment0/init_image.csv'
+    OUT_IMG_DIR = 'data/Experiment0/satellite_initialization.csv'
 
     # specify tiles to be pulled
     LON_TILE_SHIFT = [-1, 0, 1]
@@ -128,6 +128,10 @@ if __name__ == '__main__':
         (df.loc[df['TAM_LOC'] > 1, :]
          .sample(n=N_LARGE).assign(sample='large'))
     ])
+    
+    # scale VPH (household assets) variables
+    for col in vph_cols:
+        df[col] = df[col] / df['TVIVHAB']
 
     # save locality level census data 
     df.to_csv(OUT_LOC_DIR, index=False)
