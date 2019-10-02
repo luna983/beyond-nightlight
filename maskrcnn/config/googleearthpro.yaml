@@ -2,12 +2,13 @@
 dataset: googleearthpro
 mask_format: supervisely
 label_dict:  # values should be [1, 2, 3, ..., N]
-    'N/A': 1
-    'Unfinished House': 2
-    'Tin Roof': 3
-    'Colored Roof': 4
-int_dict: null
-num_classes: 5  # including background
+    'N/A': 0
+    'Unfinished House': 1
+    'Tin Roof': 1
+    'Colored Roof': 1
+int_dict:
+    1: 'house'
+num_classes: 2  # including background
 
 # data loader
 train_ratio: 0.85  # null if train.txt and val.txt exist
@@ -27,7 +28,4 @@ out_visual_dir: data/GoogleEarthPro/Visual
 
 # visualization parameters
 category_palette:
-    1: [255, 255, 255, 64] # white
-    2: [255, 36, 0, 64] # red
-    3: [150, 223, 228, 64] # blue
-    4: [255, 213, 0, 64] # yellow
+    1: [150, 223, 228, 64] # blue

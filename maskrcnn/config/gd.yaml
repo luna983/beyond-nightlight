@@ -1,0 +1,31 @@
+# dataset
+dataset: gd
+mask_format: supervisely
+label_dict:  # values should be [1, 2, 3, ..., N]
+    'thatched roof': 1
+    'metal roof': 2
+    'colored roof': 3
+int_dict: null
+num_classes: 4  # including background
+
+# data loader
+train_ratio: 0.8  # null if train.txt and val.txt exist
+
+# trainval directory
+in_tv_dir: data/GiveDirectly
+in_tv_img_dir: Image
+in_tv_img_suffix: .png
+in_tv_mask_dir: Mask
+in_tv_mask_suffix: .png.json
+
+# output directory
+out_mask_dir: data/GiveDirectly/Pred
+
+# visualization directory
+out_visual_dir: data/GiveDirectly/Visual
+
+# visualization parameters
+category_palette:
+    1: [150, 223, 228, 64] # blue
+    2: [223, 150, 228, 64]
+    3: [228, 223, 150, 64]

@@ -12,3 +12,18 @@
 - [ ] post processing annotations
     - [ ] texts on images were classified as houses (remove manually? train with samples?)
     - [ ] drop overlapping annotations
+
+## Experiments
+
+w/ tanazania data
+- 00 base spec: COCO pretraind, original anchor, no data aug
+- 02 smaller anchors, no pretraining
+- 03 stronger data aug
+    - validation against census, count .6ish, others low (.2ish)
+- 05 smaller scale of training image (.2m, inference GSM zoom 19 = .3m), w/ aug
+    - validation against census, count 0.68, others noticably higher (.4ish)
+- 06 smaller scale + smaller anchor
+
+w/ google earth pro
+- 04 pretrained on tanzania
+    - validation against census, count corr 0.72, others (size versus durable) weaker .2ish

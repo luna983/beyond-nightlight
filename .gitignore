@@ -2,6 +2,7 @@
 **/tmp/
 **/tmp*.ipynb
 **/tmp*.py
+**/nohup.out
 
 # API keys
 **/*_API_KEY.txt

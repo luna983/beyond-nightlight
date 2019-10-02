@@ -64,13 +64,11 @@ if __name__ == '__main__':
     OUT_IMG_DIR = 'data/Experiment0/satellite_initialization.csv'
 
     # specify tiles to be pulled
-    LON_TILE_SHIFT = [-1, 0, 1]
-    LAT_TILE_SHIFT = [-1, 0, 1]
+    LON_TILE_SHIFT = [-2, -1, 0, 1, 2]
+    LAT_TILE_SHIFT = [-2, -1, 0, 1, 2]
 
     # number of sampled localities
-    N_MAIN = 200  # main sample: neither small nor large
-    N_SMALL = 50  # small localities, * or N/D
-    N_LARGE = 50  # large localities, TAM_LOC == 2-4
+    N_NEW = 100
 
     # cutoff values for dropping observations too close to each other
     URBAN_CUTOFF = 0.1
@@ -117,17 +115,8 @@ if __name__ == '__main__':
     urban_dist, _ = urban_tree.query(df.loc[:, ['lon', 'lat']].values)
 
     # sample localities to reduce no. of files downloaded
-    df = pd.concat([
-        # main sample
-        (df.loc[(df['TAM_LOC'] == 1) & df['VPH_SNBIEN'].notna(), :]
-         .sample(n=N_MAIN).assign(sample='main')),
-        # sample of small localities
-        (df.loc[df['VPH_SNBIEN'].isna(), :]
-         .sample(n=N_SMALL).assign(sample='small')),
-        # sample of large localities
-        (df.loc[df['TAM_LOC'] > 1, :]
-         .sample(n=N_LARGE).assign(sample='large'))
-    ])
+    df = df.loc[df['VPH_SNBIEN'].notna(), :].sample(
+        n=N_NEW, random_state=0).assign(sample='new')
     
     # scale VPH (household assets) variables
     for col in vph_cols:
