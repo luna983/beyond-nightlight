@@ -1,7 +1,10 @@
+import os
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
+import pycocotools.mask as maskutils
 
 from torchvision.transforms import functional as F
+import torch
 
 
 class InstSegVisualization(object):
@@ -9,8 +12,8 @@ class InstSegVisualization(object):
 
     Args:
         cfg (argparse Namespace): visualization configurations.
-        image (torch.FloatTensor[C, H, W]): The original image,
-            in the 0-1 range.
+        image (torch.FloatTensor[C, H, W] or PIL.Image): The original image,
+            in the 0-1 range; or the original PIL.Image.
         boxes (torch.Tensor[N, 4]): the predicted boxes
             in [x0, y0, x1, y1] format,
             with values between 0 and H and 0 and W
@@ -26,7 +29,12 @@ class InstSegVisualization(object):
                  boxes=None, labels=None, scores=None, masks=None):
 
         self.cfg = cfg
-        self.image = image.detach().cpu()
+        if isinstance(image, torch.Tensor):
+            self.image = image.detach().cpu()
+        elif isinstance(image, Image):
+            self.image = image
+        else:
+            raise NotImplementedError
         self.boxes = (boxes.detach().cpu().numpy()
                       if boxes is not None else None)
         self.labels = (labels.detach().cpu().numpy()
@@ -61,7 +69,12 @@ class InstSegVisualization(object):
         Args:
             mode (str): PIL Image mode, default to RGB.
         """
-        output = F.to_pil_image(self.image, mode=mode)
+        if isinstance(self.image, torch.Tensor):
+            output = F.to_pil_image(self.image, mode=mode)
+        elif isinstance(self.image, Image):
+            output = self.image.convert(mode)
+        else:
+            raise NotImplementedError
         self.output = (output.convert('RGBA')
                              .resize(size=(self.width, self.height)))
 
@@ -150,3 +163,38 @@ class InstSegVisualization(object):
         """
 
         self.output.save(out_dir)
+
+
+def visualize_from_coco_pred(cfg, annotations, image_id):
+    """Visualizes a prediction image from a COCO annotation.
+
+    Args:
+        cfg (Config object): visualization configurations.
+        annotations (list of dict): annotations in COCO format.
+        image_id (str): id of a single image to be visualized.
+
+    Returns:
+        InstSegVisualization object: the visualization.
+    """
+    image = Image.open(
+        os.path.join(cfg.in_infer_img_dir,
+                     image_id + cfg.in_infer_img_suffix))
+    anns = [ann for ann in annotations if ann['image_id_str'] == image_id]
+    rles = [ann['segmentation'] for ann in anns]
+    # convert to masks
+    binary_masks = maskutils.decode(rles)
+    binary_masks = torch.from_numpy(
+        binary_masks.transpose((2, 0, 1)))
+    boxes = torch.Tensor([ann['bbox'] for ann in anns])
+    scores = torch.Tensor([ann['score'] for ann in anns])
+    labels = torch.Tensor([ann['category_id'] for ann in anns],
+                          dtype=torch.uint8)
+    v = InstSegVisualization(
+        cfg=cfg, image=image,
+        boxes=boxes, labels=labels,
+        scores=scores, masks=binary_masks)
+    v.plot_image()
+    v.add_binary_mask()
+    v.add_label_score()
+    v.add_bbox()
+    return v
