@@ -99,7 +99,8 @@ class COCOSaver(object):
                     'segmentation': rle,
                     'area': int(area),
                     'iscrowd': 0,  # set this to 0, otherwise eval fails
-                    'bbox': box.tolist(),
+                    'bbox': [float(box[0]), float(box[1]),
+                             float(box[2] - box[0]), float(box[3] - box[1])],
                     'image_id_str': image_id,  # for postprocessing
                     'image_id': self.coco_image_id,  # internal coco eval
                     'category_id': int(label),
@@ -126,7 +127,8 @@ class COCOSaver(object):
                     rle['counts'] = rle['counts'].decode('ascii')
                     self.annotations.append(
                         {'segmentation': rle,
-                         'bbox': box.tolist(),
+                         'bbox': [float(box[0]), float(box[1]),
+                                  float(box[2] - box[0]), float(box[3] - box[1])],
                          'score': float(score),
                          'area': float(area),
                          'image_id_str': image_id,  # for postprocessing

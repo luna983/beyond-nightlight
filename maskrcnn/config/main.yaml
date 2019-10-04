@@ -47,7 +47,7 @@ key_metric_name: mAP
 
 # visualization parameters
 visual_train: False
-prob_visualization: 0.1
+prob_visualization: 0.01
 num_visualization: 30
 visual_score_cutoff: 0.6
 bbox_outline: [255, 255, 255, 255]  # white

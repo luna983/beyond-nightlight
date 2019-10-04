@@ -31,8 +31,12 @@ class InstSegVisualization(object):
         self.cfg = cfg
         if isinstance(image, torch.Tensor):
             self.image = image.detach().cpu()
-        elif isinstance(image, Image):
+            self.width = np.floor(image.shape[2] * cfg.up_scale).astype(np.uint16)
+            self.height = np.floor(image.shape[1] * cfg.up_scale).astype(np.uint16)
+        elif isinstance(image, Image.Image):
             self.image = image
+            self.width = np.floor(image.size[0] * cfg.up_scale).astype(np.uint16)
+            self.height = np.floor(image.size[1] * cfg.up_scale).astype(np.uint16)
         else:
             raise NotImplementedError
         self.boxes = (boxes.detach().cpu().numpy()
@@ -45,19 +49,15 @@ class InstSegVisualization(object):
                       if masks is not None else None)
         # drop low score instances
         if self.scores is not None:
+            keep = self.scores > cfg.visual_score_cutoff
             if self.boxes is not None:
-                self.boxes = self.boxes[
-                    self.scores > cfg.visual_score_cutoff, :]
+                self.boxes = self.boxes[keep, :] if sum(keep) > 0 else None
             if self.masks is not None:
-                self.masks = self.masks[
-                    self.scores > cfg.visual_score_cutoff, :, :]
+                self.masks = self.masks[keep, :, :] if sum(keep) > 0 else None
             if self.labels is not None:
-                self.labels = self.labels[
-                    self.scores > cfg.visual_score_cutoff]
-            self.scores = self.scores[
-                self.scores > cfg.visual_score_cutoff]
-        self.width = np.floor(image.shape[2] * cfg.up_scale).astype(np.uint16)
-        self.height = np.floor(image.shape[1] * cfg.up_scale).astype(np.uint16)
+                self.labels = self.labels[keep] if sum(keep) > 0 else None
+            self.scores = self.scores[keep] if sum(keep) > 0 else None
+        
         self.font = ImageFont.truetype(
             cfg.font, cfg.font_size, encoding='unic')
         self.up_scale = cfg.up_scale
@@ -71,7 +71,7 @@ class InstSegVisualization(object):
         """
         if isinstance(self.image, torch.Tensor):
             output = F.to_pil_image(self.image, mode=mode)
-        elif isinstance(self.image, Image):
+        elif isinstance(self.image, Image.Image):
             output = self.image.convert(mode)
         else:
             raise NotImplementedError
@@ -83,7 +83,7 @@ class InstSegVisualization(object):
         """
         output_draw = ImageDraw.Draw(self.output)
         # check existence of instances
-        if self.boxes.shape[0] != 0:
+        if self.boxes is not None:
             for box in self.boxes:
                 output_draw.rectangle(
                     box * self.up_scale,
@@ -95,7 +95,7 @@ class InstSegVisualization(object):
         """
         output_draw = ImageDraw.Draw(self.output)
         # check existence of instances
-        if self.labels.shape[0] != 0:
+        if self.labels is not None:
             for box, label in zip(self.boxes, self.labels):
                 output_draw.text(
                     (box[0] * self.up_scale, box[3] * self.up_scale),
@@ -108,7 +108,7 @@ class InstSegVisualization(object):
         """
         output_draw = ImageDraw.Draw(self.output)
         # check existence of instances
-        if self.labels.shape[0] != 0 and self.scores is not None:
+        if self.labels is not None and self.scores is not None:
             for box, label, score in zip(self.boxes, self.labels, self.scores):
                 output_draw.text(
                     (box[0] * self.up_scale, box[3] * self.up_scale),
@@ -125,7 +125,7 @@ class InstSegVisualization(object):
         """
 
         # check existence of instances
-        if self.masks.shape[0] != 0:
+        if self.masks is not None:
             # threshold to get a [N, H, W] binary mask
             if threshold is None:
                 binary_mask = self.masks
@@ -177,18 +177,26 @@ def visualize_from_coco_pred(cfg, annotations, image_id):
         InstSegVisualization object: the visualization.
     """
     image = Image.open(
-        os.path.join(cfg.in_infer_img_dir,
+        os.path.join(cfg.in_infer_dir, cfg.in_infer_img_dir,
                      image_id + cfg.in_infer_img_suffix))
+    image = image.resize((cfg.resize_width, cfg.resize_height))
     anns = [ann for ann in annotations if ann['image_id_str'] == image_id]
-    rles = [ann['segmentation'] for ann in anns]
-    # convert to masks
-    binary_masks = maskutils.decode(rles)
-    binary_masks = torch.from_numpy(
-        binary_masks.transpose((2, 0, 1)))
-    boxes = torch.Tensor([ann['bbox'] for ann in anns])
-    scores = torch.Tensor([ann['score'] for ann in anns])
-    labels = torch.Tensor([ann['category_id'] for ann in anns],
-                          dtype=torch.uint8)
+    if len(anns) == 0:
+        binary_masks = None
+        boxes = None
+        scores = None
+        labels = None
+    else:
+        rles = [ann['segmentation'] for ann in anns]
+        # convert to masks
+        binary_masks = maskutils.decode(rles)
+        binary_masks = torch.from_numpy(
+            binary_masks.transpose((2, 0, 1)))
+        boxes = torch.Tensor([ann['bbox'] for ann in anns])
+        boxes[:, 2] += boxes[:, 0]
+        boxes[:, 3] += boxes[:, 1]
+        scores = torch.Tensor([ann['score'] for ann in anns])
+        labels = torch.Tensor([ann['category_id'] for ann in anns])
     v = InstSegVisualization(
         cfg=cfg, image=image,
         boxes=boxes, labels=labels,
