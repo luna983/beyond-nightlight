@@ -8,10 +8,10 @@ Then from `utils/`, run
 
 $ ls data/GoogleStaticMap/Image | head -10
 $ python download_googlestaticmap.py \
->   --log data/Experiment0/satellite_download_log.csv \
->   --initialize data/Experiment0/satellite_initialization.csv
+>   --log data/Experiment0/aoi_download_log.csv \
+>   --initialize data/Experiment0/aoi.csv
 $ nohup python download_googlestaticmap.py \
->   --log data/Experiment0/satellite_download_log.csv \
+>   --log data/Experiment0/aoi_download_log.csv \
 >   --num 3000 \
 >   --download-dir data/GoogleStaticMap/Image \
 >   > logs/download.log &
@@ -21,6 +21,7 @@ $ nohup python download_googlestaticmap.py \
 import numpy as np
 import pandas as pd
 from scipy.spatial import cKDTree
+from sklearn.decomposition import PCA
 
 
 def tile_width_in_degree(latitude, zoom_level=19,
@@ -61,18 +62,19 @@ if __name__ == '__main__':
     # define paths
     IN_DIR = 'data/CPV/Raw/ITER2010/ITER_NALDBF10.csv'
     OUT_LOC_DIR = 'data/Experiment0/census.csv'
-    OUT_IMG_DIR = 'data/Experiment0/satellite_initialization.csv'
+    OUT_IMG_DIR = 'data/Experiment0/aoi.csv'
 
     # specify tiles to be pulled
     LON_TILE_SHIFT = [-2, -1, 0, 1, 2]
     LAT_TILE_SHIFT = [-2, -1, 0, 1, 2]
 
     # number of sampled localities
-    N_NEW = 100
+    N = 100
+    SAMPLE_NAME = 'new'
 
     # cutoff values for dropping observations too close to each other
-    URBAN_CUTOFF = 0.1
-    RURAL_CUTOFF = 0.01
+    URBAN_CUTOFF = 0.1  # in degrees
+    RURAL_CUTOFF = 0.01  # in degrees
 
     # specify data type for faster I/O
     df = pd.read_csv(IN_DIR, nrows=0)
@@ -90,10 +92,11 @@ if __name__ == '__main__':
 
     # drop obs without coordinates (regional aggregates)
     df.dropna(subset=['LONGITUD', 'LATITUD'], inplace=True)
+    
     # convert lon and lat into degree decimal
     df['lon'] = - df['LONGITUD'].apply(dms_to_dd)
     df['lat'] = df['LATITUD'].apply(dms_to_dd)
-
+    
     # rename index cols
     # UPPER CASE: original variables
     # LOWER CASE: created variables
@@ -113,14 +116,18 @@ if __name__ == '__main__':
     # excluding the point itself
     rural_dist = rural_dist[:, 1]
     urban_dist, _ = urban_tree.query(df.loc[:, ['lon', 'lat']].values)
-
+    
     # sample localities to reduce no. of files downloaded
     df = df.loc[df['VPH_SNBIEN'].notna(), :].sample(
-        n=N_NEW, random_state=0).assign(sample='new')
-    
+        n=N, random_state=0).assign(sample=SAMPLE_NAME)
+
     # scale VPH (household assets) variables
     for col in vph_cols:
         df[col] = df[col] / df['TVIVHAB']
+    
+    # compute asset score
+    m = PCA(n_components=1)
+    df['asset_score'] = m.fit_transform(df.loc[:, vph_cols].values)
 
     # save locality level census data 
     df.to_csv(OUT_LOC_DIR, index=False)
@@ -144,6 +151,12 @@ if __name__ == '__main__':
     # add image centroid shifts
     df['lon'] = df['lon'] + df['lon_shift']
     df['lat'] = df['lat'] + df['lat_shift']
+    # bounding box
+    df = df.assign(
+        lon_min=lambda x: x['lon'] - tile_width_in_degree(x['lat'])[0] / 2,
+        lon_max=lambda x: x['lon'] + tile_width_in_degree(x['lat'])[0] / 2,
+        lat_min=lambda x: x['lat'] - tile_width_in_degree(x['lat'])[1] / 2,
+        lat_max=lambda x: x['lat'] + tile_width_in_degree(x['lat'])[1] / 2)
     # assign index
     df['index'] = df.apply(
         lambda x: 'ENT{:02d}MUN{:03d}LOC{:04d}CHIP{:02d}'

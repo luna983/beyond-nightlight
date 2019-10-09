@@ -1,4 +1,3 @@
-import os
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 import pycocotools.mask as maskutils
@@ -31,12 +30,16 @@ class InstSegVisualization(object):
         self.cfg = cfg
         if isinstance(image, torch.Tensor):
             self.image = image.detach().cpu()
-            self.width = np.floor(image.shape[2] * cfg.up_scale).astype(np.uint16)
-            self.height = np.floor(image.shape[1] * cfg.up_scale).astype(np.uint16)
+            self.width = np.floor(
+                image.shape[2] * cfg.up_scale).astype(np.uint16)
+            self.height = np.floor(
+                image.shape[1] * cfg.up_scale).astype(np.uint16)
         elif isinstance(image, Image.Image):
             self.image = image
-            self.width = np.floor(image.size[0] * cfg.up_scale).astype(np.uint16)
-            self.height = np.floor(image.size[1] * cfg.up_scale).astype(np.uint16)
+            self.width = np.floor(
+                image.size[0] * cfg.up_scale).astype(np.uint16)
+            self.height = np.floor(
+                image.size[1] * cfg.up_scale).astype(np.uint16)
         else:
             raise NotImplementedError
         self.boxes = (boxes.detach().cpu().numpy()
@@ -57,7 +60,7 @@ class InstSegVisualization(object):
             if self.labels is not None:
                 self.labels = self.labels[keep] if sum(keep) > 0 else None
             self.scores = self.scores[keep] if sum(keep) > 0 else None
-        
+
         self.font = ImageFont.truetype(
             cfg.font, cfg.font_size, encoding='unic')
         self.up_scale = cfg.up_scale
@@ -128,7 +131,7 @@ class InstSegVisualization(object):
         if self.masks is not None:
             # threshold to get a [N, H, W] binary mask
             if threshold is None:
-                binary_mask = self.masks
+                binary_mask = self.masks > 0
             else:
                 binary_mask = self.masks > threshold
             # colored mask, starting out as black and transparent
@@ -165,38 +168,41 @@ class InstSegVisualization(object):
         self.output.save(out_dir)
 
 
-def visualize_from_coco_pred(cfg, annotations, image_id):
+def visualize_from_coco_pred(cfg, annotations, image):
     """Visualizes a prediction image from a COCO annotation.
 
     Args:
-        cfg (Config object): visualization configurations.
+        cfg (argparse.Namespace object): visualization configurations.
         annotations (list of dict): annotations in COCO format.
-        image_id (str): id of a single image to be visualized.
+        image (PIL.Image.Image): an image to be visualized.
 
     Returns:
-        InstSegVisualization object: the visualization.
+        PIL.Image.Image: the visualization.
     """
-    image = Image.open(
-        os.path.join(cfg.in_infer_dir, cfg.in_infer_img_dir,
-                     image_id + cfg.in_infer_img_suffix))
-    image = image.resize((cfg.resize_width, cfg.resize_height))
-    anns = [ann for ann in annotations if ann['image_id_str'] == image_id]
+
+    rles = [ann['segmentation'] for ann in annotations]
+    # drop area == 0 annotations
+    areas = maskutils.area(rles) if len(rles) > 0 else []
+    # anns: non-empty annotations
+    anns = [ann for ann, area in zip(annotations, areas) if area > 0]
+    rles = [rle for rle, area in zip(rles, areas) if area > 0]
+
     if len(anns) == 0:
         binary_masks = None
         boxes = None
         scores = None
         labels = None
     else:
-        rles = [ann['segmentation'] for ann in anns]
         # convert to masks
         binary_masks = maskutils.decode(rles)
         binary_masks = torch.from_numpy(
             binary_masks.transpose((2, 0, 1)))
         boxes = torch.Tensor([ann['bbox'] for ann in anns])
-        boxes[:, 2] += boxes[:, 0]
+        boxes[:, 2] += boxes[:, 0]  # to x0/y0, x1/y1 from x0/y0, width/height
         boxes[:, 3] += boxes[:, 1]
         scores = torch.Tensor([ann['score'] for ann in anns])
         labels = torch.Tensor([ann['category_id'] for ann in anns])
+
     v = InstSegVisualization(
         cfg=cfg, image=image,
         boxes=boxes, labels=labels,
@@ -205,4 +211,4 @@ def visualize_from_coco_pred(cfg, annotations, image_id):
     v.add_binary_mask()
     v.add_label_score()
     v.add_bbox()
-    return v
+    return v.output

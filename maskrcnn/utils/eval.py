@@ -1,7 +1,8 @@
 import os
 import json
 from pycocotools.coco import COCO
-from utils.coco import Evaluator
+
+from .coco import Evaluator
 
 
 def evaluate(cfg, mode):

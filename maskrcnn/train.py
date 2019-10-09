@@ -6,12 +6,12 @@ from tqdm import tqdm
 
 import torch
 
-from dataloader import make_data_loader
-from model import make_model
-from utils.configure import Config
-from utils.save_ckpt_log_tb import Saver
-from utils.coco import COCOSaver
-from utils.eval import evaluate
+from .dataloader import make_data_loader
+from .model import make_model
+from .utils.configure import Config
+from .utils.save_ckpt_log_tb import Saver
+from .utils.coco import COCOSaver
+from .utils.eval import evaluate
 
 
 class Trainer(object):
@@ -171,17 +171,19 @@ class Trainer(object):
             for image, target, pred, image_id in zip(
                     images_copy, targets, preds, id_batch):
                 pred['masks'] = (pred['masks'].squeeze(1) >
-                                 self.cfg.mask_threshold)
+                                 self.cfg.mask_threshold)                    
                 cocosaver.add(pred, image_id)
-                file_name = image_id if mode == 'infer' else None
+                if mode == 'infer':
+                    cocosaver.save(mode, file_name=image_id)
                 self.saver.log_tb_visualization(
                     mode=mode,
                     epoch=self.epoch,
                     image=image,
                     target=target,
                     pred=pred,
-                    file_name=file_name)
-        cocosaver.save(mode)
+                    file_name=image_id if mode == 'infer' else None)
+        if mode != 'infer':
+            cocosaver.save(mode)
 
     def evaluate(self, mode='val'):
         """Evaluates the saved predicted annotations versus ground truth.
@@ -219,28 +221,16 @@ class Trainer(object):
         print('Finished!')
         print('=' * 72)
 
-
-if __name__ == '__main__':
-
-    # collect command line arguments
-    parser = argparse.ArgumentParser(description='Run Mask RCNN.')
-    parser.add_argument('--comment', type=str, default='tmp',
-                        help='Name of the run.')
-    parser.add_argument('--config', nargs='+', type=str, default=None,
-                        help='Specify config files.')
-    parser.add_argument('--mode', nargs='+', type=str, default=None,
-                        help='In train, val or infer mode.')
-    parser.add_argument('--resume-run', type=str, default=None,
-                        help='Load existing checkpoint and resume.')
-    parser.add_argument('--no-cuda', action='store_true',
-                        help='Do not use CUDA.')
-    parser.add_argument('--cuda-max-devices', type=int, default=1,
-                        help='Maximum number of available GPUs.')
-    args = parser.parse_args()
+def run(args):
+    """Runs the main training script.
+    
+    Args:
+        args (argparse.Namespace): all training params
+    """
 
     # parse configurations
     cfg = Config()
-    cfg.update([os.path.join('config', f + '.yaml')
+    cfg.update([os.path.join('maskrcnn/config', f + '.yaml')
                 for f in args.config])
 
     # sanity checks

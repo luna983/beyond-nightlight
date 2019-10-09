@@ -58,18 +58,18 @@ class COCOSaver(object):
     """This collects torch.Tensors and serialize annotations into a json file.
 
     Args:
-        gt (bool): True: ground truth, False: predictions
         cfg (Config): stores all configurations
+        gt (bool): True: ground truth, False: predictions
     """
 
-    def __init__(self, gt, cfg):
-        self.gt = gt
+    def __init__(self, cfg, gt):
         self.cfg = cfg
+        self.gt = gt
+
+        self.images = []
         self.annotations = []
         self.coco_image_id = 0
-        self.coco_instance_id = 0
-        if gt:
-            self.images = []
+        self.coco_instance_id = 0 if gt else None
 
     def add(self, annotation, image_id):
         """This updates the annotation list.
@@ -135,22 +135,28 @@ class COCOSaver(object):
                          'image_id': self.coco_image_id,  # internal coco eval
                          'category_id': int(label)})
 
-    def save(self, mode):
+    def save(self, mode, file_name=None):
         """This saves the annotations to the default log directory.
 
         Args:
             mode (str): the sample to be evaluated (train/val/infer).
+            file_name (str): name of the file.
         """
-        if self.gt:
-            with open(os.path.join(self.cfg.out_mask_dir, mode,
-                                   'annotations_gt.json'), 'w') as f:
+        if mode == 'infer':
+            assert file_name is not None, 'file names not provided'
+        else:
+            file_name = ('gt' if self.gt else 'pred')
+        with open(os.path.join(
+                self.cfg.out_mask_dir, mode, file_name + '.json'), 'w') as f:
+            if self.gt:
                 json.dump({
                     'annotations': self.annotations,
                     'images': self.images,
                     'categories': [
                         {'id': i, 'name': name}
                         for i, name in self.cfg.int_dict.items()]}, f)
-        else:
-            with open(os.path.join(self.cfg.out_mask_dir, mode,
-                                   'annotations_pred.json'), 'w') as f:
+            else:
                 json.dump(self.annotations, f)
+
+        self.annotations = []
+        self.images = []
