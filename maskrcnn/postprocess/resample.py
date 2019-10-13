@@ -4,7 +4,7 @@ import numpy as np
 import geopandas as gpd
 import pycocotools.mask as maskutils
 
-import torch
+from collections import defaultdict
 from glob import glob
 from PIL import Image
 from shapely.geometry import box
@@ -155,8 +155,9 @@ class Resampler(object):
                        ann['bbox'][1] > ymax)]
         return output
 
-    def _find_idx(ann, raster_bounds, chip_bounds, width, height):
-        """Finds the (flattened) index for an annotation.
+    def _find_idx(self, ann, raster_bounds, chip_bounds,
+                  raster_width, raster_height):
+        """Finds the (unflattened) index for an annotation.
 
         An annotation is assigned to a grid iff its centroid is in the grid.
 
@@ -165,40 +166,84 @@ class Resampler(object):
             raster_bounds (list of floats): bounds for area of interest
                 (minx, miny, maxx, maxy)
             chip_bounds (list of floats): bounds for original chip
-            width, height (int): dim of output image
+            raster_width, raster_height (int): dim of output image
 
         Returns:
-            int: the index of the grid to which the annotation belongs
+            tuple of int: the index of the grid to which the ann belongs
         """
-        # TODO
-        pass
+        # original chip width
+        chip_width, chip_height = ann['segmentation']['size']
+        # in original chip coordinates
+        centroid_x = ann['bbox'][0] + ann['bbox'][2] / 2
+        centroid_y = ann['bbox'][1] + ann['bbox'][3] / 2
+        # in global coordinates
+        centroid_x = (
+            chip_bounds[2] -
+            centroid_x * (chip_bounds[2] - chip_bounds[0]) / chip_width
+            if self.reverse_x else
+            chip_bounds[0] +
+            centroid_x * (chip_bounds[2] - chip_bounds[0]) / chip_width)
+        centroid_y = (
+            chip_bounds[3] -
+            centroid_y * (chip_bounds[3] - chip_bounds[1]) / chip_height
+            if self.reverse_y else
+            chip_bounds[1] +
+            centroid_y * (chip_bounds[3] - chip_bounds[1]) / chip_height)
+        # in new raster coordinates
+        centroid_x = (
+            (- centroid_x + raster_bounds[2]) /
+            (raster_bounds[2] - raster_bounds[0]) * raster_width
+            if self.reverse_x else
+            (centroid_x - raster_bounds[0]) /
+            (raster_bounds[2] - raster_bounds[0]) * raster_width)
+        centroid_y = (
+            (- centroid_y + raster_bounds[3]) /
+            (raster_bounds[3] - raster_bounds[1]) * raster_height
+            if self.reverse_y else
+            (centroid_y - raster_bounds[1]) /
+            (raster_bounds[3] - raster_bounds[1]) * raster_height)
+        if (0 < centroid_x < raster_width and
+                0 < centroid_y < raster_height):
+            return (int(centroid_x), int(centroid_y))
+        else:
+            return None
 
-    def agg(self, bounds, width, height, f, mode, cfg):
+    def agg(self, bounds, width, height, f_ann, f_agg, cfg, mode='ann'):
         """Aggregates up to a raster.
 
         Args:
             bounds (list of floats): bounds for area of interest
                 (minx, miny, maxx, maxy)
             width, height (int): dim of output image
-            f (function): function to aggregate over an annotation/image
-            mode (str): in ['ann']
+            f_ann, f_agg (function): function to be applied to an
+                annotation/image or within a grid
             cfg (argparse.Namespace): aggregation parameters
+            mode (str): in ['ann']
         """
         assert mode in ['ann'], 'Unknown mode specified'
         chips = self._subset_chips(self.chips, bounds)
-        self.output = torch.zeros((height, width)).view(-1)
+        self.output = np.zeros((height, width))
+        output = defaultdict(list)
         for _, chip in chips.iterrows():
             chip_annotations = self._load_chips(chip['index'], mode='ann')
             chip_annotations = self._postprocess_ann(
                 chip_annotations,
                 score_cutoff=cfg.visual_score_cutoff,
                 xmax=cfg.xmax, ymax=cfg.ymax)
-            # TODO
-            scatter_val = torch.tensor(
-                [f(ann) for ann in chip_annotations])
-            scatter_idx = torch.tensor(
-                [self._find_idx(ann, bounds, chip['geometry'].bounds)
-                 for ann in chip_annotations])
+            # collect ann indices and values
+            for ann in chip_annotations:
+                ann_idx = self._find_idx(
+                    ann=ann,
+                    raster_bounds=bounds,
+                    chip_bounds=chip['geometry'].bounds,
+                    raster_width=width,
+                    raster_height=height)
+                if ann_idx is not None:
+                    output[ann_idx].append(f_ann(ann))
+        # collating output into a raster
+        for i in range(width):
+            for j in range(height):
+                self.output[j, i] = f_agg(output[(i, j)])
 
     def plot(self, bounds, width, height, mode, cfg=None):
         """Plots images and/or annotations.

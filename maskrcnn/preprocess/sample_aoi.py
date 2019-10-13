@@ -1,27 +1,6 @@
-"""This script preprocesses data from Mexico 2010 CPV.
-
-To prepare the data, from `experiment0/`, run
-
-$ python sample_aoi.py
-
-Then from `utils/`, run
-
-$ ls data/GoogleStaticMap/Image | head -10
-$ python download_googlestaticmap.py \
->   --log data/Experiment0/aoi_download_log.csv \
->   --initialize data/Experiment0/aoi.csv
-$ nohup python download_googlestaticmap.py \
->   --log data/Experiment0/aoi_download_log.csv \
->   --num 3000 \
->   --download-dir data/GoogleStaticMap/Image \
->   > logs/download.log &
-"""
-
-
 import numpy as np
 import pandas as pd
 from scipy.spatial import cKDTree
-from sklearn.decomposition import PCA
 
 
 def tile_width_in_degree(latitude, zoom_level=19,
@@ -57,27 +36,25 @@ def dms_to_dd(n):
     return dd
 
 
-if __name__ == '__main__':
+def load_df(in_dir, drop=True,
+            urban_cutoff=0.1, rural_cutoff=0.01,
+            dataset='ITER2010'):
+    """Loads the ITER 2010 data frame.
 
-    # define paths
-    IN_DIR = 'data/CPV/Raw/ITER2010/ITER_NALDBF10.csv'
-    OUT_LOC_DIR = 'data/Experiment0/census.csv'
-    OUT_IMG_DIR = 'data/Experiment0/aoi.csv'
+    Args:
+        in_dir (str): data directory
+        drop (bool): whether to subsample
+        urban_cutoff, rural_cutoff (float): cutoff values for
+            dropping observations too close to each other
+            in degrees
+        dataset (str)
 
-    # specify tiles to be pulled
-    LON_TILE_SHIFT = [-2, -1, 0, 1, 2]
-    LAT_TILE_SHIFT = [-2, -1, 0, 1, 2]
-
-    # number of sampled localities
-    N = 100
-    SAMPLE_NAME = 'new'
-
-    # cutoff values for dropping observations too close to each other
-    URBAN_CUTOFF = 0.1  # in degrees
-    RURAL_CUTOFF = 0.01  # in degrees
-
+    Returns:
+        pandas.DataFrame: loaded data frame
+    """
+    assert dataset in ['ITER2010'], 'Unknown dataset specified'
     # specify data type for faster I/O
-    df = pd.read_csv(IN_DIR, nrows=0)
+    df = pd.read_csv(in_dir, nrows=0)
 
     # select key variables and specify dtypes
     main_cols = ['ENTIDAD', 'MUN', 'LOC',
@@ -87,82 +64,88 @@ if __name__ == '__main__':
 
     # read data frame
     # parse * (masked for privacy) or N/D (information not collected) as NA
-    df = pd.read_csv(IN_DIR, usecols=main_cols + vph_cols,
+    df = pd.read_csv(in_dir, usecols=main_cols + vph_cols,
                      na_values=['*', 'N/D'], dtype='Int32')
 
     # drop obs without coordinates (regional aggregates)
-    df.dropna(subset=['LONGITUD', 'LATITUD'], inplace=True)
-    
+    # drop obs without census measures
+    df.dropna(subset=['LONGITUD', 'LATITUD', 'VPH_SNBIEN'], inplace=True)
+
     # convert lon and lat into degree decimal
     df['lon'] = - df['LONGITUD'].apply(dms_to_dd)
     df['lat'] = df['LATITUD'].apply(dms_to_dd)
-    
+
     # rename index cols
     # UPPER CASE: original variables
     # LOWER CASE: created variables
     df.rename({'ENTIDAD': 'ent', 'MUN': 'mun', 'LOC': 'loc'},
               axis='columns', inplace=True)
 
-    # drop obs too close to each other
-    # or obs too close to urban areas
-    rural_tree = cKDTree(df.loc[df['TAM_LOC'] <= 4, ['lon', 'lat']].values)
-    # the official cutoff for urban/rural is 2,500 people
-    urban_tree = cKDTree(df.loc[df['TAM_LOC'] > 4, ['lon', 'lat']].values)
+    if drop:
+        # drop obs too close to each other
+        # or obs too close to urban areas
+        rural_tree = cKDTree(df.loc[df['TAM_LOC'] <= 4, ['lon', 'lat']].values)
+        # the official cutoff for urban/rural is 2,500 people
+        urban_tree = cKDTree(df.loc[df['TAM_LOC'] > 4, ['lon', 'lat']].values)
 
-    # select localities with 1-249/250-2500 residents
-    df = df.loc[df['TAM_LOC'] <= 4, :]
+        # select localities with <2500 residents
+        df = df.loc[df['TAM_LOC'] <= 4, :]
 
-    rural_dist, _ = rural_tree.query(df.loc[:, ['lon', 'lat']].values, k=2)
-    # excluding the point itself
-    rural_dist = rural_dist[:, 1]
-    urban_dist, _ = urban_tree.query(df.loc[:, ['lon', 'lat']].values)
-    
-    # sample localities to reduce no. of files downloaded
-    df = df.loc[df['VPH_SNBIEN'].notna(), :].sample(
-        n=N, random_state=0).assign(sample=SAMPLE_NAME)
+        rural_dist, _ = rural_tree.query(df.loc[:, ['lon', 'lat']].values, k=2)
+        # excluding the point itself
+        rural_dist = rural_dist[:, 1]
+        urban_dist, _ = urban_tree.query(df.loc[:, ['lon', 'lat']].values)
+
+        df = df.loc[((rural_dist > rural_cutoff) &
+                     (urban_dist > urban_cutoff)), :]
 
     # scale VPH (household assets) variables
     for col in vph_cols:
         df[col] = df[col] / df['TVIVHAB']
-    
-    # compute asset score
-    m = PCA(n_components=1)
-    df['asset_score'] = m.fit_transform(df.loc[:, vph_cols].values)
 
-    # save locality level census data 
-    df.to_csv(OUT_LOC_DIR, index=False)
+    return df
+
+
+def aoi_to_chip(df, indices, file_name, lon_tile_shift, lat_tile_shift):
+    """Converts geo coded areas of interest to chips.
+
+    Args:
+        df (pandas.DataFrame): a DataFrame at the AOI level
+            should contain columns of indices (uniquely identifying an AOI)
+            and columns of ['lon', 'lat']
+        indices (list of str): columns uniquely identifying an AOI
+        file_name (str): pattern of file names for the chips
+        lon_tile_shift, lat_tile_shift (list of int): how many chips to take
+            for each AOI, e.g. [-1, 0, 1] for both will lead to 9 bordering
+            chips with the lon lat of the AOI at the centroid
+    Returns:
+        pandas.DataFrame: a DataFrame at the chip level
+    """
 
     # construct lon/lat jitters
-    lon_tile_shifts, lat_tile_shifts = np.meshgrid(
-        LON_TILE_SHIFT, LAT_TILE_SHIFT)
-    lon_tile_shifts = lon_tile_shifts.flatten()
-    lat_tile_shifts = lat_tile_shifts.flatten()
+    lon_tiles, lat_tiles = np.meshgrid(
+        lon_tile_shift, lat_tile_shift)
+    lon_tiles = lon_tiles.flatten()
+    lat_tiles = lat_tiles.flatten()
     # drop other variables
-    df = df.loc[:, ['ent', 'mun', 'loc', 'lon', 'lat']]
+    df = df.loc[:, indices + ['lon', 'lat']]
     # long format image level dataset
-    df = pd.concat(
-        [df.assign(lon_shift=lambda x: (tile_width_in_degree(x['lat'])[0] *
-                                        lon_tile_shift),
-                   lat_shift=lambda x: (tile_width_in_degree(x['lat'])[1] *
-                                        lat_tile_shift),
-                   chip=i)
-         for i, (lon_tile_shift, lat_tile_shift)
-         in enumerate(zip(lon_tile_shifts, lat_tile_shifts))])
-    # add image centroid shifts
-    df['lon'] = df['lon'] + df['lon_shift']
-    df['lat'] = df['lat'] + df['lat_shift']
-    # bounding box
+    df['lon_tile_width'], df['lat_tile_width'] = (
+        tile_width_in_degree(df['lat'].values))
+    df = pd.concat([df.assign(
+        lon=lambda x: x['lon'] + x['lon_tile_width'] * lon_tile,
+        lat=lambda x: x['lat'] + x['lat_tile_width'] * lat_tile,
+        chip=i)
+        for i, (lon_tile, lat_tile) in enumerate(zip(lon_tiles, lat_tiles))])
+    # bounding box and index
     df = df.assign(
-        lon_min=lambda x: x['lon'] - tile_width_in_degree(x['lat'])[0] / 2,
-        lon_max=lambda x: x['lon'] + tile_width_in_degree(x['lat'])[0] / 2,
-        lat_min=lambda x: x['lat'] - tile_width_in_degree(x['lat'])[1] / 2,
-        lat_max=lambda x: x['lat'] + tile_width_in_degree(x['lat'])[1] / 2)
-    # assign index
+        lon_min=lambda x: x['lon'] - x['lon_tile_width'] / 2,
+        lon_max=lambda x: x['lon'] + x['lon_tile_width'] / 2,
+        lat_min=lambda x: x['lat'] - x['lat_tile_width'] / 2,
+        lat_max=lambda x: x['lat'] + x['lat_tile_width'] / 2)
     df['index'] = df.apply(
-        lambda x: 'ENT{:02d}MUN{:03d}LOC{:04d}CHIP{:02d}'
-                  .format(int(x['ent']), int(x['mun']),
-                          int(x['loc']), int(x['chip'])),
-        axis=1)
+        lambda x: file_name.format(
+            *[int(x[idx]) for idx in indices + ['chip']]), axis=1)
     df.set_index('index', inplace=True, drop=True)
-    df.sort_values(['ent', 'mun', 'loc', 'chip'], inplace=True)
-    df.to_csv(OUT_IMG_DIR)
+    df.sort_values(indices + ['chip'], inplace=True)
+    return df

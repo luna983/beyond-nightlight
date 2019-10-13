@@ -1,0 +1,17 @@
+# dataset
+dataset: barbados1950
+
+grayscale: True
+
+label_dict:  # values should be [1, 2, 3, ..., N]
+    'house': 1
+int_dict: null
+num_classes: 2  # including background
+
+# inference directory
+in_infer_dir: data/AerialHistory/barbados/1950
+in_infer_img_dir: Image
+in_infer_img_suffix: .png
+
+# output directory
+out_mask_dir: data/AerialHistory/barbados/1950/Pred

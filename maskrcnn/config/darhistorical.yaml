@@ -1,5 +1,5 @@
 # dataset
-dataset: googleearthpro
+dataset: darhistorical
 mask_format: supervisely
 label_dict:  # values should be [1, 2, 3, ..., N]
     'N/A': 0
@@ -14,17 +14,17 @@ num_classes: 2  # including background
 train_ratio: 0.85  # null if train.txt and val.txt exist
 
 # trainval directory
-in_tv_dir: data/GoogleEarthPro
+in_tv_dir: data/DarHistorical
 in_tv_img_dir: Image
 in_tv_img_suffix: .jpg
 in_tv_mask_dir: Mask
 in_tv_mask_suffix: .jpg.json
 
 # output directory
-out_mask_dir: data/GoogleEarthPro/Pred
+out_mask_dir: data/DarHistorical/Pred
 
 # visualization directory
-out_visual_dir: data/GoogleEarthPro/Visual
+out_visual_dir: data/DarHistorical/Visual
 
 # visualization parameters
 category_palette:

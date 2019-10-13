@@ -1,20 +1,20 @@
 # dataset
-dataset: googlestaticmap
+dataset: Mexico
 label_dict:  # values should be [1, 2, 3, ..., N]
     'house': 1
 int_dict: null
 num_classes: 2  # including background
 
 # inference directory
-in_infer_dir: data/GoogleStaticMap
+in_infer_dir: data/Mexico
 in_infer_img_dir: Image
 in_infer_img_suffix: .png
 
 # output directory
-out_mask_dir: data/GoogleStaticMap/Pred
+out_mask_dir: data/Mexico/Pred
 
 # visualization directory
-out_visual_dir: data/GoogleStaticMap/Visual
+out_visual_dir: data/Mexico/Visual
 
 # visualization parameters
 category_palette:

@@ -27,9 +27,9 @@ LOG_IN_DIR = 'data/Experiment0/aoi_download_log.csv'
 # census data
 CEN_IN_DIR = 'data/Experiment0/census.csv'
 # satellite images
-IMG_IN_DIR = 'data/GoogleStaticMapLarge/Image/'
+IMG_IN_DIR = 'data/Mexico/Image/'
 # satellite derived annotations
-ANN_IN_DIR = 'data/GoogleStaticMapLarge/Pred/infer/'
+ANN_IN_DIR = 'data/Mexico/Pred/infer/'
 # output path
 OUT_DIR = 'data/Experiment0/Output/'
 

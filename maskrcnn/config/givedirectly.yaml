@@ -1,5 +1,5 @@
 # dataset
-dataset: gd
+dataset: givedirectly
 mask_format: supervisely
 label_dict:  # values should be [1, 2, 3, ..., N]
     'thatched roof': 1
@@ -10,6 +10,11 @@ num_classes: 4  # including background
 
 # data loader
 train_ratio: 0.8  # null if train.txt and val.txt exist
+
+# inference directory
+in_infer_dir: data/GiveDirectly
+in_infer_img_dir: Image
+in_infer_img_suffix: .png
 
 # trainval directory
 in_tv_dir: data/GiveDirectly

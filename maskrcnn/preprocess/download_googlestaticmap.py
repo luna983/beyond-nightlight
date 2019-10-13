@@ -112,11 +112,13 @@ class Downloader(object):
             print('Downloading completed.')
 
 
-def make_url(idx):
+def make_url(idx, df, GOOGLE_API_KEY):
     """Helper function to generate the urls for the Google Static Maps API.
 
     Args:
         index (str): Identifies an image.
+        df (pandas.DataFrame): Stores image info.
+        GOOGLE_API_KEY (str)
 
     Returns:
         url (str): The URL to the image.
@@ -134,7 +136,39 @@ def make_url(idx):
                      params_str])
 
 
+def run(args):
+    """Runs the script.
+    
+    Args:
+        args (argparse.Namespace): Command line arguments.
+    """
+    assert args.log is not None, 'Input log file path!'
+
+    # parse and make url list
+    if args.initialize is not None:
+        downloader = Downloader()
+        # fetch authentication key
+        with open(args.api_key, 'r') as f:
+            GOOGLE_API_KEY = f.read()
+        # read coordinates and index
+        df = pd.read_csv(args.initialize, index_col='index')
+        df = df.filter(items=['lon', 'lat'])
+        downloader.request(indices=df.index.values,
+                           mapping=lambda x: make_url(x, df, GOOGLE_API_KEY))
+    else:
+        queue = pd.read_csv(args.log, index_col='index')
+        downloader = Downloader(queue=queue)
+
+    # download
+    if args.num is not None:
+        assert args.download_dir is not None, 'Input download directory!'
+        downloader.download(num=args.num, download_dir=args.download_dir)
+
+    # save the log
+    downloader.queue.to_csv(args.log)
+
 if __name__ == '__main__':
+
     # parse arguments passed from the command line
     parser = ArgumentParser(
         description='Downloads satellite images from Google Statics Maps API.')
@@ -154,27 +188,5 @@ if __name__ == '__main__':
                         help='downloading directory')
     # parse
     args = parser.parse_args()
-
-    assert args.log is not None, 'Input log file path!'
-
-    # parse and make url list
-    if args.initialize is not None:
-        downloader = Downloader()
-        # fetch authentication key
-        with open(args.api_key, 'r') as f:
-            GOOGLE_API_KEY = f.read()
-        # read coordinates and index
-        df = pd.read_csv(args.initialize, index_col='index')
-        df = df.filter(items=['lon', 'lat'])
-        downloader.request(indices=df.index.values, mapping=make_url)
-    else:
-        queue = pd.read_csv(args.log, index_col='index')
-        downloader = Downloader(queue=queue)
-
-    # download
-    if args.num is not None:
-        assert args.download_dir is not None, 'Input download directory!'
-        downloader.download(num=args.num, download_dir=args.download_dir)
-
-    # save the log
-    downloader.queue.to_csv(args.log)
+    
+    run(args)
