@@ -106,37 +106,47 @@ def load_df(in_dir, drop=True,
     return df
 
 
-def aoi_to_chip(df, indices, file_name, lon_tile_shift, lat_tile_shift):
+def aoi_to_chip(df, indices, file_name,
+                lon_tile_shift=None, lat_tile_shift=None,
+                lon_tile_shifts=None, lat_tile_shifts=None):
     """Converts geo coded areas of interest to chips.
 
     Args:
         df (pandas.DataFrame): a DataFrame at the AOI level
             should contain columns of indices (uniquely identifying an AOI)
+            (which cannot contain 'index'!)
             and columns of ['lon', 'lat']
         indices (list of str): columns uniquely identifying an AOI
         file_name (str): pattern of file names for the chips
         lon_tile_shift, lat_tile_shift (list of int): how many chips to take
             for each AOI, e.g. [-1, 0, 1] for both will lead to 9 bordering
             chips with the lon lat of the AOI at the centroid
+        lon_tile_shifts, lat_tile_shifts (list of int): how many chips to take
+            for each AOI, this takes the shifts as having been flattened,
+            e.g. [-1, 0, 1] for both will lead to only 3 chips [-1, -1], [0, 0]
+            and [1, 1]
     Returns:
         pandas.DataFrame: a DataFrame at the chip level
     """
-
-    # construct lon/lat jitters
-    lon_tiles, lat_tiles = np.meshgrid(
-        lon_tile_shift, lat_tile_shift)
-    lon_tiles = lon_tiles.flatten()
-    lat_tiles = lat_tiles.flatten()
+    assert not 'index' in indices
+    if lon_tile_shift is not None and lat_tile_shift is not None:
+        # construct lon/lat jitters
+        lon_tile_shifts, lat_tile_shifts = np.meshgrid(
+            lon_tile_shift, lat_tile_shift)
+        lon_tile_shifts = lon_tile_shifts.flatten()
+        lat_tile_shifts = lat_tile_shifts.flatten()
+    else:
+        assert lon_tile_shifts is not None and lat_tile_shifts is not None
     # drop other variables
     df = df.loc[:, indices + ['lon', 'lat']]
     # long format image level dataset
     df['lon_tile_width'], df['lat_tile_width'] = (
         tile_width_in_degree(df['lat'].values))
     df = pd.concat([df.assign(
-        lon=lambda x: x['lon'] + x['lon_tile_width'] * lon_tile,
-        lat=lambda x: x['lat'] + x['lat_tile_width'] * lat_tile,
+        lon=lambda x: x['lon'] + x['lon_tile_width'] * i_lon_tile_shift,
+        lat=lambda x: x['lat'] + x['lat_tile_width'] * i_lat_tile_shift,
         chip=i)
-        for i, (lon_tile, lat_tile) in enumerate(zip(lon_tiles, lat_tiles))])
+        for i, (i_lon_tile_shift, i_lat_tile_shift) in enumerate(zip(lon_tile_shifts, lat_tile_shifts))])
     # bounding box and index
     df = df.assign(
         lon_min=lambda x: x['lon'] - x['lon_tile_width'] / 2,

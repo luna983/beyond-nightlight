@@ -101,8 +101,30 @@ def plot_scatter(col_x_key, col_y_key, col_x_label, col_y_label, df, out_dir,
     ax.set_frame_on(False)
     ax.tick_params(top=False, bottom=False, left=False, right=False)
     ax.grid()
+    plt.tight_layout()
     fig.savefig(os.path.join(
         out_dir, '{}_vs_{}.pdf'.format(col_x_key, col_y_key)))
     if show:
         plt.show()
     plt.close('all')
+
+
+def gini(x):
+    """Calculate the Gini coefficient of a numpy array.
+    
+    Args:
+        x (1d numpy.ndarray): input array, need to be strictly positive
+
+    Returns:
+        float: gini coef
+    """
+    x_nonan = x[~np.isnan(x)]
+    x_nonan = np.sort(x_nonan)
+    assert len(x_nonan.shape) == 1
+    assert x_nonan.min() > 0
+    # number of array elements
+    n = x_nonan.shape[0]
+    # index per array element
+    index = np.arange(n) + 1
+    # Gini coefficient
+    return np.sum((2 * index - n - 1) * x_nonan) / (n * np.sum(x_nonan))

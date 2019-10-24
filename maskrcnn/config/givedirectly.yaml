@@ -15,6 +15,7 @@ train_ratio: 0.8  # null if train.txt and val.txt exist
 in_infer_dir: data/GiveDirectly
 in_infer_img_dir: Image
 in_infer_img_suffix: .png
+in_infer_img_list: null
 
 # trainval directory
 in_tv_dir: data/GiveDirectly

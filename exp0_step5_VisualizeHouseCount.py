@@ -15,7 +15,7 @@ cfg.label_fill = [255, 255, 255, 255]  # white
 cfg.up_scale = 1
 cfg.font_size = 14
 cfg.category_palette = {
-    1: [255, 140, 105, 64]  # salmon
+    1: [255, 140, 105, 0]  # salmon
 }
 cfg.xmax = 480
 cfg.ymax = 770

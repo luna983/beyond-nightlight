@@ -21,6 +21,7 @@ in_tv_mask_suffix: .jpg.json
 in_infer_dir: data/Test
 in_infer_img_dir: Image
 in_infer_img_suffix: .jpg
+in_infer_img_list: null
 
 # output directory
 out_mask_dir: data/Test/Pred

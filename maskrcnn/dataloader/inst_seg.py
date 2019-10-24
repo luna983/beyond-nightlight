@@ -54,10 +54,18 @@ class InstSeg(Dataset):
                                          i + cfg.in_tv_mask_suffix)
                             for i in self.ids]
         elif mode in ['infer']:
-            self.images = sorted(glob(os.path.join(
-                cfg.in_infer_dir, cfg.in_infer_img_dir,
-                '*' + cfg.in_infer_img_suffix)))
-            self.ids = [os.path.basename(f).split('.')[0] for f in self.images]
+            if cfg.in_infer_img_list is None:
+                self.images = sorted(glob(os.path.join(
+                    cfg.in_infer_dir, cfg.in_infer_img_dir,
+                    '*' + cfg.in_infer_img_suffix)))
+                self.ids = [os.path.basename(f).split('.')[0] for f in self.images]
+            else:
+                with open(os.path.join(cfg.in_infer_dir,
+                                       cfg.in_infer_img_list + '.txt'), 'r') as f:
+                    self.ids = json.load(f)
+                self.images = [os.path.join(
+                    cfg.in_infer_dir, cfg.in_infer_img_dir,
+                    i + cfg.in_infer_img_suffix) for i in self.ids]
             self.targets = []
         else:
             raise NotImplementedError

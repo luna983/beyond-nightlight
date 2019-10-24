@@ -10,6 +10,7 @@ num_classes: 2  # including background
 in_infer_dir: data/AerialHistory
 in_infer_img_dir: Image
 in_infer_img_suffix: .png
+in_infer_img_list: null
 
 # output directory
 out_mask_dir: data/AerialHistory/Pred
