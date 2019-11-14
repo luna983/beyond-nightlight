@@ -32,8 +32,10 @@ def transform_coord(transform, to, xy=None, colrow=None):
         raise NotImplementedError
 
 
-def K(coords, A, h):
-    """K function describing the clustering of the houses.
+def L(coords, A, h):
+    """L function describing the clustering of the houses.
+    
+    Ignoring edge effects.
 
     Args:
         coords (numpy.ndarray [N, 2]): input coords
@@ -41,11 +43,11 @@ def K(coords, A, h):
         h (float): bandwidth in lon/lat space
 
     Returns:
-        float: K(h)
+        float: L function value
     """
     N = coords.shape[0]
-    return (((cdist(coords, coords, 'euclidean') < h).sum() - N) *
-            A / (N ** 2) / (np.pi * h ** 2))
+    return np.sqrt(
+        ((cdist(coords, coords, 'euclidean') < h).sum() - N) * A / (N ** 2 * np.pi)) - h
 
 
 def plot_scatter(col_x_key, col_y_key, col_x_label, col_y_label, df, out_dir,
