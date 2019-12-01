@@ -1,8 +1,6 @@
 import os
 import json
 import numpy as np
-from glob import glob
-from tqdm import tqdm
 
 import geopandas as gpd
 
@@ -33,7 +31,7 @@ def load_annotations(file_name, crs):
     return df
 
 
-def load_chip(dataset, col_min, row_min):
+def load_chip(dataset, col_min, row_min, cfg):
     """Loads a part of a chip.
 
     [lon, lat] or [x, y] corresponds to [width, height] and [col, row]
@@ -41,6 +39,7 @@ def load_chip(dataset, col_min, row_min):
     Args:
         dataset (rasterio.DatasetReader): the opened raster file.
         col_min, row_min (int): min of col, row position in raster.
+        cfg (argparse.Namespace): stores multiple configs.
 
     Returns:
         PIL.Image: the loaded chip image.
@@ -49,17 +48,17 @@ def load_chip(dataset, col_min, row_min):
     # update transforms
     x_min, y_max = dataset.transform * (col_min, row_min)
     transform = Affine(
-        dataset.transform.a * DOWN_RESOLUTION_FACTOR,
+        dataset.transform.a * cfg.DOWN_RESOLUTION_FACTOR,
         dataset.transform.b,
         x_min,
         dataset.transform.d,
-        dataset.transform.e * DOWN_RESOLUTION_FACTOR,
+        dataset.transform.e * cfg.DOWN_RESOLUTION_FACTOR,
         y_max)
     # read array from raster
     raster_array = dataset.read(
         window=Window(col_off=col_min, row_off=row_min,
-                      width=WINDOW_SIZE, height=WINDOW_SIZE),
-        out_shape=(dataset.count, CHIP_SIZE, CHIP_SIZE),
+                      width=cfg.WINDOW_SIZE, height=cfg.WINDOW_SIZE),
+        out_shape=(dataset.count, cfg.CHIP_SIZE, cfg.CHIP_SIZE),
         resampling=Resampling.bilinear)
     # raster array is color first, move that to color last
     im = Image.fromarray(np.moveaxis(raster_array, 0, 2), mode='RGB')
@@ -86,44 +85,44 @@ def geocode2pixel(geom, transform):
     return {'exterior': ext_coords, 'interiors': int_coords}
 
 
-def process_file(file_id):
+def process_file(file_id, cfg):
     """Process one image corresponding to the file ID.
 
     Args:
         file_id (str): the id of the image file.
+        cfg (argparse.Namespace): stores multiple configs.
     """
-    with rasterio.open(os.path.join(IN_IMAGE_DIR,
+    with rasterio.open(os.path.join(cfg.IN_IMAGE_DIR,
                                     file_id + '.tif')) as dataset:
         # load all annotations
         df = load_annotations(
-            file_name=os.path.join(IN_ANN_DIR, file_id + '.geojson'),
+            file_name=os.path.join(cfg.IN_ANN_DIR, file_id + '.geojson'),
             crs=dataset.crs.data)
         # sampling random bounding boxes
-        N = int((dataset.width / WINDOW_SIZE) *
-                (dataset.height / WINDOW_SIZE) *
-                SAMPLE_RATIO)
-        col_mins = np.random.randint(dataset.width - WINDOW_SIZE + 1,
+        N = int((dataset.width / cfg.WINDOW_SIZE) *
+                (dataset.height / cfg.WINDOW_SIZE) *
+                cfg.SAMPLE_RATIO)
+        col_mins = np.random.randint(dataset.width - cfg.WINDOW_SIZE + 1,
                                      size=N)
-        row_mins = np.random.randint(dataset.height - WINDOW_SIZE + 1,
+        row_mins = np.random.randint(dataset.height - cfg.WINDOW_SIZE + 1,
                                      size=N)
         # loop over sampled boxes
         for i, (col_min, row_min) in enumerate(zip(col_mins, row_mins)):
             # sample the chip
             x_min, y_max = dataset.transform * (col_min, row_min)
-            x_max, y_min = dataset.transform * (col_min + WINDOW_SIZE,
-                                                row_min + WINDOW_SIZE)
+            x_max, y_min = dataset.transform * (col_min + cfg.WINDOW_SIZE,
+                                                row_min + cfg.WINDOW_SIZE)
             # save annotations on the chip
             sliced = df.cx[x_min:x_max, y_min:y_max]
-            if len(sliced) > 0:
-                im, transform = load_chip(dataset, col_min, row_min)
-                im.save(os.path.join(OUT_IMAGE_DIR,
-                                     '{}_s{:06d}.png'.format(file_id, i)))
-                ann = {'width': CHIP_SIZE, 'height': CHIP_SIZE}
-                ann['instances'] = [
-                    {'category': row['condition'],
-                     'polygon': geocode2pixel(row['geometry'], transform)}
-                    for _, row in sliced.iterrows()]
-                with open(os.path.join(OUT_ANN_DIR,
-                                       ('{}_s{:06d}.json'
-                                        .format(file_id, i))), 'w') as f:
-                    json.dump(ann, f)
+            im, transform = load_chip(dataset, col_min, row_min, cfg)
+            im.save(os.path.join(cfg.OUT_IMAGE_DIR,
+                                 '{}_s{:06d}.png'.format(file_id, i)))
+            ann = {'width': cfg.CHIP_SIZE, 'height': cfg.CHIP_SIZE}
+            ann['instances'] = [
+                {'category': row['condition'],
+                 'polygon': geocode2pixel(row['geometry'], transform)}
+                for _, row in sliced.iterrows()]
+            with open(os.path.join(cfg.OUT_ANN_DIR,
+                                   ('{}_s{:06d}.json'
+                                    .format(file_id, i))), 'w') as f:
+                json.dump(ann, f)

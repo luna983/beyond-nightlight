@@ -15,8 +15,8 @@ fillempty: True
 # num_classes: inferred from label_dict, including background and placeholder (if any)
 
 # training data augmentation params
-random_crop_height: 1  # (0, 1], ratio of random crop
-random_crop_width: 1  # (0, 1], ratio of random crop
+random_crop_height: 0.8  # (0, 1], ratio of random crop
+random_crop_width: 0.8  # (0, 1], ratio of random crop
 brightness: 0.2
 contrast: 0.2
 saturation: 0.2
