@@ -7,7 +7,7 @@ from PIL import Image
 import torchvision
 from torch.utils.data import Dataset
 
-from .transforms import (Compose, ToTensor,
+from .transforms import (Compose, ToTensor, FillEmpty,
                          Resize,  Blur, RandomCrop, ColorJitter,
                          RandomHorizontalFlip, RandomVerticalFlip)
 from .mask_transforms import InstanceMask
@@ -58,10 +58,12 @@ class InstSeg(Dataset):
                 self.images = sorted(glob(os.path.join(
                     cfg.in_infer_dir, cfg.in_infer_img_dir,
                     '*' + cfg.in_infer_img_suffix)))
-                self.ids = [os.path.basename(f).split('.')[0] for f in self.images]
+                self.ids = [os.path.basename(f).split('.')[0]
+                            for f in self.images]
             else:
-                with open(os.path.join(cfg.in_infer_dir,
-                                       cfg.in_infer_img_list + '.txt'), 'r') as f:
+                with open(os.path.join(
+                        cfg.in_infer_dir,
+                        cfg.in_infer_img_list + '.txt'), 'r') as f:
                     self.ids = json.load(f)
                 self.images = [os.path.join(
                     cfg.in_infer_dir, cfg.in_infer_img_dir,
@@ -119,12 +121,16 @@ class InstSeg(Dataset):
                 saturation=self.cfg.saturation, hue=self.cfg.hue),
             Blur(blur_prob=self.cfg.blur_prob, blur_times=self.cfg.blur_times),
             Resize(width=self.cfg.resize_width, height=self.cfg.resize_height),
+            FillEmpty(self.cfg.fillempty,
+                      category_int=self.cfg.num_classes - 1),
             ToTensor()])
         return composed_transforms(image, target)
 
     def transform_val(self, image, target):
         composed_transforms = Compose([
             Resize(width=self.cfg.resize_width, height=self.cfg.resize_height),
+            FillEmpty(self.cfg.fillempty,
+                      category_int=self.cfg.num_classes - 1),
             ToTensor()])
         return composed_transforms(image, target)
 

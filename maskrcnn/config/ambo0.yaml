@@ -4,7 +4,6 @@ dataset: ambo
 label_dict:  # values should be [1, 2, 3, ..., N]
     'house': 1
 int_dict: null
-num_classes: 2  # including background
 
 # inference directory
 in_infer_dir: data/Ambo

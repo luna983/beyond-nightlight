@@ -6,7 +6,6 @@ label_dict:  # values should be [1, 2, 3, ..., N]
     'metal roof': 2
     'colored roof': 3
 int_dict: null
-num_classes: 4  # including background
 
 # data loader
 train_ratio: 0.8  # null if train.txt and val.txt exist

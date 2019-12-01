@@ -1,6 +1,5 @@
 import os
 import json
-import argparse
 import copy
 from tqdm import tqdm
 
@@ -171,7 +170,7 @@ class Trainer(object):
             for image, target, pred, image_id in zip(
                     images_copy, targets, preds, id_batch):
                 pred['masks'] = (pred['masks'].squeeze(1) >
-                                 self.cfg.mask_threshold)                    
+                                 self.cfg.mask_threshold)
                 cocosaver.add(pred, image_id)
                 if mode == 'infer':
                     cocosaver.save(mode, file_name=image_id)
@@ -221,9 +220,10 @@ class Trainer(object):
         print('Finished!')
         print('=' * 72)
 
+
 def run(args):
     """Runs the main training script.
-    
+
     Args:
         args (argparse.Namespace): all training params
     """
@@ -258,6 +258,14 @@ def run(args):
     # construct int-str mapping
     if cfg.int_dict is None:
         cfg.int_dict = {i: name for name, i in cfg.label_dict.items()}
+    # infer num_classes, include background
+    int_set = set(cfg.label_dict.values())
+    int_set.add(0)
+    cfg.num_classes = len(int_set)
+    if cfg.fillempty:
+        cfg.label_dict['placeholder'] = cfg.num_classes
+        cfg.int_dict[cfg.num_classes] = 'placeholder'
+        cfg.num_classes += 1
 
     # train/val/infer starts
     trainer = Trainer(cfg)

@@ -5,6 +5,8 @@ import PIL.ImageFilter
 import torchvision
 from torchvision.transforms import functional as F
 
+from .mask_transforms import Polygon
+
 
 class Compose(torchvision.transforms.Compose):
     """Modified to compose transforms together, with target transforms."""
@@ -168,6 +170,52 @@ class RandomCrop(torchvision.transforms.RandomCrop):
         i, j, h, w = self.get_params(image, self.size)
 
         return F.crop(image, i, j, h, w), target.crop(i=i, j=j, h=h, w=w)
+
+
+class FillEmpty(object):
+    """Creates placeholder annotations to add negative samples in training.
+
+    Args:
+        activate (bool): if False, no placeholder annotations are added.
+        category_int (int or NoneType): integer denoting placeholder class.
+    """
+
+    def __init__(self, activate, category_int=None):
+        self.activate = activate
+        self.category_int = category_int
+
+    def __call__(self, image, target):
+        """
+        Args:
+            image (PIL Image): Image to be processed.
+            target (InstanceMask): Target instance masks to be processed.
+
+        Returns:
+            PIL Image: Processed image.
+            target (InstanceMask): Processed target instance masks.
+        """
+        if self.activate:
+            if len(target) == 0:
+                top = int(target.height * 0.9)
+                left = int(target.width * 0.9)
+                bottom = target.height
+                right = target.width
+                # add image patch
+                placeholder_patch = PIL.Image.new(
+                    mode='RGB',
+                    size=(right - left, bottom - top),
+                    color=(128, 128, 128))
+                image.paste(placeholder_patch, box=(left, top))
+                # add instance
+                instance = Polygon(
+                    width=target.width, height=target.height,
+                    category=self.category_int)
+                coords = [[top, left], [top, right], [bottom, right],
+                          [bottom, left], [top, left]]
+                instance.load_single_polygon(coords)
+                target.instances.append(instance)
+                return image, target
+        return image, target
 
 
 class ToTensor(torchvision.transforms.ToTensor):
