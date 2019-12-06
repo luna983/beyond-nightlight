@@ -65,6 +65,8 @@ class COCOSaver(object):
     def __init__(self, cfg, gt):
         self.cfg = cfg
         self.gt = gt
+        self.placeholder_int = (self.cfg.num_classes - 1
+                                if self.cfg.fillempty else None)
 
         self.images = []
         self.annotations = []
@@ -93,6 +95,8 @@ class COCOSaver(object):
             # loop over every instance in the image
             for i, (rle, area, label, mask, box) in enumerate(zip(
                     rles, areas, labels, masks, boxes)):
+                if label == self.placeholder_int:
+                    continue
                 self.coco_instance_id += 1
                 rle['counts'] = rle['counts'].decode('ascii')
                 self.annotations.append({
@@ -123,17 +127,19 @@ class COCOSaver(object):
             areas = maskutils.area(rles)
             for i, (rle, area, label, box, score) in enumerate(zip(
                     rles, areas, labels, boxes, scores)):
-                if area > 0:
-                    rle['counts'] = rle['counts'].decode('ascii')
-                    self.annotations.append(
-                        {'segmentation': rle,
-                         'bbox': [float(box[0]), float(box[1]),
-                                  float(box[2] - box[0]), float(box[3] - box[1])],
-                         'score': float(score),
-                         'area': float(area),
-                         'image_id_str': image_id,  # for postprocessing
-                         'image_id': self.coco_image_id,  # internal coco eval
-                         'category_id': int(label)})
+                if label == self.placeholder_int or area == 0:
+                    continue
+                rle['counts'] = rle['counts'].decode('ascii')
+                self.annotations.append(
+                    {'segmentation': rle,
+                     'bbox': [float(box[0]), float(box[1]),
+                              float(box[2] - box[0]),
+                              float(box[3] - box[1])],
+                     'score': float(score),
+                     'area': float(area),
+                     'image_id_str': image_id,  # for postprocessing
+                     'image_id': self.coco_image_id,  # internal coco eval
+                     'category_id': int(label)})
 
     def save(self, mode, file_name=None):
         """This saves the annotations to the default log directory.

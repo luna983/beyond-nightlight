@@ -2,12 +2,11 @@ from argparse import Namespace
 
 from maskrcnn.train import run
 
-
 args = Namespace()
-args.comment = 'OATTrain'
-args.config = ['main', 'openaitanzania']
-args.mode = 'train'
-args.resume_run = None
+args.comment = 'Infer'
+args.config = ['main', 'mexicoinequality']
+args.mode = ['infer']
+args.resume_run = 'run_15_Pool'
 args.no_cuda = False
 args.cuda_max_devices = 1
 

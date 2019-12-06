@@ -1,31 +1,33 @@
 # dataset
-dataset: Mexico
+dataset: Pool
 mask_format: supervisely
 label_dict:  # values should be [1, 2, 3, ..., N]
     'house': 1
-int_dict: null
+    'thatched roof': 1
+    'metal roof': 1
+    'colored roof': 1
+    'N/A': 0
+    'Unfinished House': 1
+    'Tin Roof': 1
+    'Colored Roof': 1
+int_dict:
+    1: 'house'
 
 # data loader
-train_ratio: 0.01  # null if train.txt and val.txt exist
+train_ratio: 0.8  # null if train.txt and val.txt exist
 
 # trainval directory
-in_tv_dir: data/Mexico
+in_tv_dir: data/Pool
 in_tv_img_dir: Image
 in_tv_img_suffix: .png
 in_tv_mask_dir: Mask
 in_tv_mask_suffix: .png.json
 
-# inference directory
-in_infer_dir: data/Mexico
-in_infer_img_dir: Image
-in_infer_img_suffix: .png
-in_infer_img_list: null
-
 # output directory
-out_mask_dir: data/Mexico/Pred
+out_mask_dir: data/Pool/Pred
 
 # visualization directory
-out_visual_dir: data/Mexico/Visual
+out_visual_dir: data/Pool/Visual
 
 # visualization parameters
 category_palette:

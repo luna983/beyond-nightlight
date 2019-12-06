@@ -14,14 +14,14 @@ def evaluate(cfg, mode):
     """
     # load ground truth and predictions
     GT = COCO(os.path.join(cfg.out_mask_dir, mode,
-                           'annotations_gt.json'))
+                           'gt.json'))
     try:
         DT = GT.loadRes(os.path.join(cfg.out_mask_dir, mode,
-                                     'annotations_pred.json'))
+                                     'pred.json'))
     except IndexError:
         # in case no instances were predicted
         with open(os.path.join(cfg.out_mask_dir, mode,
-                               'annotations_pred.json'), 'r') as f:
+                               'pred.json'), 'r') as f:
             DT = json.load(f)
             assert len(DT) == 0
             return None

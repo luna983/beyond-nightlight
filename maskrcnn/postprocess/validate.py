@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 
 from scipy.stats import pearsonr
@@ -54,7 +55,7 @@ def plot_scatter(col_x_key, col_y_key, col_x_label, col_y_label, df, out_dir,
                  transform_x=lambda x: x, transform_y=lambda x: x,
                  xlim=None, ylim=None, xticks=None, yticks=None,
                  xticklabels=None, yticklabels=None,
-                 alpha=0.5, line=False, square=False, show=False):
+                 alpha=0.5, line=False, square=False, cut=None, show=False):
     """Generates scatter plots w/ correlation coef.
 
     Args:
@@ -70,11 +71,14 @@ def plot_scatter(col_x_key, col_y_key, col_x_label, col_y_label, df, out_dir,
         line (bool): whether a non parametric fit line should be displayed
         square (bool): whether x and y axis should be the same and
             whether a 45 degree line should be plotted
+        cut (int): how many qcuts to make (calculate correlation for different
+            quantiles), disabled if None
         show (bool): whether to show the figure
     """
-
-    cols = df.loc[:, [col_x_key, col_y_key]].dropna().astype('float').values
-    coef = pearsonr(cols[:, 0], cols[:, 1])
+    
+    df_nona = df.loc[:, [col_x_key, col_y_key]].dropna().astype('float')
+    cols = df_nona.values
+    coef, _ = pearsonr(cols[:, 0], cols[:, 1])
     fig, ax = plt.subplots(figsize=(4.5, 3))
     x = transform_x(cols[:, 0])
     y = transform_y(cols[:, 1])
@@ -85,7 +89,7 @@ def plot_scatter(col_x_key, col_y_key, col_x_label, col_y_label, df, out_dir,
     if square:
         ax.axis('square')
         ax.plot(xlim, ylim, '--', color='gray', linewidth=2)
-    ax.set_title('Correlation (in levels): {:.2f}'.format(coef[0]))
+    ax.set_title('Correlation (in levels): {:.2f}'.format(coef))
     ax.set_xlabel(col_x_label)
     ax.set_ylabel(col_y_label)
     if xlim is not None:
@@ -100,6 +104,18 @@ def plot_scatter(col_x_key, col_y_key, col_x_label, col_y_label, df, out_dir,
         ax.set_xticklabels(xticklabels)
     if yticklabels is not None:
         ax.set_yticklabels(yticklabels)
+    if cut is not None:
+        ymin, ymax = ax.get_ylim()
+        y_pos = ymin * 0.1 + ymax * 0.9
+        category, bins = pd.qcut(x, cut,
+                                 labels=list(range(cut)),
+                                 retbins=True)
+        for i, g in df_nona.groupby(category):
+            corr, _ = pearsonr(g.iloc[:, 0].values, g.iloc[:, 1].values)
+            x_pos = np.mean([bins[i], bins[i + 1]])
+            ax.text(x_pos, y_pos, '{:.2f}'.format(corr))
+        for b in bins[1:-1]:
+            ax.plot([b, b], [ymin, ymax], '-', color='gray', linewidth=1)
     ax.set_frame_on(False)
     ax.tick_params(top=False, bottom=False, left=False, right=False)
     ax.grid()

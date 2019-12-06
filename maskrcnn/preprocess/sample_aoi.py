@@ -1,5 +1,8 @@
 import numpy as np
 import pandas as pd
+import geopandas as gpd
+import shapely
+import shapely.geometry
 from scipy.spatial import cKDTree
 
 
@@ -106,18 +109,45 @@ def load_df(in_dir, drop=True,
     return df
 
 
-def aoi_to_chip(df, indices, file_name,
+def geom_to_tiles(geom, tile_size):
+    """Computes tiles that cover the geometry.
+
+    Args:
+        geom (shapely.geometry.MultiPolygon or shapely.geometry.Polygon):
+            input geometry
+        tile_size (tuple of float): width, height of the tiles
+
+    Returns:
+        tiles (list of shapely.geometry.Polygon): list of tiles that cover the
+            whole geometry
+    """
+    width, height = tile_size
+    minx, miny, maxx, maxy = geom.bounds
+    minxs = np.arange(minx, maxx, width)
+    minys = np.arange(miny, maxy, height)
+    tiles = []
+    for x in minxs:
+        for y in minys:
+            tile = shapely.geometry.box(x, y, x + width, y + height)
+            if tile.intersects(geom):
+                tiles.append(tile)
+    return tiles
+
+
+def aoi_to_chip(df, indices, file_name, input_type='centroid',
                 lon_tile_shift=None, lat_tile_shift=None,
                 lon_tile_shifts=None, lat_tile_shifts=None):
     """Converts geo coded areas of interest to chips.
 
     Args:
-        df (pandas.DataFrame): a DataFrame at the AOI level
+        df (pandas.DataFrame or geopandas.GeoDataFrame):
+            a DataFrame at the AOI level
             should contain columns of indices (uniquely identifying an AOI)
             (which cannot contain 'index'!)
-            and columns of ['lon', 'lat']
+            and columns of ['lon', 'lat'] or ['geometry']
         indices (list of str): columns uniquely identifying an AOI
         file_name (str): pattern of file names for the chips
+        input_type (str): in ['centroid', 'polygon']
         lon_tile_shift, lat_tile_shift (list of int): how many chips to take
             for each AOI, e.g. [-1, 0, 1] for both will lead to 9 bordering
             chips with the lon lat of the AOI at the centroid
@@ -128,25 +158,42 @@ def aoi_to_chip(df, indices, file_name,
     Returns:
         pandas.DataFrame: a DataFrame at the chip level
     """
-    assert not 'index' in indices
-    if lon_tile_shift is not None and lat_tile_shift is not None:
-        # construct lon/lat jitters
-        lon_tile_shifts, lat_tile_shifts = np.meshgrid(
-            lon_tile_shift, lat_tile_shift)
-        lon_tile_shifts = lon_tile_shifts.flatten()
-        lat_tile_shifts = lat_tile_shifts.flatten()
+    assert 'index' not in indices
+    if input_type == 'centroid':
+        if lon_tile_shift is not None and lat_tile_shift is not None:
+            # construct lon/lat jitters
+            lon_tile_shifts, lat_tile_shifts = np.meshgrid(
+                lon_tile_shift, lat_tile_shift)
+            lon_tile_shifts = lon_tile_shifts.flatten()
+            lat_tile_shifts = lat_tile_shifts.flatten()
+        else:
+            assert lon_tile_shifts is not None and lat_tile_shifts is not None
+        # drop other variables
+        df = df.loc[:, indices + ['lon', 'lat']]
+        # long format image level dataset
+        df['lon_tile_width'], df['lat_tile_width'] = (
+            tile_width_in_degree(df['lat'].values))
+        df = pd.concat([df.assign(
+            lon=lambda x: x['lon'] + x['lon_tile_width'] * i_lon_tile_shift,
+            lat=lambda x: x['lat'] + x['lat_tile_width'] * i_lat_tile_shift,
+            chip=i)
+            for i, (i_lon_tile_shift, i_lat_tile_shift) in
+            enumerate(zip(lon_tile_shifts, lat_tile_shifts))])
+    elif input_type == 'polygon':
+        # drop other variables
+        df = df.loc[:, indices + ['geometry']]
+        df['lon_tile_width'], df['lat_tile_width'] = (
+            tile_width_in_degree(df['geometry'].centroid.y.values))
+        df.loc[:, 'tile'] = df.apply(lambda x: geom_to_tiles(
+            x['geometry'], (x['lon_tile_width'], x['lat_tile_width'])), axis=1)
+        df = pd.DataFrame(df.drop(columns=['geometry'])).explode('tile')
+        df = gpd.GeoDataFrame(df, geometry='tile')
+        df.loc[:, 'lon'] = df['tile'].centroid.x
+        df.loc[:, 'lat'] = df['tile'].centroid.y
+        df.loc[:, 'chip'] = range(df.shape[0])
+        df = pd.DataFrame(df.drop(columns=['tile']))
     else:
-        assert lon_tile_shifts is not None and lat_tile_shifts is not None
-    # drop other variables
-    df = df.loc[:, indices + ['lon', 'lat']]
-    # long format image level dataset
-    df['lon_tile_width'], df['lat_tile_width'] = (
-        tile_width_in_degree(df['lat'].values))
-    df = pd.concat([df.assign(
-        lon=lambda x: x['lon'] + x['lon_tile_width'] * i_lon_tile_shift,
-        lat=lambda x: x['lat'] + x['lat_tile_width'] * i_lat_tile_shift,
-        chip=i)
-        for i, (i_lon_tile_shift, i_lat_tile_shift) in enumerate(zip(lon_tile_shifts, lat_tile_shifts))])
+        raise NotImplementedError
     # bounding box and index
     df = df.assign(
         lon_min=lambda x: x['lon'] - x['lon_tile_width'] / 2,
