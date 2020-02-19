@@ -55,7 +55,8 @@ def plot_scatter(col_x_key, col_y_key, col_x_label, col_y_label, df, out_dir,
                  transform_x=lambda x: x, transform_y=lambda x: x,
                  xlim=None, ylim=None, xticks=None, yticks=None,
                  xticklabels=None, yticklabels=None,
-                 alpha=0.5, line=False, square=False, cut=None, show=False):
+                 figsize=(4.5, 3),
+                 alpha=0.5, line=False, frac=0.3, square=False, cut=None, show=False):
     """Generates scatter plots w/ correlation coef.
 
     Args:
@@ -67,8 +68,10 @@ def plot_scatter(col_x_key, col_y_key, col_x_label, col_y_label, df, out_dir,
             transformed
         xlim, ylim (tuple of float): limits of the transformed axes
         xticks, yticks, xticklabels, yticklabels (list)
+        figsize (tuple of float): passed to plt.subplots()
         alpha (float): transparency
         line (bool): whether a non parametric fit line should be displayed
+        frac (float): passed to lowess() for smoothing
         square (bool): whether x and y axis should be the same and
             whether a 45 degree line should be plotted
         cut (int): how many qcuts to make (calculate correlation for different
@@ -79,12 +82,12 @@ def plot_scatter(col_x_key, col_y_key, col_x_label, col_y_label, df, out_dir,
     df_nona = df.loc[:, [col_x_key, col_y_key]].dropna().astype('float')
     cols = df_nona.values
     coef, _ = pearsonr(cols[:, 0], cols[:, 1])
-    fig, ax = plt.subplots(figsize=(4.5, 3))
+    fig, ax = plt.subplots(figsize=figsize)
     x = transform_x(cols[:, 0])
     y = transform_y(cols[:, 1])
     ax.plot(x, y, marker='o', color='slategrey', linestyle='None', alpha=alpha)
     if line:
-        f = lowess(y, x, frac=0.3)
+        f = lowess(y, x, frac)
         ax.plot(f[:, 0], f[:, 1], '--', color='gray', linewidth=2)
     if square:
         ax.axis('square')
