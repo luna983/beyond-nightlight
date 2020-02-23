@@ -107,6 +107,7 @@ class Downloader(object):
                     else:
                         print('{} skipped - file too small: {} bytes.'.format(
                             file_name, int(r.headers['Content-Length'])))
+                        print(url)
                         self.queue.drop(idx, inplace=True)
         if mask.all():
             print('Downloading completed.')
@@ -138,7 +139,7 @@ def make_url(idx, df, GOOGLE_API_KEY):
 
 def run(args):
     """Runs the script.
-    
+
     Args:
         args (argparse.Namespace): Command line arguments.
     """
@@ -167,6 +168,7 @@ def run(args):
     # save the log
     downloader.queue.to_csv(args.log)
 
+
 if __name__ == '__main__':
 
     # parse arguments passed from the command line
@@ -188,5 +190,5 @@ if __name__ == '__main__':
                         help='downloading directory')
     # parse
     args = parser.parse_args()
-    
+
     run(args)

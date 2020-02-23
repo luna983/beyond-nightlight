@@ -69,7 +69,7 @@ class Resampler(object):
         Returns:
             geopandas.GeoDataFrame: geo referencing info for subsetted chips
         """
-        return chips.cx[bounds[0]:bounds[2], bounds[2]:bounds[3]]
+        return chips.cx[bounds[0]:bounds[2], bounds[1]:bounds[3]]
 
     def _load_chips(self, index, mode):
         """Loads images or annotations.

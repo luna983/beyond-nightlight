@@ -30,7 +30,7 @@ resize_width: 800  # size of tensors fed into Mask R-CNN
 
 # training schedule
 epochs: 70
-batch_size_per_gpu: 3
+batch_size_per_gpu: 12
 batch_size_multiplier: 4
 # num_gpus: inferred from torch.cuda.device_count()
 # batch_size: inferred from num_gpus and batch_size_per_gpu
