@@ -1,3 +1,14 @@
+# Data Documentation
+
+## GiveDirectly
+
+1. I obtained the shapefiles for Kenya through [GADM](https://gadm.org/download_country_v3.html), and took the boundary of Siaya (a Level 1 county). To prevent unnecessarily downloading images over water surfaces, I differenced out Lake Victoria (shapefile downloaded from [HDX](https://data.humdata.org/dataset/kenya-water-bodies)). With this polygon, I sampled tiles at zoom level 19 (per the [XYZ tiles system](https://en.wikipedia.org/wiki/Tiled_web_map)) from Google Static Maps that span the whole area.
+2. A deep learning model is trained with [TODO: fill details here]. I obtain predictions on every image with this model.
+3. To create the treatment intensity map, I obtained the dataset from the original authors of the GiveDirectly trial.
+    - Survey (Eligible): The dataset contains 5424 households, 653 villages, and 68 saturation groups. These contain only the households who are eligible for the transfer (the authors survey 8 eligible households and 4 ineligible households per village; a village contains about 100 villages, of which around 1/3 are eligible). (Michael Walker sent it to me, file name: `GE_Luna_Extract_2018-09-19.dta`)
+    - Census (Full): In the dropbox folder, I used `GE_HH-Census_Analysis_RA_2017-07-17.dta`, the master dataset, and `GE_HH_Census_2017-07-17_cleanGPS.csv` (with 65,385 households), cleaned by Dennis Egger. Outlier or missing GPS coordinates are dropped and filled with village means.
+    - GiveDirectly administrative data: In the dropbox folder, I used `GD_recipients.csv` and `GD_allGPS.csv`. These are also cleaned by Dennis Egger, and missing or outlier GPS coordinates are replaced with village means.
+
 ## Mask RCNN
 
 [This medium article on Faster RCNN](https://medium.com/@fractaldle/guide-to-build-faster-rcnn-in-pytorch-95b10c273439) and [this medium article on Mask RCNN](https://medium.com/@fractaldle/mask-r-cnn-unmasked-c029aa2f1296) is really helpful in explaining the mechanics of the model.
