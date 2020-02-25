@@ -34,7 +34,7 @@ df.set_index('index', inplace=True)
 
 
 # read sat annotations
-ann_files = glob.glob(SAT_IN_ANN_DIR + 'COUNTY41CHIP0000*.json')
+ann_files = glob.glob(SAT_IN_ANN_DIR + '*.json')
 img_files = [os.path.join(
     SAT_IN_IMG_DIR,
     (os.path.relpath(f, SAT_IN_ANN_DIR).replace('.json', '.png')))
@@ -53,8 +53,8 @@ for ann_file, img_file in tqdm.tqdm(zip(ann_files, img_files)):
                        out_dir=SAT_OUT_GEOMS_DIR)
 
 # collate all annotations
-# files = glob.glob(SAT_OUT_GEOMS_DIR + '*.geojson')
-# df_all = [gpd.read_file(file) for file in files]
-# df_all = pd.concat(df_all)
+files = glob.glob(SAT_OUT_GEOMS_DIR + '*.geojson')
+df_all = [gpd.read_file(file) for file in files]
+df_all = pd.concat(df_all)
 # df_all = df_all.loc[df_all.geometry.intersects(bound), :]  # drop outside geoms
-# df_all.to_file(SAT_OUT_GEOM_DIR, driver='GeoJSON', index=False)
+df_all.to_file(SAT_OUT_GEOM_DIR, driver='GeoJSON', index=False)
