@@ -136,7 +136,8 @@ def geom_to_tiles(geom, tile_size):
 
 def aoi_to_chip(df, indices, file_name, input_type='centroid',
                 lon_tile_shift=None, lat_tile_shift=None,
-                lon_tile_shifts=None, lat_tile_shifts=None):
+                lon_tile_shifts=None, lat_tile_shifts=None,
+                indices_type=int):
     """Converts geo coded areas of interest to chips.
 
     Args:
@@ -155,6 +156,7 @@ def aoi_to_chip(df, indices, file_name, input_type='centroid',
             for each AOI, this takes the shifts as having been flattened,
             e.g. [-1, 0, 1] for both will lead to only 3 chips [-1, -1], [0, 0]
             and [1, 1]
+        indices_type (function): int or str
     Returns:
         pandas.DataFrame: a DataFrame at the chip level
     """
@@ -202,7 +204,7 @@ def aoi_to_chip(df, indices, file_name, input_type='centroid',
         lat_max=lambda x: x['lat'] + x['lat_tile_width'] / 2)
     df['index'] = df.apply(
         lambda x: file_name.format(
-            *[int(x[idx]) for idx in indices + ['chip']]), axis=1)
+            *[indices_type(x[idx]) for idx in indices + ['chip']]), axis=1)
     df.set_index('index', inplace=True, drop=True)
     df.sort_values(indices + ['chip'], inplace=True)
     return df
