@@ -4,10 +4,10 @@ from maskrcnn.train import run
 
 
 args = Namespace()
-args.comment = 'tmp'
-args.config = ['main', 'mexico']
-args.mode = ['val']
-args.resume_run = 'run_15_Pool'
+args.comment = 'PretrainOAT'
+args.config = ['main', 'openaitanzania']
+args.mode = ['train', 'val']
+args.resume_run = None
 args.no_cuda = False
 args.cuda_max_devices = 1
 

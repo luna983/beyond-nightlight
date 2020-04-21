@@ -9,7 +9,7 @@ runs_dir: runs/
 model_to_load: checkpoint.pth.tar
 
 # data loader
-num_workers: 3
+num_workers: 6
 grayscale: False
 fillempty: True
 # num_classes: inferred from label_dict, including background and placeholder (if any)
@@ -29,9 +29,9 @@ resize_height: 800  # size of tensors fed into Mask R-CNN
 resize_width: 800  # size of tensors fed into Mask R-CNN
 
 # training schedule
-epochs: 70
+epochs: 100
 batch_size_per_gpu: 12
-batch_size_multiplier: 4
+batch_size_multiplier: 1
 # num_gpus: inferred from torch.cuda.device_count()
 # batch_size: inferred from num_gpus and batch_size_per_gpu
 
@@ -45,16 +45,16 @@ lr: 0.0003
 
 # evaluation parameters
 mask_threshold: 0.5
-key_metric_name: mAP
+key_metric_name: AP50
 
 # visualization parameters
-visual_train: False
-prob_visualization: 0
-num_visualization: 30
-visual_score_cutoff: 0.6
+visual_train: True
+prob_visualization: 0.01
+num_visualization: 10
+visual_score_cutoff: 0.9
 bbox_outline: [255, 255, 255, 255]  # white
-bbox_width: 6  # in pixels
+bbox_width: 3  # in pixels
 label_fill: [255, 255, 255, 255]  # white
 up_scale: 1  # to improve visualization quality
 font: maskrcnn/utils/fonts/UbuntuMono-B.ttf
-font_size: 40
+font_size: 20

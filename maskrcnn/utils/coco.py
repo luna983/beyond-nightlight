@@ -8,16 +8,19 @@ import pycocotools.cocoeval
 class Evaluator(pycocotools.cocoeval.COCOeval):
     """Modified to summarize results with alternative parameter setting."""
 
-    def _summarize_precision(self, iouThr, areaRng='all', maxDets=100):
-        """Internal function to summarize average precision.
+    def _summarize(self, iouThr, precision=True, areaRng='all', maxDets=100):
+        """Internal function to summarize average precision/(max) recall.
 
         Args:
             iouThr (float or NoneType): IoU threshold(s).
+            precision (bool): True: precision; False: max recall.
             areaRng (str): area range for size of objects.
             maxDets (int): max number of detections per image.
 
         Returns:
             float: average precision.
+            numpy.ndarray: AR/AP curve.
+            numpy.ndarray: scores (if precision=True).
         """
         # parameter settings
         aind = [i for i, aRng in enumerate(self.params.areaRngLbl)
@@ -25,34 +28,41 @@ class Evaluator(pycocotools.cocoeval.COCOeval):
         mind = [i for i, mDet in enumerate(self.params.maxDets)
                 if mDet == maxDets]
         # retrieve precision matrix
-        s = self.eval['precision']
+        s = self.eval['precision'] if precision else self.eval['recall']
         # dimension of precision: [TxRxKxAxM]
         # area under precision-recall curve, given a certain IoU
         s = s[..., aind, mind]
+        scores = self.eval['scores'][..., aind, mind] if precision else None
         # IoU
         if iouThr is not None:
             t = np.where(iouThr == self.params.iouThrs)[0]
             s = s[t, ...]
+            if precision:
+                scores = scores[t, ...]
         if len(s[s > -1]) == 0:
             mean_s = -1  # no gt object
         else:
             mean_s = np.mean(s[s > -1])
         # print results
-        titleStr = 'Average Precision'
+        titleStr = 'Average Precision' if precision else 'Average Recall'
         iouStr = ('{:0.2f}:{:0.2f}'
                   .format(self.params.iouThrs[0], self.params.iouThrs[-1])
                   if iouThr is None else '{:0.2f}'.format(iouThr))
         print('{:<18} @[ IoU={:<9} ] = {:0.3f}'
               .format(titleStr, iouStr, mean_s))
-        return mean_s
+        return mean_s, s[s > -1], scores
 
     def summarize(self):
         """This generates the summarized statistics."""
+        ap50, ap50_curve, scores = self._summarize(iouThr=.5)
+        ar50, ar50_curve, _ = self._summarize(iouThr=.5, precision=False)
         self.stats = {
-            'mAP': self._summarize_precision(iouThr=None),
-            'AP50': self._summarize_precision(iouThr=.5),
-            'AP75': self._summarize_precision(iouThr=.75)}
-
+            'AP50': ap50,
+            'AR50': ar50,
+            'AP50_curve': ap50_curve.squeeze().tolist(),
+            'AR50_curve': ar50_curve.squeeze().tolist(),
+            'scores': scores.squeeze().tolist(),
+        }
 
 class COCOSaver(object):
     """This collects torch.Tensors and serialize annotations into a json file.
@@ -152,6 +162,9 @@ class COCOSaver(object):
             assert file_name is not None, 'file names not provided'
         else:
             file_name = ('gt' if self.gt else 'pred')
+        os.makedirs(
+            os.path.join(self.cfg.out_mask_dir, mode),
+            exist_ok=True)
         with open(os.path.join(
                 self.cfg.out_mask_dir, mode, file_name + '.json'), 'w') as f:
             if self.gt:

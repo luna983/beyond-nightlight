@@ -23,8 +23,12 @@ def evaluate(cfg, mode):
         with open(os.path.join(cfg.out_mask_dir, mode,
                                'pred.json'), 'r') as f:
             DT = json.load(f)
-            assert len(DT) == 0
-            return None
+        assert len(DT) == 0
+        return None
+    except AssertionError as e:
+        print('Assertion Error Encountered!')
+        print(e)
+        return None
 
     # evaluation starts
     E = Evaluator(cocoGt=GT, cocoDt=DT)

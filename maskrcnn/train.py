@@ -196,6 +196,8 @@ class Trainer(object):
         # flag epoch if it is the best so far
         if self.best_metrics is None:
             self.epoch_is_best = True
+        elif self.metrics is None:
+            self.epoch_is_best = False
         elif (self.metrics[self.cfg.key_metric_name] >
               self.best_metrics[self.cfg.key_metric_name]):
             self.epoch_is_best = True

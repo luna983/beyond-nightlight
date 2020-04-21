@@ -196,8 +196,9 @@ class FillEmpty(object):
         """
         if self.activate:
             if len(target) == 0:
-                top = int(target.height * 0.9)
-                left = int(target.width * 0.9)
+                # the following is shaped like a google static map logo
+                top = int(target.height * 0.97)
+                left = int(target.width * 0.60)
                 bottom = target.height
                 right = target.width
                 # add image patch
@@ -210,8 +211,8 @@ class FillEmpty(object):
                 instance = Polygon(
                     width=target.width, height=target.height,
                     category=self.category_int)
-                coords = [[top, left], [top, right], [bottom, right],
-                          [bottom, left], [top, left]]
+                coords = [[left, top], [right, top], [right, bottom],
+                          [left, bottom], [left, top]]
                 instance.load_single_polygon(coords)
                 target.instances.append(instance)
                 return image, target

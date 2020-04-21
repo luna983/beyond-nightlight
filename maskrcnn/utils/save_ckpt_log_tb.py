@@ -96,7 +96,8 @@ class Saver(object):
         """
         if metrics is not None:
             for k, v in metrics.items():
-                self.writer.add_scalar('/'.join((mode, k)), v, epoch)
+                if np.isscalar(v):
+                    self.writer.add_scalar('/'.join((mode, k)), v, epoch)
 
     def log_tb_visualization(self, mode, epoch,
                              image, target, pred,
@@ -118,6 +119,9 @@ class Saver(object):
             file_name = '{:02d}'.format(i) if file_name is None else file_name
             # ground truth
             if target is not None:
+                os.makedirs(
+                    os.path.join(self.cfg.out_visual_dir, mode, 'gt'),
+                    exist_ok=True)
                 v = InstSegVisualization(
                     self.cfg, image=image,
                     boxes=target['boxes'], labels=target['labels'],
@@ -136,6 +140,9 @@ class Saver(object):
                     dataformats='HWC')
             # predictions
             if pred is not None:
+                os.makedirs(
+                    os.path.join(self.cfg.out_visual_dir, mode, 'pred'),
+                    exist_ok=True)
                 v = InstSegVisualization(
                     self.cfg, image=image,
                     boxes=pred['boxes'], labels=pred['labels'],

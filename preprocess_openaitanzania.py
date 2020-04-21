@@ -14,7 +14,7 @@ cfg.OUT_IMAGE_DIR = 'data/OpenAITanzania/Image/'
 cfg.OUT_ANN_DIR = 'data/OpenAITanzania/Mask/'
 # parameters
 cfg.CHIP_SIZE = 1000  # pixels
-cfg.DOWN_RESOLUTION_FACTOR = 4  # resolution = this x 7.7cm
+cfg.DOWN_RESOLUTION_FACTOR = 4  # resolution = this x 7cm
 cfg.WINDOW_SIZE = int(cfg.CHIP_SIZE * cfg.DOWN_RESOLUTION_FACTOR)
 cfg.SAMPLE_RATIO = 3
 # construct list of training file ids
