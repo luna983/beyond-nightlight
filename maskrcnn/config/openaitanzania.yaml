@@ -27,3 +27,7 @@ out_visual_dir: data/OpenAITanzania/Visual
 # visualization parameters
 category_palette:
     1: [135, 206, 235, 64]  # sky blue
+
+# data augmentation
+random_crop_height: 0.64  # (0, 1], ratio of random crop
+random_crop_width: 0.64  # (0, 1], ratio of random crop

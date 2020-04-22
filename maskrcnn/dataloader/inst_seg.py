@@ -114,8 +114,6 @@ class InstSeg(Dataset):
         w = int(image.size[0] * self.cfg.random_crop_width)
         composed_transforms = Compose([
             RandomCrop(size=(h, w)),
-            FillEmpty(self.cfg.fillempty,
-                      category_int=self.cfg.num_classes - 1),
             RandomVerticalFlip(self.cfg.vertical_flip),
             RandomHorizontalFlip(self.cfg.horizontal_flip),
             ColorJitter(
@@ -123,17 +121,16 @@ class InstSeg(Dataset):
                 saturation=self.cfg.saturation, hue=self.cfg.hue),
             Blur(blur_prob=self.cfg.blur_prob, blur_times=self.cfg.blur_times),
             Resize(width=self.cfg.resize_width, height=self.cfg.resize_height),
+            FillEmpty(self.cfg.fillempty,
+                      category_int=self.cfg.num_classes - 1),
             ToTensor()])
         return composed_transforms(image, target)
 
     def transform_val(self, image, target):
-        h = int(image.size[1] * self.cfg.random_crop_height)
-        w = int(image.size[0] * self.cfg.random_crop_width)
         composed_transforms = Compose([
-            RandomCrop(size=(h, w)),
+            Resize(width=self.cfg.resize_width, height=self.cfg.resize_height),
             FillEmpty(self.cfg.fillempty,
                       category_int=self.cfg.num_classes - 1),
-            Resize(width=self.cfg.resize_width, height=self.cfg.resize_height),
             ToTensor()])
         return composed_transforms(image, target)
 

@@ -9,14 +9,14 @@ runs_dir: runs/
 model_to_load: checkpoint.pth.tar
 
 # data loader
-num_workers: 6
+num_workers: 4
 grayscale: False
 fillempty: True
 # num_classes: inferred from label_dict, including background and placeholder (if any)
 
 # training data augmentation params
-random_crop_height: 0.8  # (0, 1], ratio of random crop
-random_crop_width: 0.8  # (0, 1], ratio of random crop
+random_crop_height: 1  # (0, 1], ratio of random crop
+random_crop_width: 1  # (0, 1], ratio of random crop
 brightness: 0.3
 contrast: 0.3
 saturation: 0.3
@@ -29,8 +29,8 @@ resize_height: 800  # size of tensors fed into Mask R-CNN
 resize_width: 800  # size of tensors fed into Mask R-CNN
 
 # training schedule
-epochs: 100
-batch_size_per_gpu: 12
+epochs: 50
+batch_size_per_gpu: 10
 batch_size_multiplier: 1
 # num_gpus: inferred from torch.cuda.device_count()
 # batch_size: inferred from num_gpus and batch_size_per_gpu
@@ -41,7 +41,7 @@ coco_pretrained: True
 swap_model_predictors: False  # always True if num_classes differ
 
 # optimizer parameters
-lr: 0.0003
+lr: 0.0005
 
 # evaluation parameters
 mask_threshold: 0.5
@@ -50,7 +50,7 @@ key_metric_name: AP50
 # visualization parameters
 visual_train: True
 prob_visualization: 0.01
-num_visualization: 10
+num_visualization: 5
 visual_score_cutoff: 0.9
 bbox_outline: [255, 255, 255, 255]  # white
 bbox_width: 3  # in pixels

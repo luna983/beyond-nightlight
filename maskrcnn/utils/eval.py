@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 from pycocotools.coco import COCO
 
@@ -25,9 +26,8 @@ def evaluate(cfg, mode):
             DT = json.load(f)
         assert len(DT) == 0
         return None
-    except AssertionError as e:
-        print('Assertion Error Encountered!')
-        print(e)
+    except:
+        print('Unexpected error: ', sys.exc_info())
         return None
 
     # evaluation starts

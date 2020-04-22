@@ -283,6 +283,7 @@ def run(args):
             while trainer.epoch < cfg.epochs:
                 trainer.train()
                 if 'val' in cfg.mode:
+                    trainer.save_gt_annotations()
                     trainer.infer('val')
                     trainer.evaluate()
                 trainer.save_checkpoint()

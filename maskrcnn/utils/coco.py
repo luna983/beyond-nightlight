@@ -50,17 +50,16 @@ class Evaluator(pycocotools.cocoeval.COCOeval):
                   if iouThr is None else '{:0.2f}'.format(iouThr))
         print('{:<18} @[ IoU={:<9} ] = {:0.3f}'
               .format(titleStr, iouStr, mean_s))
-        return mean_s, s[s > -1], scores
+        return mean_s, s, scores
 
     def summarize(self):
         """This generates the summarized statistics."""
         ap50, ap50_curve, scores = self._summarize(iouThr=.5)
-        ar50, ar50_curve, _ = self._summarize(iouThr=.5, precision=False)
+        ar50, _, _ = self._summarize(iouThr=.5, precision=False)
         self.stats = {
             'AP50': ap50,
             'AR50': ar50,
             'AP50_curve': ap50_curve.squeeze().tolist(),
-            'AR50_curve': ar50_curve.squeeze().tolist(),
             'scores': scores.squeeze().tolist(),
         }
 
