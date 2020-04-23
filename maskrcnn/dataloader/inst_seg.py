@@ -38,7 +38,7 @@ class InstSeg(Dataset):
                 ids = [os.path.basename(f).split('.')[0] for f in files]
                 shuffle(ids)
                 train_idx = int(cfg.train_ratio * len(ids))
-                assert 0 < train_idx < len(ids), 'train/val sample is empty'
+                assert 0 <= train_idx <= len(ids), 'train ratio should be in [0, 1]'
                 with open(os.path.join(cfg.in_tv_dir, 'train.txt'), 'w') as f:
                     json.dump(ids[:train_idx], f)
                 with open(os.path.join(cfg.in_tv_dir, 'val.txt'), 'w') as f:

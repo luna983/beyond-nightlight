@@ -1,0 +1,44 @@
+# dataset
+dataset: Siaya
+mask_format: supervisely
+label_dict:  # values should be [1, 2, 3, ..., N]
+    'building': 1
+int_dict: null
+
+# # data loader
+# train_ratio: 0.9  # null if train.txt and val.txt exist
+
+# inference directory
+in_infer_dir: data/Siaya
+in_infer_img_dir: Image
+in_infer_img_suffix: .png
+in_infer_img_list: null
+
+# # trainval directory
+in_tv_dir: data/Siaya
+in_tv_img_dir: Image
+in_tv_img_suffix: .png
+in_tv_mask_dir: Mask
+in_tv_mask_suffix: .png.json
+
+# output directory
+out_mask_dir: data/Siaya/Pred
+
+# visualization directory
+out_visual_dir: data/Siaya/Visual
+
+# visualization parameters
+category_palette:
+    1: [150, 223, 228, 64] # blue
+    # 2: [223, 150, 228, 64]
+    # 3: [228, 223, 150, 64]
+
+# training schedule
+epochs: 61  # 25 epoches, starting from 60
+coco_pretrained: False
+
+# data augmentation
+blur_prob: 0
+blur_times: 1
+
+model_to_load: pretrained_checkpoint.pth.tar
