@@ -11,12 +11,13 @@ from maskrcnn.train import run
 k = 3
 
 imgs = list(glob.glob('data/Siaya/Mask/*.json'))
+imgs = [os.path.basename(img).split('.')[0] for img in imgs]
 shuffle(imgs)
 N = len(imgs)
 
 for i in range(k):
-    val_imgs = tuple(imgs[int(i * N / k):int((i + 1) * N / k)])
-    train_imgs = tuple(imgs[0:int(i * N / k)] + imgs[int((i + 1) * N / k):])
+    val_imgs = imgs[int(i * N / k):int((i + 1) * N / k)]
+    train_imgs = imgs[0:int(i * N / k)] + imgs[int((i + 1) * N / k):]
     
     with open('data/Siaya/train.txt', 'w') as f:
         json.dump(train_imgs, f)
@@ -25,7 +26,7 @@ for i in range(k):
 
     args = Namespace()
     args.comment = f'SiayaCV{i}'
-    args.config = ['main', 'siaya']
+    args.config = ['main', 'siaya_cv']
     args.mode = ['train', 'val']
     args.resume_run = f'run_{i + 3:02d}_SiayaCV{i}'
     args.no_cuda = False

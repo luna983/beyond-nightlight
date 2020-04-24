@@ -34,7 +34,7 @@ category_palette:
     # 3: [228, 223, 150, 64]
 
 # training schedule
-epochs: 61  # 25 epoches, starting from 60
+epochs: 75  # 15 epoches, starting from 60
 coco_pretrained: False
 
 # data augmentation
