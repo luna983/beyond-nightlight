@@ -20,10 +20,12 @@
 **/.Rhistory
 
 # symbolic links and logs
-**/data
-**/data/
-**/logs
-**/logs/
-**/runs
-**/runs/
+data/
+logs/
+runs/
+output/
+data
+logs
+runs
+output
 

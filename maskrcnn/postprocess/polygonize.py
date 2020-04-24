@@ -16,10 +16,10 @@ import geopandas as gpd
 
 SIZE_CHIP = (800, 800)
 SIMPLIFY_PIXEL = 3
-AREA_MIN = 0
-SCORE_CUTOFF = 0
-XMAX = 480
-YMAX = 760
+AREA_MIN = 0  # off
+SCORE_CUTOFF = 0.73  # see fig-prcurve
+XMAX = 800  # off
+YMAX = 800  # off
 
 def load_ann(ann_file, img_file, extent, out_dir):
     """Load satellite annotation (predictions from ML models) and saves a geojson.
@@ -61,7 +61,6 @@ def load_ann(ann_file, img_file, extent, out_dir):
         # extract RGB mean from image
         binary_mask = binary_mask.astype(np.bool_)
         RGB_mean = np.mean(img[binary_mask, :], axis=0)
-        RGB_median = np.median(img[binary_mask, :], axis=0)
         # parse bbox
         xmin, ymin, width, height = ins['bbox']
         output.append({
@@ -74,13 +73,6 @@ def load_ann(ann_file, img_file, extent, out_dir):
             'R_mean': RGB_mean[0],
             'G_mean': RGB_mean[1],
             'B_mean': RGB_mean[2],
-            'R_median': RGB_median[0],
-            'G_median': RGB_median[1],
-            'B_median': RGB_median[2],
-            'luminosity': np.mean([np.max(RGB_median), np.min(RGB_median)]) / 255,
-            'saturation': (np.max(RGB_median) - np.min(RGB_median)) / 255 /
-                           (1 - np.abs(2 * np.mean([np.max(RGB_median),
-                                                    np.min(RGB_median)]) / 255 - 1)),
             'area': ins['area'],
             'score': ins['score'],
             'index': ins['image_id_str'],
