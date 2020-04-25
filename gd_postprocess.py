@@ -17,6 +17,7 @@ LOG_IN_DIR = 'data/Siaya/Meta/aoi_download_log.csv'
 SAT_IN_ANN_DIR = 'data/Siaya/Pred/infer/'
 SAT_IN_IMG_DIR = 'data/Siaya/Image/'
 SAT_OUT_GEOM_DIR = 'data/Siaya/Merged/sat.geojson'
+SAT_OUT_CSV_DIR = 'data/Siaya/Merged/sat.csv'
 
 # boundary
 BOUND_IN_DIR = 'data/External/GiveDirectly/figure2/SampleArea.shp'
@@ -59,3 +60,9 @@ with tempfile.TemporaryDirectory() as tmp_dir:
     df_all = pd.concat(df_all)
     # df_all = df_all.loc[df_all.geometry.intersects(bound), :]  # drop outside geoms
     df_all.to_file(SAT_OUT_GEOM_DIR, driver='GeoJSON', index=False)
+
+# save a csv for quick loading
+df_all.loc[:, 'centroid_lon'] = df_all.geometry.centroid.x.values
+df_all.loc[:, 'centroid_lat'] = df_all.geometry.centroid.y.values
+df_all = df_all.drop(columns=['geometry'])
+pd.DataFrame(df_all).to_csv(SAT_OUT_CSV_DIR, index=False)

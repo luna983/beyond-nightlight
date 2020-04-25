@@ -1,11 +1,14 @@
 import json
 import argparse
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 
 from maskrcnn.utils.eval import evaluate
 
+
+matplotlib.rc('pdf', fonttype=42)
 
 # 400 pixels = 22.7 m2 gives the best result
 # but that's a rather high threshold, not super sensible
@@ -24,7 +27,7 @@ input_gt_files = [f'data/Siaya/Pred/val/gt_cv{i}.json' for i in range(3)]
 output_pred_file = 'data/Siaya/Pred/cv/val/pred.json'
 output_gt_file = 'data/Siaya/Pred/cv/val/gt.json'
 
-output_figure = 'output/fig-prcurve.pdf'
+output_figure = 'output/fig-prcurve/raw.pdf'
 
 preds = []
 gts = {'annotations': [],
