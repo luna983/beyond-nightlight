@@ -14,7 +14,6 @@ from descartes import PolygonPatch
 from collections.abc import Iterable
 
 
-random.seed(0)
 matplotlib.rc('pdf', fonttype=42)
 
 N = 10  # no. of images sampled
