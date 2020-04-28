@@ -69,7 +69,7 @@ df = df.loc[df['eligible'] > 0, :]
 print('treat_eligible: \n', df['treat_eligible'].value_counts())
 
 # save to output
-df.to_csv(os.path.join(OUT_DIR, 'main.csv'))
+df.to_csv(os.path.join(OUT_DIR, 'main.csv'), index=False)
 
 # PLACEBO TEST
 for i_simu in range(200):
@@ -104,4 +104,4 @@ for i_simu in range(200):
     # drop grids with 0 eligibles
     df = df.loc[df['eligible'] > 0, :]
     # save to output
-    df.to_csv(os.path.join(OUT_DIR, f'placebo_{i_simu:03d}.csv'))
+    df.to_csv(os.path.join(OUT_DIR, f'placebo_{i_simu:03d}.csv'), index=False)

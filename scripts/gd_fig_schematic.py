@@ -16,7 +16,7 @@ from collections.abc import Iterable
 
 matplotlib.rc('pdf', fonttype=42)
 
-N = 10  # no. of images sampled
+N = 20  # no. of images sampled
 
 IN_IMG_DIR = 'data/Siaya/Image'
 IN_META_DIR = 'data/Siaya/Meta/aoi.csv'
