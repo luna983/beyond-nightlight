@@ -19,13 +19,12 @@
 # R files
 **/.Rhistory
 
-# symbolic links and logs
+# symbolic links and folders
 data/
-logs/
-runs/
-output/
 data
+logs/
 logs
+runs/
 runs
+output/
 output
-
