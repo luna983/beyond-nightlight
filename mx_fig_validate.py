@@ -7,11 +7,12 @@ import statsmodels.formula.api as smf
 import rasterio
 import matplotlib
 from scipy.spatial.distance import cdist
-from scipy.stats import pearsonr
+from scipy.stats import pearsonr, spearmanr
 from sklearn.decomposition import PCA
 from statsmodels.nonparametric.smoothers_lowess import lowess
 
 from maskrcnn.postprocess.utils import transform_coord
+from maskrcnn.postprocess.analysis import winsorize
 
 
 matplotlib.rc('pdf', fonttype=42)
@@ -47,7 +48,8 @@ def plot_scatter(col_x_key, col_y_key, col_x_label, col_y_label, df, out_dir,
     
     df_nona = df.loc[:, [col_x_key, col_y_key]].dropna().astype('float')
     cols = df_nona.values
-    coef, _ = pearsonr(cols[:, 0], cols[:, 1])
+    pcorr, _ = pearsonr(cols[:, 0], cols[:, 1])
+    scorr, _ = spearmanr(cols[:, 0], cols[:, 1])
     fig, ax = plt.subplots(figsize=figsize)
     x = transform_x(cols[:, 0])
     y = transform_y(cols[:, 1])
@@ -58,7 +60,7 @@ def plot_scatter(col_x_key, col_y_key, col_x_label, col_y_label, df, out_dir,
     if square:
         ax.axis('square')
         ax.plot(xlim, ylim, '--', color='gray', linewidth=2)
-    ax.set_title('Correlation (in levels): {:.2f}'.format(coef))
+    ax.set_title(f'Pearson: {pcorr:.2f}; Spearman: {scorr:.2f}')
     ax.set_xlabel(col_x_label)
     ax.set_ylabel(col_y_label)
     if xlim is not None:
@@ -80,9 +82,10 @@ def plot_scatter(col_x_key, col_y_key, col_x_label, col_y_label, df, out_dir,
                                  labels=list(range(cut)),
                                  retbins=True)
         for i, g in df_nona.groupby(category):
-            corr, _ = pearsonr(g.iloc[:, 0].values, g.iloc[:, 1].values)
+            pcorr, _ = pearsonr(g.iloc[:, 0].values, g.iloc[:, 1].values)
+            scorr, _ = spearmanr(g.iloc[:, 0].values, g.iloc[:, 1].values)
             x_pos = np.mean([bins[i], bins[i + 1]])
-            ax.text(x_pos, y_pos, '{:.2f}'.format(corr))
+            ax.text(x_pos, y_pos, f'Pearson: {pcorr:.2f}; Spearman: {scorr:.2f}')
         for b in bins[1:-1]:
             ax.plot([b, b], [ymin, ymax], '-', color='gray', linewidth=1)
     ax.set_frame_on(False)
@@ -166,6 +169,7 @@ def load_census(df_idx, CEN_IN_DIR):
 
     # rename columns
     df_cen = df_cen.rename(columns=CEN_COLS)
+    print('No. of localities in the sample: ', df_cen.shape[0])
     return df_cen
 
 
@@ -190,6 +194,9 @@ def load_satellite(df_idx, SAT_IN_DIR):
     # scale areas / distances
     df_sat[['sat_size_mean', 'sat_size_sum']] *= (
         ((0.001716 * 111000 / 800) ** 2) * np.cos(23 / 180 * np.pi))  # in sq meters
+    # winsorize
+    df_sat.loc[:, 'sat_size_sum_wins'] = winsorize(df_sat['sat_size_sum'], 0, 99)
+    df_sat.loc[:, 'sat_size_mean_wins'] = winsorize(df_sat['sat_size_mean'], 0, 99)
     return df_sat
 
     
@@ -204,6 +211,8 @@ def load_nightlight(df, NL_IN_DIR):
         xy=df.loc[:, ['lon', 'lat']].values)).astype(np.int)
 
     df.loc[:, 'sat_nightlight'] = [band[i[1], i[0]] for i in idx]
+    # winsorize
+    df.loc[:, 'sat_nightlight_wins'] = winsorize(df['sat_nightlight'], 0, 99)
     return df
 
 
@@ -235,9 +244,10 @@ if __name__ == '__main__':
         how='right', on=['ent', 'mun', 'loc'])
     # compute per capita values
     df.loc[:, 'sat_size_sum_pc'] = df['sat_size_sum'] / df['cen_pop']
+    # winsorize
+    df.loc[:, 'sat_size_sum_pc_wins'] = winsorize(df['sat_size_sum_pc'], 0, 99)
     # load nightlight values
     df = load_nightlight(df, NL_IN_DIR)
-    # NOTE: nothing is winsorized yet
 
     # plotting begins
     plot_scatter(

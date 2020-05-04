@@ -120,6 +120,7 @@ def load_survey(SVY_IN_DIR):
 
     # subset to eligible sample
     df_svy = df_svy.loc[df_svy['h1_6_nonthatchedroof_BL'] == 0, :].reset_index(drop=True).copy()
+    print('Observations in final sample: ', df_svy.shape[0])
     return df_svy
 
 
