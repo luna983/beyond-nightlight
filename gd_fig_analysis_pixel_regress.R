@@ -99,7 +99,7 @@ g_style <- ggplot2::theme_bw() +
 folders <- c('nightlight/', 'building/', 'building/')
 col_ys <- c('nightlight', 'area_sum', 'RGB_mean_spline')
 titles <- c('Nightlight', 'Total Square Footage of Buildings', 'Roof Reflectance')
-y_breaks <- list(c(-0.05, 0, 0.05), c(0, 25, 50), c(0, 3, 6))
+y_breaks <- list(c(-0.05, 0, 0.05), c(-50, -25, 0, 25, 50), c(-3, 0, 3, 6))
 
 for (outcome_i in c(1:length(col_ys))) {
     print(paste0('outcome: ', col_ys[outcome_i]))
@@ -111,7 +111,7 @@ for (outcome_i in c(1:length(col_ys))) {
     placebo_res_file <- paste0(working_dir, 'data/intermediate/',
                                col_ys[outcome_i], '_placebo.csv')
     if (file.exists(placebo_res_file)) {
-        df <- readr::read_csv(
+        placebo_res <- readr::read_csv(
             placebo_res_file,
             # to suppress warnings
             col_type=readr::cols())
@@ -131,7 +131,8 @@ for (outcome_i in c(1:length(col_ys))) {
     # plotting
     g <- ggplot2::ggplot() +
         ggplot2::geom_line(
-            data=placebo_res, ggplot2::aes(x=x, y=beta, group=iter), size=0.5, color='#dddddd', alpha=0.5) +
+            data=placebo_res %>% dplyr::filter(iter < 100),
+            ggplot2::aes(x=x, y=beta, group=iter), size=0.5, color='#dddddd', alpha=0.5) +
         ggplot2::geom_line(
             data=main_res, ggplot2::aes(x=x, y=beta), size=1, color='#d7191c') +
         ggplot2::geom_point(
