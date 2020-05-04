@@ -12,7 +12,7 @@ To download nightlight rasters used for comparison in subsequent analyses
 
 To replicate the analysis in the main text (on the GiveDirectly (GD) randomized controlled trial in rural Kenya)
 
-_Note that replication of some of the analyses requires field data collected in the GiveDirectly trial (placed in the `data/External/GiveDirectly` folder). These data contain sensitive geolocation information of the trial participants and thus cannot be shared without IRB approval._
+_Note that the replication of some of the analyses requires field data collected in the GiveDirectly trial (placed in the `data/External/GiveDirectly` folder). These data contain sensitive geolocation information of the trial participants and thus cannot be shared without IRB approval._
 
 - `python scripts/gd_prepare_download_gsm.py`: Prepare for downloading Google Static Map data.
 - `python scripts/gd_download_gsm.py`: Download Google Static Map data.
