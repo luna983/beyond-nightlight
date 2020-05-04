@@ -1,5 +1,32 @@
 import numpy as np
 import pandas as pd
+import statsmodels.formula.api as smf
+
+
+def winsorize(s, lower, upper):
+    """Winsorizes a pandas series.
+    
+    Args:
+        s (pandas.Series): the series to be winsorized
+        lower, upper (int): number between 0 to 100
+    """
+    lower_value = np.nanpercentile(s.values, lower)
+    upper_value = np.nanpercentile(s.values, upper)
+    print(f'Winsorizing to {lower_value} - {upper_value}')
+    return s.clip(lower_value, upper_value)
+
+
+def demean(df, column, by):
+    """Demean a column in a pandas DataFrame.
+    
+    Args:
+        df (pandas.DataFrame): data
+        column (str): the column to be demeaned
+        by (list of str): the column names
+    """
+    return (
+        df[column].values -
+        df.loc[:, by + [column]].groupby(by).transform(np.nanmean).values.squeeze())
 
 
 def load_gd_census(GPS_FILE, MASTER_FILE):
@@ -75,3 +102,15 @@ def snap_to_grid(df, lon_col, lat_col,
     df_output = df_output.loc[df_output['is_in_grid'].notna(), :].copy()
 
     return (grid_lon, grid_lat), df_output.drop(columns=['is_in_grid'])
+
+
+def control_for_spline(x, y, z, cr_df=3):
+    # handle nan's
+    is_na = np.any((np.isnan(x), np.isnan(y), np.isnan(z)), axis=0)
+    df = pd.DataFrame({'x': x[~is_na], 'y': y[~is_na], 'z': z[~is_na]})
+    mod = smf.ols(formula=f"z ~ 1 + cr(x, df={cr_df}) + cr(y, df={cr_df})", data=df)
+    res = mod.fit()
+    # return nan's for cases where any one of x, y, z is nan
+    z_out = np.full_like(z, np.nan)
+    z_out[~is_na] = z[~is_na] - res.fittedvalues
+    return z_out
