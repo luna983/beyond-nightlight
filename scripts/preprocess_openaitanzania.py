@@ -6,6 +6,8 @@ from argparse import Namespace
 from maskrcnn.preprocess.preprocess_openaitanzania import process_file
 
 
+# download data from the link below
+# https://docs.google.com/spreadsheets/d/1tP133OqpwvkzHnkmS_3nezpTJMq06tpPM6P2qU6kaZ4/edit?usp=sharing
 cfg = Namespace()
 # define paths
 cfg.IN_IMAGE_DIR = 'data/OpenAITanzania/GeoTIFF/'
