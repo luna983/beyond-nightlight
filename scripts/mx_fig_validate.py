@@ -3,19 +3,17 @@ import glob
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import statsmodels.formula.api as smf
 import rasterio
-import matplotlib
-from scipy.spatial.distance import cdist
+import seaborn as sns
 from scipy.stats import pearsonr, spearmanr
 from sklearn.decomposition import PCA
-from statsmodels.nonparametric.smoothers_lowess import lowess
+from skmisc.loess import loess
 
 from maskrcnn.postprocess.utils import transform_coord
 from maskrcnn.postprocess.analysis import winsorize
 
 
-matplotlib.rc('pdf', fonttype=42)
+sns.set(font='Helvetica', font_scale=1)
 
 
 def plot_scatter(col_x_key, col_y_key, col_x_label, col_y_label, df, out_dir,
@@ -23,7 +21,8 @@ def plot_scatter(col_x_key, col_y_key, col_x_label, col_y_label, df, out_dir,
                  xlim=None, ylim=None, xticks=None, yticks=None,
                  xticklabels=None, yticklabels=None,
                  figsize=(4.5, 3),
-                 alpha=0.5, line=False, frac=0.3, square=False, cut=None, show=False):
+                 alpha=0.5, line=False, frac=0.3,
+                 square=False, cut=None, show=False):
     """Generates scatter plots w/ correlation coef.
 
     Args:
@@ -45,8 +44,9 @@ def plot_scatter(col_x_key, col_y_key, col_x_label, col_y_label, df, out_dir,
             quantiles), disabled if None
         show (bool): whether to show the figure
     """
-    
-    df_nona = df.loc[:, [col_x_key, col_y_key]].dropna().astype('float')
+
+    df_nona = (df.loc[:, [col_x_key, col_y_key]]
+                 .dropna().sort_values(by=col_x_key).astype('float'))
     cols = df_nona.values
     pcorr, _ = pearsonr(cols[:, 0], cols[:, 1])
     scorr, _ = spearmanr(cols[:, 0], cols[:, 1])
@@ -55,8 +55,13 @@ def plot_scatter(col_x_key, col_y_key, col_x_label, col_y_label, df, out_dir,
     y = transform_y(cols[:, 1])
     ax.plot(x, y, marker='o', color='slategrey', linestyle='None', alpha=alpha)
     if line:
-        f = lowess(y, x, frac)
-        ax.plot(f[:, 0], f[:, 1], '--', color='gray', linewidth=2)
+        m = loess(x, y)
+        m.fit()
+        pred = m.predict(x, stderror=True).confidence()
+        ax.plot(x, pred.fit,
+                color='dimgray', linewidth=1, alpha=0.4)
+        ax.fill_between(x, pred.lower, pred.upper,
+                        color='dimgray', alpha=.2)
     if square:
         ax.axis('square')
         ax.plot(xlim, ylim, '--', color='gray', linewidth=2)
@@ -85,7 +90,8 @@ def plot_scatter(col_x_key, col_y_key, col_x_label, col_y_label, df, out_dir,
             pcorr, _ = pearsonr(g.iloc[:, 0].values, g.iloc[:, 1].values)
             scorr, _ = spearmanr(g.iloc[:, 0].values, g.iloc[:, 1].values)
             x_pos = np.mean([bins[i], bins[i + 1]])
-            ax.text(x_pos, y_pos, f'Pearson: {pcorr:.2f}; Spearman: {scorr:.2f}')
+            ax.text(x_pos, y_pos,
+                    f'Pearson: {pcorr:.2f}; Spearman: {scorr:.2f}')
         for b in bins[1:-1]:
             ax.plot([b, b], [ymin, ymax], '-', color='gray', linewidth=1)
     ax.set_frame_on(False)
@@ -179,7 +185,8 @@ def load_satellite(df_idx, SAT_IN_DIR):
     # link to locality identifier
     df_sat = pd.merge(df_sat, df_idx, how='left', on='index')
     # create new var
-    df_sat.loc[:, 'RGB_mean'] = df_sat.loc[:, ['R_mean', 'G_mean', 'B_mean']].mean(axis=1)
+    df_sat.loc[:, 'RGB_mean'] = (df_sat.loc[:, ['R_mean', 'G_mean', 'B_mean']]
+                                       .mean(axis=1))
 
     # grouping into localities
     df_sat = df_sat.groupby(['ent', 'mun', 'loc']).agg(
@@ -193,13 +200,16 @@ def load_satellite(df_idx, SAT_IN_DIR):
 
     # scale areas / distances
     df_sat[['sat_size_mean', 'sat_size_sum']] *= (
-        ((0.001716 * 111000 / 800) ** 2) * np.cos(23 / 180 * np.pi))  # in sq meters
+        ((0.001716 * 111000 / 800) ** 2) *
+        np.cos(23 / 180 * np.pi))  # in sq meters
     # winsorize
-    df_sat.loc[:, 'sat_size_sum_wins'] = winsorize(df_sat['sat_size_sum'], 0, 99)
-    df_sat.loc[:, 'sat_size_mean_wins'] = winsorize(df_sat['sat_size_mean'], 0, 99)
+    df_sat.loc[:, 'sat_size_sum_wins'] = winsorize(
+        df_sat['sat_size_sum'], 0, 99)
+    df_sat.loc[:, 'sat_size_mean_wins'] = winsorize(
+        df_sat['sat_size_mean'], 0, 99)
     return df_sat
 
-    
+
 def load_nightlight(df, NL_IN_DIR):
     # extract nightlight values
     ds = rasterio.open(NL_IN_DIR)
@@ -261,7 +271,8 @@ if __name__ == '__main__':
         col_y_label='Satellite: House Count',
         transform_y=lambda x: np.log10(x + 1),
         ylim=(np.log10(0.5 + 1), np.log10(1500 + 1)),
-        yticks=[np.log10(1 + 1), np.log10(10 + 1), np.log10(100 + 1), np.log10(1000 + 1)],
+        yticks=[np.log10(1 + 1), np.log10(10 + 1),
+                np.log10(100 + 1), np.log10(1000 + 1)],
         yticklabels=[1, 10, 100, 1000],
         line=True, df=df, out_dir=OUT_DIR, show=True)
 
@@ -335,4 +346,5 @@ if __name__ == '__main__':
         for cen_col in cen_cols:
             plot_scatter(col_x_key=cen_col, col_y_key=sat_col,
                          col_x_label=cen_col, col_y_label=sat_col,
+                         line=True,
                          df=df, out_dir=os.path.join(OUT_DIR, 'all'))

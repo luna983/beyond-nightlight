@@ -2,7 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 import statsmodels.formula.api as smf
-import matplotlib
+import seaborn as sns
 import matplotlib.pyplot as plt
 import scipy.spatial
 from skmisc.loess import loess
@@ -12,7 +12,7 @@ from maskrcnn.postprocess.analysis import (
 
 
 np.random.seed(0)
-matplotlib.rc('pdf', fonttype=42)
+sns.set(font='Helvetica', font_scale=1)
 
 
 def plot(df, y, x, ylim,
@@ -35,7 +35,7 @@ def plot(df, y, x, ylim,
     est = y_coef / scale
     est_se = np.sqrt((y_se / y_coef) ** 2 + (scale_se / scale) ** 2) * abs(est)
     # make figure
-    fig, (ax0, ax1) = plt.subplots(ncols=2, figsize=(6, 3))
+    fig, (ax0, ax1) = plt.subplots(ncols=2, figsize=(10, 7))
     m = loess(df_nona[x].values, df_nona[y].values)
     m.fit()
     pred = m.predict(df_nona[x].values, stderror=True).confidence()
@@ -53,9 +53,9 @@ def plot(df, y, x, ylim,
     ax0.set_title(
         f'N = {df_nona.shape[0]}\n' +
         f'Observed effects: {x_coef:.4f}\n' +
-        f'x p-value: {x_pvalue:.4f}\n' +
+        f'x p value: {x_pvalue:.4f}\n' +
         f'Estimated effects: {y_coef:.4f} / {scale:.4f} = {est:.4f}\n' +
-        f'y p-value: {y_pvalue:.4f}\n')
+        f'y p value: {y_pvalue:.4f}\n')
     ax0.set_xlabel(x)
     ax0.set_ylabel(y)
     ax1.errorbar(0, est, yerr=1.96 * est_se, color='#d7191c',
