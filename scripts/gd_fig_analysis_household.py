@@ -1,17 +1,14 @@
 import os
 import numpy as np
 import pandas as pd
-import geopandas as gpd
-import statsmodels.api as sm
 import statsmodels.formula.api as smf
 import matplotlib
 import matplotlib.pyplot as plt
-import seaborn as sns
 import scipy.spatial
 from skmisc.loess import loess
 
 from maskrcnn.postprocess.analysis import (
-    control_for_spline, winsorize, demean)
+    control_for_spline, winsorize)
 
 
 np.random.seed(0)
@@ -42,7 +39,8 @@ def plot(df, y, x, ylim,
     m = loess(df_nona[x].values, df_nona[y].values)
     m.fit()
     pred = m.predict(df_nona[x].values, stderror=True).confidence()
-    ax0.plot(df_nona[x].values, pred.fit, color='dimgray', linewidth=1, alpha=0.4)
+    ax0.plot(df_nona[x].values, pred.fit,
+             color='dimgray', linewidth=1, alpha=0.4)
     ax0.fill_between(df_nona[x].values, pred.lower, pred.upper,
                      color='dimgray', alpha=.2)
     for cmap_value, cmap_color in cmap.items():
@@ -68,6 +66,7 @@ def plot(df, y, x, ylim,
     ax1.set_xticklabels(['Estimated', 'True'])
     ax1.set_xlim(-0.5, 1.5)
     ax1.set_ylim(*ylim)
+    fig.tight_layout()
     fig.savefig(os.path.join(OUT_DIR, f'{y}-{x}.pdf'))
 
 
@@ -75,7 +74,8 @@ def load_satellite(SAT_IN_DIR):
     # load satellite data
     df_sat = pd.read_csv(SAT_IN_DIR)
     # create new var: luminosity
-    df_sat.loc[:, 'RGB_mean'] = df_sat.loc[:, ['R_mean', 'G_mean', 'B_mean']].mean(axis=1)
+    df_sat.loc[:, 'RGB_mean'] = (df_sat.loc[:, ['R_mean', 'G_mean', 'B_mean']]
+                                       .mean(axis=1))
     # control for lat lon cubic spline
     df_sat.loc[:, 'RGB_mean_spline'] = control_for_spline(
         x=df_sat['centroid_lon'].values,
@@ -101,8 +101,8 @@ def load_survey(SVY_IN_DIR):
     # calculate per capita consumption / assets
     df_svy.loc[:, 'p2_consumption_wins_pc'] = (
         df_svy['p2_consumption_wins'].values / df_svy['hhsize1_BL'].values)
-    df_svy.loc[:, 'p1_assets_wins_pc'] = (
-        df_svy['p1_assets_wins'].values / df_svy['hhsize1_BL'].values)
+    df_svy.loc[:, 'p1_assets_pc'] = (
+        df_svy['p1_assets'].values / df_svy['hhsize1_BL'].values)
 
     # log and winsorize more
     df_svy.loc[:, 'logwins_p2_consumption_wins_pc'] = winsorize(
@@ -110,16 +110,18 @@ def load_survey(SVY_IN_DIR):
     ).apply(
         lambda x: np.log(x) if x > 0 else np.nan
     )
-    df_svy.loc[:, 'logwins_p1_assets_wins_pc'] = winsorize(
-        df_svy['p1_assets_wins_pc'], 2.5, 97.5
+    df_svy.loc[:, 'logwins_p1_assets_pc'] = winsorize(
+        df_svy['p1_assets_pc'], 2.5, 97.5
     ).apply(
         lambda x: np.log(x) if x > 0 else np.nan
     )
     # check missing
-    assert df_svy.loc[:, ['treat', 'hi_sat', 's1_hhid_key', 'satcluster']].notna().all().all()
+    assert (df_svy.loc[:, ['treat', 'hi_sat', 's1_hhid_key', 'satcluster']]
+                  .notna().all().all())
 
     # subset to eligible sample
-    df_svy = df_svy.loc[df_svy['h1_6_nonthatchedroof_BL'] == 0, :].reset_index(drop=True).copy()
+    df_svy = (df_svy.loc[df_svy['h1_6_nonthatchedroof_BL'] == 0, :]
+                    .reset_index(drop=True).copy())
     print('Observations in final sample: ', df_svy.shape[0])
     return df_svy
 
@@ -151,7 +153,8 @@ def match(
     # option A: take the closest structure
     df_close = df.drop_duplicates(subset=['s1_hhid_key'], keep='first')
     df_close = pd.merge(df_svy, df_close, how='left', on=['s1_hhid_key'])
-    df_close.loc[:, 'area_pc'] = df_close['area'].values / df_close['hhsize1_BL'].values
+    df_close.loc[:, 'area_pc'] = (df_close['area'].values /
+                                  df_close['hhsize1_BL'].values)
 
     # option B: take all the structures within the radius
     df_circle = df.groupby('s1_hhid_key').agg(
@@ -162,7 +165,8 @@ def match(
     ).reset_index()
     df_circle = pd.merge(df_svy, df_circle, how='left', on=['s1_hhid_key'])
     df_circle.fillna({'house_count': 0, 'area_sum': 0}, inplace=True)
-    df_circle.loc[:, 'area_sum_pc'] = df_circle['area_sum'].values / df_circle['hhsize1_BL'].values
+    df_circle.loc[:, 'area_sum_pc'] = (df_circle['area_sum'].values /
+                                       df_circle['hhsize1_BL'].values)
     df_circle.loc[:, 'log1_area_sum_pc'] = df_circle['area_sum_pc'].apply(
         lambda x: np.log(x + 1) if x > 0 else np.nan
     )
@@ -189,7 +193,7 @@ if __name__ == '__main__':
     plot(
         df=df_circle,
         y='area_sum_pc',
-        x='logwins_p1_assets_wins_pc',
+        x='logwins_p1_assets_pc',
         ylim=(-0.5, 1))
 
     plot(
@@ -201,7 +205,7 @@ if __name__ == '__main__':
     plot(
         df=df_close,
         y='RGB_mean_spline',
-        x='logwins_p1_assets_wins_pc',
+        x='logwins_p1_assets_pc',
         ylim=(-5, 25))
 
     plot(
