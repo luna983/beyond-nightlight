@@ -14,10 +14,12 @@ LAKE_SHP = 'data/External/GiveDirectly/adm_shapefile/KEN_Lakes.shp'
 OUT_IMG_DIR = 'data/Siaya/Meta/aoi.csv'
 
 # read shapefiles
+# https://gadm.org/download_country_v3.html
 df_shp = gpd.read_file(IN_DIR_SHP)
 shp, = df_shp.loc[df_shp['NAME_1'] == 'Siaya', 'geometry'].values
 
 # remove lake
+# https://data.humdata.org/dataset/kenya-water-bodies
 lake = gpd.read_file(LAKE_SHP)
 lake, = lake.loc[lake['LAKE'] == 'Lake Victoria', 'geometry'].values
 shp = shp.difference(lake)
