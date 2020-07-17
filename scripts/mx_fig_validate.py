@@ -3,14 +3,12 @@ import glob
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import rasterio
 import seaborn as sns
 from scipy.stats import pearsonr, spearmanr
 from sklearn.decomposition import PCA
 from skmisc.loess import loess
 
-from maskrcnn.postprocess.utils import transform_coord
-from maskrcnn.postprocess.analysis import winsorize
+from maskrcnn.postprocess.analysis import winsorize, load_nightlight
 
 
 sns.set(font='Helvetica', font_scale=1)
@@ -208,22 +206,6 @@ def load_satellite(df_idx, SAT_IN_DIR):
     df_sat.loc[:, 'sat_size_mean_wins'] = winsorize(
         df_sat['sat_size_mean'], 0, 99)
     return df_sat
-
-
-def load_nightlight(df, NL_IN_DIR):
-    # extract nightlight values
-    ds = rasterio.open(NL_IN_DIR)
-    band = ds.read().squeeze(0)
-
-    idx = np.round(transform_coord(
-        transform=ds.transform,
-        to='colrow',
-        xy=df.loc[:, ['lon', 'lat']].values)).astype(np.int)
-
-    df.loc[:, 'sat_nightlight'] = [band[i[1], i[0]] for i in idx]
-    # winsorize
-    df.loc[:, 'sat_nightlight_wins'] = winsorize(df['sat_nightlight'], 0, 99)
-    return df
 
 
 if __name__ == '__main__':

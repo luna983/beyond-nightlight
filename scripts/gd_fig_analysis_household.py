@@ -8,7 +8,7 @@ import scipy.spatial
 from skmisc.loess import loess
 
 from maskrcnn.postprocess.analysis import (
-    control_for_spline, winsorize)
+    control_for_spline, winsorize, load_nightlight)
 
 
 np.random.seed(0)
@@ -63,7 +63,7 @@ def plot(df, y, x, ylim,
     ax1.errorbar(1, x_coef, yerr=1.96 * x_se, color='#999999',
                  capsize=3, fmt='--o')
     ax1.set_xticks([0, 1])
-    ax1.set_xticklabels(['Estimated', 'True'])
+    ax1.set_xticklabels(['Estimated', 'Observed'])
     ax1.set_xlim(-0.5, 1.5)
     ax1.set_ylim(*ylim)
     fig.tight_layout()
@@ -84,6 +84,7 @@ def load_satellite(SAT_IN_DIR):
     )
     # convert unit
     df_sat.loc[:, 'area'] *= ((0.001716 * 111000 / 800) ** 2)  # in sq meters
+
     return df_sat
 
 
@@ -123,6 +124,7 @@ def load_survey(SVY_IN_DIR):
     df_svy = (df_svy.loc[df_svy['h1_6_nonthatchedroof_BL'] == 0, :]
                     .reset_index(drop=True).copy())
     print('Observations in final sample: ', df_svy.shape[0])
+
     return df_svy
 
 
@@ -179,6 +181,7 @@ if __name__ == '__main__':
 
     SVY_IN_DIR = 'data/External/GiveDirectly/GE_Luna_Extract_2020-04-20.dta'
     SAT_IN_DIR = 'data/Siaya/Merged/sat.csv'
+    NL_IN_DIR = 'data/External/Nightlight/VIIRS_DNB_KE_2019.tif'
 
     OUT_DIR = 'output/fig-engel'
 
@@ -189,7 +192,24 @@ if __name__ == '__main__':
     # match
     df_close, df_circle = match(df_svy, df_sat)
 
+    # load nightlight
+    df_circle = load_nightlight(
+        df_circle, NL_IN_DIR,
+        lon_col='longitude', lat_col='latitude')
+
     # plotting begins
+    plot(
+        df=df_circle,
+        y='sat_nightlight_wins',
+        x='logwins_p1_assets_pc',
+        ylim=(-0.5, 10))
+
+    plot(
+        df=df_circle,
+        y='sat_nightlight_wins',
+        x='logwins_p2_consumption_wins_pc',
+        ylim=(-0.5, 10))
+
     plot(
         df=df_circle,
         y='area_sum_pc',

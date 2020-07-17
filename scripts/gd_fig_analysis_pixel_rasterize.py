@@ -36,7 +36,7 @@ def load_nightlight(input_dir):
         'grid_lat': grid_lat[::-1].flatten(),
         'nightlight': band.flatten(),
     })
-    
+
     # recover lon, lat
     df.loc[:, 'lon'] = df['grid_lon'] * grid['step'] + grid['min_lon'] + grid['step'] / 2
     df.loc[:, 'lat'] = df['grid_lat'] * grid['step'] + grid['min_lat'] + grid['step'] / 2

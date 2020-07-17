@@ -1,11 +1,14 @@
 import numpy as np
 import pandas as pd
+import rasterio
 import statsmodels.formula.api as smf
+
+from .utils import transform_coord
 
 
 def winsorize(s, lower, upper):
     """Winsorizes a pandas series.
-    
+
     Args:
         s (pandas.Series): the series to be winsorized
         lower, upper (int): number between 0 to 100
@@ -18,7 +21,7 @@ def winsorize(s, lower, upper):
 
 def demean(df, column, by):
     """Demean a column in a pandas DataFrame.
-    
+
     Args:
         df (pandas.DataFrame): data
         column (str): the column to be demeaned
@@ -26,7 +29,8 @@ def demean(df, column, by):
     """
     return (
         df[column].values -
-        df.loc[:, by + [column]].groupby(by).transform(np.nanmean).values.squeeze())
+        (df.loc[:, by + [column]]
+           .groupby(by).transform(np.nanmean).values.squeeze()))
 
 
 def load_gd_census(GPS_FILE, MASTER_FILE):
@@ -46,7 +50,8 @@ def load_gd_census(GPS_FILE, MASTER_FILE):
     # drop non GE households
     df = df.loc[df['ge'] == 1, :].copy()
     # treat x eligible = cash inflow
-    df.loc[:, 'treat_eligible'] = df.loc[:, 'treat'].values * df.loc[:, 'eligible'].values
+    df.loc[:, 'treat_eligible'] = (
+        df.loc[:, 'treat'].values * df.loc[:, 'eligible'].values)
     # read sat level identifiers
     df_master = pd.read_stata(
         MASTER_FILE,
@@ -57,7 +62,8 @@ def load_gd_census(GPS_FILE, MASTER_FILE):
     df = pd.merge(
         df, df_master,
         on='village_code', how='left')
-    assert df['satlevel_name'].notna().all(), 'Missing saturation level identifier'
+    assert df['satlevel_name'].notna().all(), (
+        'Missing saturation level identifier')
     return df.drop(columns=['ge'])
 
 
@@ -90,7 +96,8 @@ def snap_to_grid(df, lon_col, lat_col,
     grid_lon, grid_lat = np.meshgrid(
         np.arange(0, np.round((max_lon - min_lon) / step).astype(np.int32)),
         np.arange(0, np.round((max_lat - min_lat) / step).astype(np.int32)))
-    df_grid = pd.DataFrame({'grid_lon': grid_lon.flatten(), 'grid_lat': grid_lat.flatten()})
+    df_grid = pd.DataFrame({'grid_lon': grid_lon.flatten(),
+                            'grid_lat': grid_lat.flatten()})
 
     # collapse
     df_output = pd.merge(
@@ -108,9 +115,26 @@ def control_for_spline(x, y, z, cr_df=3):
     # handle nan's
     is_na = np.any((np.isnan(x), np.isnan(y), np.isnan(z)), axis=0)
     df = pd.DataFrame({'x': x[~is_na], 'y': y[~is_na], 'z': z[~is_na]})
-    mod = smf.ols(formula=f"z ~ 1 + cr(x, df={cr_df}) + cr(y, df={cr_df})", data=df)
+    mod = smf.ols(formula=f"z ~ 1 + cr(x, df={cr_df}) + cr(y, df={cr_df})",
+                  data=df)
     res = mod.fit()
     # return nan's for cases where any one of x, y, z is nan
     z_out = np.full_like(z, np.nan)
     z_out[~is_na] = z[~is_na] - res.fittedvalues
     return z_out
+
+
+def load_nightlight(df, NL_IN_DIR, lon_col='lon', lat_col='lat'):
+    # extract nightlight values
+    ds = rasterio.open(NL_IN_DIR)
+    band = ds.read().squeeze(0)
+
+    idx = np.round(transform_coord(
+        transform=ds.transform,
+        to='colrow',
+        xy=df.loc[:, [lon_col, lat_col]].values)).astype(np.int)
+
+    df.loc[:, 'sat_nightlight'] = [band[i[1], i[0]] for i in idx]
+    # winsorize
+    df.loc[:, 'sat_nightlight_wins'] = winsorize(df['sat_nightlight'], 0, 99)
+    return df
