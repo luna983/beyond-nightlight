@@ -50,7 +50,7 @@ ConleySE <- function(ydata, xdata, latdata, londata, cutoff) {
 }
 
 
-regress <- function(df, col_y, cutoff=3) {
+regress_bin <- function(df, col_y, cutoff=3) {
     df <- df %>%
         # cut x into bins
         dplyr::mutate(x_bin=cut(df[['treat_eligible']],
@@ -86,6 +86,31 @@ regress <- function(df, col_y, cutoff=3) {
 }
 
 
+regress_linear <- function(df, col_y, cutoff=3) {
+
+    # regression
+    reg <- lfe::felm(
+        formula(paste0(col_y, ' ~ treat_eligible | factor(eligible) | 0 | lat + lon')),
+        data=df %>% tidyr::drop_na(!! col_y),
+        keepCX=TRUE)
+    # print(summary(reg))
+
+    # calculate conley standard errors
+    # with a uniform kernel
+    se <- ConleySE(
+        ydata=as.matrix(reg$cY),
+        xdata=as.matrix(reg$cX),
+        latdata=as_matrix(reg$clustervar[['lat']]),
+        londata=as_matrix(reg$clustervar[['lon']]),
+        cutoff=cutoff  # km
+    )
+
+    # collate result for plotting
+    res <- tibble::tibble(beta=se$betahat[1, 1], se=se$conleySE)
+    return(res)
+}
+
+
 working_dir <- 'output/fig-ate/'
 
 # set color palette
@@ -107,7 +132,8 @@ for (outcome_i in c(1:length(col_ys))) {
         paste0(working_dir, 'data/', folders[outcome_i], 'main.csv'),
         # to suppress warnings
         col_type=readr::cols())
-    main_res <- regress(df=df, col_y=col_ys[outcome_i])
+    main_res <- regress_bin(df=df, col_y=col_ys[outcome_i])
+    linear_effect <- regress_linear(df=df, col_y=col_ys[outcome_i])
     placebo_res_file <- paste0(working_dir, 'data/intermediate/',
                                col_ys[outcome_i], '_placebo.csv')
     if (file.exists(placebo_res_file)) {
@@ -123,7 +149,7 @@ for (outcome_i in c(1:length(col_ys))) {
                        'placebo_', sprintf("%03d", i), '.csv'),
                 # to suppress warnings
                 col_type=readr::cols())
-            res <- regress(df=df, col_y=col_ys[outcome_i])
+            res <- regress_bin(df=df, col_y=col_ys[outcome_i])
             placebo_res <- rbind(placebo_res, res %>% dplyr::mutate(iter=i))
         }
         readr::write_csv(placebo_res, placebo_res_file)
@@ -147,7 +173,10 @@ for (outcome_i in c(1:length(col_ys))) {
         ggplot2::scale_y_continuous(
             name='',
             breaks=y_breaks[[outcome_i]]) +
-        ggplot2::ggtitle(paste0('Treatment Effect on ', titles[outcome_i])) +
+        ggplot2::ggtitle(paste0("Treatment Effect on ", titles[outcome_i], ":\n",
+                                round(linear_effect$beta[1], 3), ", 95% CI: [",
+                                round(linear_effect$beta[1] - 1.96 * linear_effect$se[1], 3), ", ",
+                                round(linear_effect$beta[1] + 1.96 * linear_effect$se[1], 3), "]")) +
         g_style
-    ggplot2::ggsave(paste0(working_dir, col_ys[outcome_i], '_ate.pdf'), g, width=7, height=5)
+    ggplot2::ggsave(paste0(working_dir, col_ys[outcome_i], '_ate.pdf'), g, width=5, height=3)
 }

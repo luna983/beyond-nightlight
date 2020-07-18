@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import pandas as pd
+import statsmodels.api as sm
 import statsmodels.formula.api as smf
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -17,7 +18,8 @@ sns.set(font='Helvetica', font_scale=1)
 
 def plot(df, y, x, ylim,
          treat='treat',
-         cmap={0: '#2c7bb6', 1: '#d7191c'}):
+         cmap={0: '#2c7bb6', 1: '#d7191c'},
+         method='linear'):
     df_nona = df.dropna(subset=[x, y]).sort_values(by=x)
     # regression
     results = smf.ols(y + ' ~ ' + treat, data=df_nona).fit()
@@ -28,28 +30,53 @@ def plot(df, y, x, ylim,
     x_coef = results.params[treat]
     x_se = results.bse[treat]
     x_pvalue = results.pvalues[treat]
-    results = smf.ols(y + ' ~ ' + x, data=df_nona).fit()
-    scale = results.params[x]
-    scale_se = results.bse[x]
+    results = sm.OLS(df_nona[y].values,
+                     sm.add_constant(df_nona[x].values)).fit()
+    scale = results.params[1]
+    scale_se = results.bse[1]
     # calculate estimated effect
     est = y_coef / scale
     est_se = np.sqrt((y_se / y_coef) ** 2 + (scale_se / scale) ** 2) * abs(est)
     # make figure
     fig, (ax0, ax1) = plt.subplots(ncols=2, figsize=(10, 7))
-    m = loess(df_nona[x].values, df_nona[y].values)
-    m.fit()
-    pred = m.predict(df_nona[x].values, stderror=True).confidence()
-    ax0.plot(df_nona[x].values, pred.fit,
-             color='dimgray', linewidth=1, alpha=0.4)
-    ax0.fill_between(df_nona[x].values, pred.lower, pred.upper,
-                     color='dimgray', alpha=.2)
     for cmap_value, cmap_color in cmap.items():
         y_col = df_nona.loc[df_nona[treat] == cmap_value, y]
         x_col = df_nona.loc[df_nona[treat] == cmap_value, x]
-        m = loess(x_col, y_col)
+        if method == 'loess':
+            m = loess(x_col, y_col)
+            m.fit()
+            pred = m.predict(x_col, stderror=True).confidence()
+            pred_fit = pred.fit
+            pred_lower, pred_upper = pred.lower, pred.upper
+        elif method == 'linear':
+            results = sm.OLS(y_col,
+                             sm.add_constant(x_col)).fit()
+            pred = results.get_prediction(sm.add_constant(x_col))
+            pred_fit = pred.predicted_mean
+            pred_lower, pred_upper = pred.conf_int().T
+        else:
+            raise NotImplementedError
+        ax0.plot(x_col, pred_fit, color=cmap_color, linewidth=2, alpha=0.8)
+        # ax0.fill_between(x_col, pred_lower, pred_upper,
+        #                  color=cmap_color, alpha=.2)
+    if method == 'loess':
+        m = loess(df_nona[x].values, df_nona[y].values)
         m.fit()
-        pred = m.predict(x_col, stderror=True).confidence()
-        ax0.plot(x_col, pred.fit, color=cmap_color, linewidth=2, alpha=0.8)
+        pred = m.predict(df_nona[x].values, stderror=True).confidence()
+        pred_fit = pred.fit
+        pred_lower, pred_upper = pred.lower, pred.upper
+    elif method == 'linear':
+        results = sm.OLS(df_nona[y].values,
+                         sm.add_constant(df_nona[x].values)).fit()
+        pred = results.get_prediction(sm.add_constant(df_nona[x].values))
+        pred_fit = pred.predicted_mean
+        pred_lower, pred_upper = pred.conf_int().T
+    else:
+        raise NotImplementedError
+    ax0.plot(df_nona[x].values, pred_fit,
+             color='dimgray', linewidth=1, alpha=0.4)
+    ax0.fill_between(df_nona[x].values, pred_lower, pred_upper,
+                     color='dimgray', alpha=.2)
     ax0.set_title(
         f'N = {df_nona.shape[0]}\n' +
         f'Observed effects: {x_coef:.4f}\n' +
@@ -100,10 +127,23 @@ def load_survey(SVY_IN_DIR):
     print('Observations w/ coords: ', df_svy.shape[0])
 
     # calculate per capita consumption / assets
+    # convert to USD PPP by dividing by 46.5, per the GiveDirectly paper
     df_svy.loc[:, 'p2_consumption_wins_pc'] = (
-        df_svy['p2_consumption_wins'].values / df_svy['hhsize1_BL'].values)
+        df_svy['p2_consumption_wins'].values /
+        df_svy['hhsize1_BL'].values /
+        46.5)
     df_svy.loc[:, 'p1_assets_pc'] = (
-        df_svy['p1_assets'].values / df_svy['hhsize1_BL'].values)
+        df_svy['p1_assets'].values /
+        df_svy['hhsize1_BL'].values /
+        46.5)
+    df_svy.loc[:, 'h1_10_housevalue_pc'] = (
+        df_svy['h1_10_housevalue'].values /
+        df_svy['hhsize1_BL'].values /
+        46.5)
+    df_svy.loc[:, 'assets_house_pc'] = (
+        (df_svy['p1_assets'].values + df_svy['h1_10_housevalue'].values) /
+        df_svy['hhsize1_BL'].values /
+        46.5)
 
     # log and winsorize more
     df_svy.loc[:, 'logwins_p2_consumption_wins_pc'] = winsorize(
@@ -116,6 +156,17 @@ def load_survey(SVY_IN_DIR):
     ).apply(
         lambda x: np.log(x) if x > 0 else np.nan
     )
+    df_svy.loc[:, 'logwins_h1_10_housevalue_pc'] = winsorize(
+        df_svy['h1_10_housevalue_pc'], 2.5, 97.5
+    ).apply(
+        lambda x: np.log(x) if x > 0 else np.nan
+    )
+    df_svy.loc[:, 'logwins_assets_house_pc'] = winsorize(
+        df_svy['assets_house_pc'], 2.5, 97.5
+    ).apply(
+        lambda x: np.log(x) if x > 0 else np.nan
+    )
+
     # check missing
     assert (df_svy.loc[:, ['treat', 'hi_sat', 's1_hhid_key', 'satcluster']]
                   .notna().all().all())
@@ -207,6 +258,18 @@ if __name__ == '__main__':
     plot(
         df=df_circle,
         y='sat_nightlight_wins',
+        x='logwins_h1_10_housevalue_pc',
+        ylim=(-0.5, 10))
+
+    plot(
+        df=df_circle,
+        y='sat_nightlight_wins',
+        x='logwins_assets_house_pc',
+        ylim=(-0.5, 10))
+
+    plot(
+        df=df_circle,
+        y='sat_nightlight_wins',
         x='logwins_p2_consumption_wins_pc',
         ylim=(-0.5, 10))
 
@@ -219,6 +282,18 @@ if __name__ == '__main__':
     plot(
         df=df_circle,
         y='area_sum_pc',
+        x='logwins_h1_10_housevalue_pc',
+        ylim=(-0.5, 1))
+
+    plot(
+        df=df_circle,
+        y='area_sum_pc',
+        x='logwins_assets_house_pc',
+        ylim=(-0.5, 1))
+
+    plot(
+        df=df_circle,
+        y='area_sum_pc',
         x='logwins_p2_consumption_wins_pc',
         ylim=(-0.5, 1))
 
@@ -226,6 +301,18 @@ if __name__ == '__main__':
         df=df_close,
         y='RGB_mean_spline',
         x='logwins_p1_assets_pc',
+        ylim=(-5, 25))
+
+    plot(
+        df=df_close,
+        y='RGB_mean_spline',
+        x='logwins_h1_10_housevalue_pc',
+        ylim=(-5, 25))
+
+    plot(
+        df=df_close,
+        y='RGB_mean_spline',
+        x='logwins_assets_house_pc',
         ylim=(-5, 25))
 
     plot(
