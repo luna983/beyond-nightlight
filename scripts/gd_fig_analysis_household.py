@@ -13,23 +13,26 @@ from maskrcnn.postprocess.analysis import (
 
 
 np.random.seed(0)
-sns.set(font='Helvetica', font_scale=1)
+sns.set(style='ticks', font='Helvetica', font_scale=1)
 
 
-def plot(df, y, x, ylim,
+def plot(df, y, x,
+         x_ticks, x_ticklabels, y_ticks_l, y_ticklabels_l,
+         y_ticks_r,
          treat='treat',
          cmap={0: '#2c7bb6', 1: '#d7191c'},
-         method='linear'):
+         method='linear',
+         x_label='', y_label_l='', y_label_r=''):
     df_nona = df.dropna(subset=[x, y]).sort_values(by=x)
     # regression
     results = smf.ols(y + ' ~ ' + treat, data=df_nona).fit()
     y_coef = results.params[treat]
     y_se = results.bse[treat]
-    y_pvalue = results.pvalues[treat]
+    # y_pvalue = results.pvalues[treat]
     results = smf.ols(x + ' ~ ' + treat, data=df_nona).fit()
     x_coef = results.params[treat]
     x_se = results.bse[treat]
-    x_pvalue = results.pvalues[treat]
+    # x_pvalue = results.pvalues[treat]
     results = sm.OLS(df_nona[y].values,
                      sm.add_constant(df_nona[x].values)).fit()
     scale = results.params[1]
@@ -38,7 +41,7 @@ def plot(df, y, x, ylim,
     est = y_coef / scale
     est_se = np.sqrt((y_se / y_coef) ** 2 + (scale_se / scale) ** 2) * abs(est)
     # make figure
-    fig, (ax0, ax1) = plt.subplots(ncols=2, figsize=(10, 7))
+    fig, (ax0, ax1) = plt.subplots(ncols=2, figsize=(7, 4))
     for cmap_value, cmap_color in cmap.items():
         y_col = df_nona.loc[df_nona[treat] == cmap_value, y]
         x_col = df_nona.loc[df_nona[treat] == cmap_value, x]
@@ -78,21 +81,44 @@ def plot(df, y, x, ylim,
     ax0.fill_between(df_nona[x].values, pred_lower, pred_upper,
                      color='dimgray', alpha=.2)
     ax0.set_title(
-        f'N = {df_nona.shape[0]}\n' +
-        f'Observed effects: {x_coef:.4f}\n' +
-        f'x p value: {x_pvalue:.4f}\n' +
-        f'Estimated effects: {y_coef:.4f} / {scale:.4f} = {est:.4f}\n' +
-        f'y p value: {y_pvalue:.4f}\n')
-    ax0.set_xlabel(x)
-    ax0.set_ylabel(y)
+        f'N = {df_nona.shape[0]}\n'
+        f'Observed effects: {x_coef:.4f}\n'
+        f'95% CI: [{x_coef - 1.96 * x_se:.4f}, {x_coef + 1.96 * x_se:.4f}]\n'
+        f'Estimated effects: {y_coef:.4f} / {scale:.4f} = {est:.4f}\n'
+        f'95% CI: [{est - 1.96 * est_se:.4f}, {est + 1.96 * est_se:.4f}]\n')
+    ax0.set_xlabel(x_label)
+    ax0.set_ylabel(y_label_l)
+    ax0.set_xticks(x_ticks)
+    ax0.set_xticklabels(x_ticklabels)
+    ax0.set_yticks(y_ticks_l)
+    ax0.set_yticklabels(y_ticklabels_l)
+    ax0.spines['left'].set_bounds(ax0.get_yticks()[0], ax0.get_yticks()[-1])
+    ax0.spines['left'].set_color('dimgray')
+    ax0.spines['bottom'].set_bounds(ax0.get_xticks()[0], ax0.get_xticks()[-1])
+    ax0.spines['bottom'].set_color('dimgray')
+    ax0.spines['right'].set_color('none')
+    ax0.spines['top'].set_color('none')
+    ax0.tick_params(axis='x', colors='dimgray')
+    ax0.tick_params(axis='y', colors='dimgray')
+    ax0.grid(False)
     ax1.errorbar(0, est, yerr=1.96 * est_se, color='#d7191c',
                  capsize=3, fmt='--o')
     ax1.errorbar(1, x_coef, yerr=1.96 * x_se, color='#999999',
                  capsize=3, fmt='--o')
     ax1.set_xticks([0, 1])
     ax1.set_xticklabels(['Estimated', 'Observed'])
+    ax1.set_yticks(y_ticks_r)
     ax1.set_xlim(-0.5, 1.5)
-    ax1.set_ylim(*ylim)
+    ax1.set_ylim(y_ticks_r[0], y_ticks_r[-1])
+    ax1.set_ylabel(y_label_r)
+    ax1.spines['left'].set_bounds(ax1.get_yticks()[0], ax1.get_yticks()[-1])
+    ax1.spines['left'].set_color('dimgray')
+    ax1.spines['bottom'].set_color('none')
+    ax1.spines['right'].set_color('none')
+    ax1.spines['top'].set_color('none')
+    ax1.tick_params(axis='y', colors='dimgray')
+    ax1.tick_params(axis='x', color='none')
+    ax1.grid(False)
     fig.tight_layout()
     fig.savefig(os.path.join(OUT_DIR, f'{y}-{x}.pdf'))
 
@@ -109,6 +135,11 @@ def load_satellite(SAT_IN_DIR):
         y=df_sat['centroid_lat'].values,
         z=df_sat['RGB_mean'].values,
     )
+    # normalize
+    df_sat.loc[:, 'RGB_mean_spline'] = (
+        (df_sat['RGB_mean_spline'].values -
+         np.nanmean(df_sat['RGB_mean_spline'].values)) /
+        np.nanstd(df_sat['RGB_mean_spline'].values))
     # convert unit
     df_sat.loc[:, 'area'] *= ((0.001716 * 111000 / 800) ** 2)  # in sq meters
 
@@ -252,71 +283,83 @@ if __name__ == '__main__':
     plot(
         df=df_circle,
         y='sat_nightlight_wins',
-        x='logwins_p1_assets_pc',
-        ylim=(-0.5, 10))
+        y_ticks_l=[0.2, 0.4, 0.6],
+        y_ticklabels_l=[0.2, 0.4, 0.6],
+        y_label_l='Nightlight Values',
+        y_ticks_r=[-1, -0.5, 0, 0.5, 1],
+        x='logwins_assets_house_pc',
+        x_ticks=np.log([50, 100, 300, 1000, 3000]),
+        x_ticklabels=[50, 100, 300, 1000, 3000],
+        x_label='Assets per capita (USD PPP)',
+        y_label_r='Effects on log(Assets per capita)',
+    )
 
     plot(
         df=df_circle,
         y='sat_nightlight_wins',
-        x='logwins_h1_10_housevalue_pc',
-        ylim=(-0.5, 10))
-
-    plot(
-        df=df_circle,
-        y='sat_nightlight_wins',
-        x='logwins_assets_house_pc',
-        ylim=(-0.5, 10))
-
-    plot(
-        df=df_circle,
-        y='sat_nightlight_wins',
+        y_ticks_l=[0.3, 0.4, 0.5, 0.6],
+        y_ticklabels_l=[0.3, 0.4, 0.5, 0.6],
+        y_label_l='Nightlight Values',
+        y_ticks_r=[-1, -0.5, 0, 0.5, 1],
         x='logwins_p2_consumption_wins_pc',
-        ylim=(-0.5, 10))
+        x_ticks=np.log([100, 300, 1000, 3000]),
+        x_ticklabels=[100, 300, 1000, 3000],
+        x_label='Consumption per capita (USD PPP)',
+        y_label_r='Effects on log(Consumption per capita)',
+    )
 
     plot(
         df=df_circle,
         y='area_sum_pc',
-        x='logwins_p1_assets_pc',
-        ylim=(-0.5, 1))
-
-    plot(
-        df=df_circle,
-        y='area_sum_pc',
-        x='logwins_h1_10_housevalue_pc',
-        ylim=(-0.5, 1))
-
-    plot(
-        df=df_circle,
-        y='area_sum_pc',
+        y_ticks_l=[50, 100, 150],
+        y_ticklabels_l=[50, 100, 150],
+        y_label_l='Building footprint per capita (sq meters)',
+        y_ticks_r=[-0.2, 0, 0.2, 0.4, 0.6, 0.8],
         x='logwins_assets_house_pc',
-        ylim=(-0.5, 1))
+        x_ticks=np.log([50, 100, 300, 1000, 3000]),
+        x_ticklabels=[50, 100, 300, 1000, 3000],
+        x_label='Assets per capita (USD PPP)',
+        y_label_r='Effects on log(Assets per capita)',
+    )
 
     plot(
         df=df_circle,
         y='area_sum_pc',
+        y_ticks_l=[50, 100, 150],
+        y_ticklabels_l=[50, 100, 150],
+        y_label_l='Building footprint per capita (sq meters)',
+        y_ticks_r=[-0.2, 0, 0.2, 0.4, 0.6],
         x='logwins_p2_consumption_wins_pc',
-        ylim=(-0.5, 1))
+        x_ticks=np.log([100, 300, 1000, 3000]),
+        x_ticklabels=[100, 300, 1000, 3000],
+        x_label='Consumption per capita (USD PPP)',
+        y_label_r='Effects on log(Consumption per capita)',
+    )
 
     plot(
         df=df_close,
         y='RGB_mean_spline',
-        x='logwins_p1_assets_pc',
-        ylim=(-5, 25))
-
-    plot(
-        df=df_close,
-        y='RGB_mean_spline',
-        x='logwins_h1_10_housevalue_pc',
-        ylim=(-5, 25))
-
-    plot(
-        df=df_close,
-        y='RGB_mean_spline',
+        y_ticks_l=[-.2, 0, .2, .4, .6],
+        y_ticklabels_l=[-.2, 0, .2, .4, .6],
+        y_label_l='Normalized Roof Reflectance',
+        y_ticks_r=[0, 2, 4],
         x='logwins_assets_house_pc',
-        ylim=(-5, 25))
+        x_ticks=np.log([50, 100, 300, 1000, 3000]),
+        x_ticklabels=[50, 100, 300, 1000, 3000],
+        x_label='Assets per capita (USD PPP)',
+        y_label_r='Effects on log(Assets per capita)',
+    )
 
     plot(
         df=df_close,
         y='RGB_mean_spline',
+        y_ticks_l=[-.1, 0, .1, .2, .3],
+        y_ticklabels_l=[-.1, 0, .1, .2, .3],
+        y_label_l='Normalized Roof Reflectance',
+        y_ticks_r=[-5, 0, 5, 10, 15, 20],
         x='logwins_p2_consumption_wins_pc',
-        ylim=(-10, 30))
+        x_ticks=np.log([100, 300, 1000, 3000]),
+        x_ticklabels=[100, 300, 1000, 3000],
+        x_label='Consumption per capita (USD PPP)',
+        y_label_r='Effects on log(Consumption per capita)',
+    )
