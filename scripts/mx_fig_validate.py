@@ -319,6 +319,26 @@ if __name__ == '__main__':
         alpha=0.3,
         line=True, df=df, out_dir=OUT_DIR, show=True)
 
+    plot_scatter(
+        col_x_key='cen_asset_score_pca',
+        col_x_label='Census: Asset Score (PCA 1st Dimension)',
+        xlim=(-1.75, 1.75),
+        xticks=[-1, 0, 1],
+        col_y_key='sat_lum_mean',
+        col_y_label='Satellite: Average Roof Reflectance',
+        alpha=0.3,
+        line=True, df=df, out_dir=OUT_DIR, show=True)
+
+    plot_scatter(
+        col_x_key='cen_durable_score_pca',
+        col_x_label='Census: Durable Score (PCA 1st Dimension)',
+        xlim=(-1.5, 1.5),
+        xticks=[-1, 0, 1],
+        col_y_key='sat_lum_mean',
+        col_y_label='Satellite: Average Roof Reflectance',
+        alpha=0.3,
+        line=True, df=df, out_dir=OUT_DIR, show=True)
+
     # massive plotting begins
     sat_cols = [col for col in df.columns if col.startswith('sat')]
     cen_cols = [col for col in df.columns if col.startswith('cen')]
