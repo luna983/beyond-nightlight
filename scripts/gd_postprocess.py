@@ -48,7 +48,8 @@ with tempfile.TemporaryDirectory() as tmp_dir:
             continue
         else:
             extent = tuple(
-                df.loc[idx, ['lon_min', 'lat_min', 'lon_max', 'lat_max']].values)
+                df.loc[idx, ['lon_min', 'lat_min',
+                             'lon_max', 'lat_max']].values)
         df_file = load_ann(ann_file=ann_file,
                            img_file=img_file,
                            extent=extent,
@@ -58,7 +59,8 @@ with tempfile.TemporaryDirectory() as tmp_dir:
     files = glob.glob(os.path.join(tmp_dir, '*.geojson'))
     df_all = [gpd.read_file(file) for file in files]
     df_all = pd.concat(df_all)
-    # df_all = df_all.loc[df_all.geometry.intersects(bound), :]  # drop outside geoms
+    # drop outside geoms
+    # df_all = df_all.loc[df_all.geometry.intersects(bound), :]
     df_all.to_file(SAT_OUT_GEOM_DIR, driver='GeoJSON', index=False)
 
 # save a csv for quick loading

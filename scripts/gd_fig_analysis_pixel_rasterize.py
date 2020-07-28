@@ -4,7 +4,7 @@ import pandas as pd
 import rasterio
 
 from maskrcnn.postprocess.analysis import (
-    load_gd_census, snap_to_grid, control_for_spline)
+    load_gd_census, snap_to_grid, control_for_spline, winsorize)
 
 
 np.random.seed(0)
@@ -38,9 +38,18 @@ def load_nightlight(input_dir):
     })
 
     # recover lon, lat
-    df.loc[:, 'lon'] = df['grid_lon'] * grid['step'] + grid['min_lon'] + grid['step'] / 2
-    df.loc[:, 'lat'] = df['grid_lat'] * grid['step'] + grid['min_lat'] + grid['step'] / 2
+    df.loc[:, 'lon'] = (
+        df['grid_lon'] * grid['step'] + grid['min_lon'] + grid['step'] / 2)
+    df.loc[:, 'lat'] = (
+        df['grid_lat'] * grid['step'] + grid['min_lat'] + grid['step'] / 2)
 
+    # winsorize + normalize
+    df.loc[:, 'nightlight'] = winsorize(
+        df['nightlight'], 0, 99)
+    df.loc[:, 'nightlight'] = (
+        (df['nightlight'].values -
+            np.nanmean(df['nightlight'].values)) /
+        np.nanstd(df['nightlight'].values))
     return grid, df
 
 
@@ -58,13 +67,19 @@ def load_building(input_dir):
     print('Loading building polygon data')
     df = pd.read_csv(input_dir)
     # create new var: luminosity
-    df.loc[:, 'RGB_mean'] = df.loc[:, ['R_mean', 'G_mean', 'B_mean']].mean(axis=1)
+    df.loc[:, 'RGB_mean'] = (
+        df.loc[:, ['R_mean', 'G_mean', 'B_mean']].mean(axis=1))
     # control for lat lon cubic spline
     df.loc[:, 'RGB_mean_spline'] = control_for_spline(
         x=df['centroid_lon'].values,
         y=df['centroid_lat'].values,
         z=df['RGB_mean'].values,
     )
+    # normalize
+    df.loc[:, 'RGB_mean_spline'] = (
+        (df['RGB_mean_spline'].values -
+            np.nanmean(df['RGB_mean_spline'].values)) /
+        np.nanstd(df['RGB_mean_spline'].values))
     # snap to grid
     _, df = snap_to_grid(
         df, lon_col='centroid_lon', lat_col='centroid_lat', **grid,
@@ -74,15 +89,19 @@ def load_building(input_dir):
         RGB_mean_spline=pd.NamedAgg(column='RGB_mean_spline', aggfunc='mean'),
     )
     df.fillna({'house_count': 0, 'area_sum': 0}, inplace=True)
-    df.loc[:, 'house_count_0'] = (df['house_count'] == 0).values.astype(np.float)
+    df.loc[:, 'house_count_0'] = (
+        df['house_count'] == 0).values.astype(np.float)
 
     # recover lon, lat
-    df.loc[:, 'lon'] = df['grid_lon'] * grid['step'] + grid['min_lon'] + grid['step'] / 2
-    df.loc[:, 'lat'] = df['grid_lat'] * grid['step'] + grid['min_lat'] + grid['step'] / 2
+    df.loc[:, 'lon'] = (
+        df['grid_lon'] * grid['step'] + grid['min_lon'] + grid['step'] / 2)
+    df.loc[:, 'lat'] = (
+        df['grid_lat'] * grid['step'] + grid['min_lat'] + grid['step'] / 2)
 
     # convert unit
     df.loc[:, 'area_sum'] *= ((0.001716 * 111000 / 800) ** 2)  # in sq meters
-    df.loc[:, 'area_sum_pct'] = df['area_sum'].values / ((grid['step'] * 111000) ** 2)
+    df.loc[:, 'area_sum_pct'] = (
+        df['area_sum'].values / ((grid['step'] * 111000) ** 2))
     return grid, df
 
 
@@ -121,14 +140,16 @@ def merge_treatment(grid, df_sat, GPS_FILE, MASTER_FILE, OUT_DIR, N=200):
             df_treat_raw.drop(columns=['hi_sat', 'treat', 'treat_eligible']),
             how='right',
             on='satlevel_name')
-        df_draw.loc[:, 'hi_sat'] = (df_draw.loc[:, 'hi_sat'] > 0.5).astype(float)
+        df_draw.loc[:, 'hi_sat'] = (
+            df_draw.loc[:, 'hi_sat'] > 0.5).astype(float)
         # draw treatment status
         df_draw.loc[:, 'treat'] = np.random.random(df_draw.shape[0])
         df_draw.loc[:, 'treat'] = df_draw.apply(
             lambda x: float(x['treat'] > (0.33 if x['hi_sat'] else 0.67)),
             axis=1)
         # create treat x eligible
-        df_draw.loc[:, 'treat_eligible'] = df_draw['treat'].values * df_draw['eligible'].values
+        df_draw.loc[:, 'treat_eligible'] = (
+            df_draw['treat'].values * df_draw['eligible'].values)
 
         # collapse to grid
         _, df_draw = snap_to_grid(
@@ -140,17 +161,21 @@ def merge_treatment(grid, df_sat, GPS_FILE, MASTER_FILE, OUT_DIR, N=200):
         df_treat.fillna(0, inplace=True)
 
         # merge treatment with satellite measures
-        df = pd.merge(df_draw, df_sat, how='outer', on=['grid_lon', 'grid_lat'])
+        df = pd.merge(
+            df_draw, df_sat, how='outer', on=['grid_lon', 'grid_lat'])
         # drop grids with 0 eligibles
         df = df.loc[df['eligible'] > 0, :]
         # save to output
-        df.to_csv(os.path.join(OUT_DIR, f'placebo_{i_simu:03d}.csv'), index=False)
+        df.to_csv(os.path.join(OUT_DIR, f'placebo_{i_simu:03d}.csv'),
+                  index=False)
 
 
 if __name__ == '__main__':
 
-    IN_CEN_GPS_DIR = 'data/External/GiveDirectly/GE_HH_Census_2017-07-17_cleanGPS.csv'
-    IN_CEN_MASTER_DIR = 'data/External/GiveDirectly/GE_HH-Census_Analysis_RA_2017-07-17.dta'
+    IN_CEN_GPS_DIR = (
+        'data/External/GiveDirectly/GE_HH_Census_2017-07-17_cleanGPS.csv')
+    IN_CEN_MASTER_DIR = (
+        'data/External/GiveDirectly/GE_HH-Census_Analysis_RA_2017-07-17.dta')
     IN_SAT_BD_DIR = 'data/Siaya/Merged/sat.csv'
     IN_SAT_NL_DIR = 'data/External/Nightlight/VIIRS_DNB_KE_2019.tif'
 

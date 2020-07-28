@@ -21,8 +21,9 @@ def plot(df, y, x,
          y_ticks_r,
          treat='treat',
          cmap={0: '#2c7bb6', 1: '#d7191c'},
-         method='linear',
+         method='loess',
          x_label='', y_label_l='', y_label_r=''):
+    loess_params = {'degree': 1}
     df_nona = df.dropna(subset=[x, y]).sort_values(by=x)
     # regression
     results = smf.ols(y + ' ~ ' + treat, data=df_nona).fit()
@@ -46,7 +47,7 @@ def plot(df, y, x,
         y_col = df_nona.loc[df_nona[treat] == cmap_value, y]
         x_col = df_nona.loc[df_nona[treat] == cmap_value, x]
         if method == 'loess':
-            m = loess(x_col, y_col)
+            m = loess(x_col, y_col, **loess_params)
             m.fit()
             pred = m.predict(x_col, stderror=True).confidence()
             pred_fit = pred.fit
@@ -63,7 +64,7 @@ def plot(df, y, x,
         # ax0.fill_between(x_col, pred_lower, pred_upper,
         #                  color=cmap_color, alpha=.2)
     if method == 'loess':
-        m = loess(df_nona[x].values, df_nona[y].values)
+        m = loess(df_nona[x].values, df_nona[y].values, **loess_params)
         m.fit()
         pred = m.predict(df_nona[x].values, stderror=True).confidence()
         pred_fit = pred.fit
@@ -171,10 +172,19 @@ def load_survey(SVY_IN_DIR):
         df_svy['h1_10_housevalue'].values /
         df_svy['hhsize1_BL'].values /
         46.5)
+    df_svy.loc[:, 'h1_11_landvalue_pc'] = (
+        df_svy['h1_10_housevalue_wins_PPP'].values /
+        df_svy['hhsize1_BL'].values
+    )
     df_svy.loc[:, 'assets_house_pc'] = (
         (df_svy['p1_assets'].values + df_svy['h1_10_housevalue'].values) /
         df_svy['hhsize1_BL'].values /
         46.5)
+    df_svy.loc[:, 'assets_all_pc'] = (
+        (((df_svy['p1_assets'].values +
+           df_svy['h1_10_housevalue'].values) / 46.5) +
+         df_svy['h1_10_housevalue_wins_PPP'].values) /
+        df_svy['hhsize1_BL'].values)
 
     # log and winsorize more
     df_svy.loc[:, 'logwins_p2_consumption_wins_pc'] = winsorize(
@@ -192,8 +202,18 @@ def load_survey(SVY_IN_DIR):
     ).apply(
         lambda x: np.log(x) if x > 0 else np.nan
     )
+    df_svy.loc[:, 'logwins_h1_11_landvalue_pc'] = winsorize(
+        df_svy['h1_11_landvalue_pc'], 2.5, 97.5
+    ).apply(
+        lambda x: np.log(x) if x > 0 else np.nan
+    )
     df_svy.loc[:, 'logwins_assets_house_pc'] = winsorize(
         df_svy['assets_house_pc'], 2.5, 97.5
+    ).apply(
+        lambda x: np.log(x) if x > 0 else np.nan
+    )
+    df_svy.loc[:, 'logwins_assets_all_pc'] = winsorize(
+        df_svy['assets_all_pc'], 2.5, 97.5
     ).apply(
         lambda x: np.log(x) if x > 0 else np.nan
     )
@@ -261,7 +281,7 @@ if __name__ == '__main__':
 
     palette = ['#d7191c', '#fdae61', '#ffffbf', '#abd9e9', '#2c7bb6']
 
-    SVY_IN_DIR = 'data/External/GiveDirectly/GE_Luna_Extract_2020-04-20.dta'
+    SVY_IN_DIR = 'data/External/GiveDirectly/GE_Luna_Extract_2020-07-27.dta'
     SAT_IN_DIR = 'data/Siaya/Merged/sat.csv'
     NL_IN_DIR = 'data/External/Nightlight/VIIRS_DNB_KE_2019.tif'
 
@@ -282,12 +302,12 @@ if __name__ == '__main__':
     # plotting begins
     plot(
         df=df_circle,
-        y='sat_nightlight_wins',
-        y_ticks_l=[0.2, 0.4, 0.6],
-        y_ticklabels_l=[0.2, 0.4, 0.6],
-        y_label_l='Nightlight Values',
+        y='sat_nightlight_winsnorm',
+        y_ticks_l=[-1, 0, 1],
+        y_ticklabels_l=[-1, 0, 1],
+        y_label_l='Normalized Nightlight Values',
         y_ticks_r=[-1, -0.5, 0, 0.5, 1],
-        x='logwins_assets_house_pc',
+        x='logwins_assets_all_pc',
         x_ticks=np.log([50, 100, 300, 1000, 3000]),
         x_ticklabels=[50, 100, 300, 1000, 3000],
         x_label='Assets per capita (USD PPP)',
@@ -296,10 +316,10 @@ if __name__ == '__main__':
 
     plot(
         df=df_circle,
-        y='sat_nightlight_wins',
-        y_ticks_l=[0.3, 0.4, 0.5, 0.6],
-        y_ticklabels_l=[0.3, 0.4, 0.5, 0.6],
-        y_label_l='Nightlight Values',
+        y='sat_nightlight_winsnorm',
+        y_ticks_l=[-1, 0, 1],
+        y_ticklabels_l=[-1, 0, 1],
+        y_label_l='Normalized Nightlight Values',
         y_ticks_r=[-1, -0.5, 0, 0.5, 1],
         x='logwins_p2_consumption_wins_pc',
         x_ticks=np.log([100, 300, 1000, 3000]),
@@ -315,7 +335,7 @@ if __name__ == '__main__':
         y_ticklabels_l=[50, 100, 150],
         y_label_l='Building footprint per capita (sq meters)',
         y_ticks_r=[-0.2, 0, 0.2, 0.4, 0.6, 0.8],
-        x='logwins_assets_house_pc',
+        x='logwins_assets_all_pc',
         x_ticks=np.log([50, 100, 300, 1000, 3000]),
         x_ticklabels=[50, 100, 300, 1000, 3000],
         x_label='Assets per capita (USD PPP)',
@@ -343,7 +363,7 @@ if __name__ == '__main__':
         y_ticklabels_l=[-.2, 0, .2, .4, .6],
         y_label_l='Normalized Roof Reflectance',
         y_ticks_r=[0, 2, 4],
-        x='logwins_assets_house_pc',
+        x='logwins_assets_all_pc',
         x_ticks=np.log([50, 100, 300, 1000, 3000]),
         x_ticklabels=[50, 100, 300, 1000, 3000],
         x_label='Assets per capita (USD PPP)',

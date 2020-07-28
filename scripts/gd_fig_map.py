@@ -1,6 +1,5 @@
 import os
 import numpy as np
-import glob
 import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
@@ -22,13 +21,15 @@ def plot(raster, file,
          bound,
          min_lon, max_lon, min_lat, max_lat, step,
          add_polygons=None):
-    outside = shapely.geometry.box(min_lon, min_lat, max_lon, max_lat).difference(bound)
+    outside = shapely.geometry.box(
+        min_lon, min_lat, max_lon, max_lat).difference(bound)
     fig, ax = plt.subplots(figsize=(16, 12))
     im = ax.imshow(raster,
                    extent=(min_lon, max_lon, min_lat, max_lat),
                    cmap=cmap, vmin=vmin, vmax=vmax)
     ax.plot(*bound.exterior.xy, color='white', linewidth=5)
-    ax.add_patch(PolygonPatch(outside, facecolor='#dddddd', edgecolor='#dddddd'))
+    ax.add_patch(PolygonPatch(
+        outside, facecolor='#dddddd', edgecolor='#dddddd'))
     if add_polygons is not None:
         for polygon, color in add_polygons:
             ax.add_patch(PolygonPatch(polygon, edgecolor=color))
@@ -41,8 +42,10 @@ def plot(raster, file,
 # SET-UP
 
 IN_BOUND_DIR = 'data/External/GiveDirectly/figure2/SampleArea.shp'
-IN_CENSUS_GPS_DIR = 'data/External/GiveDirectly/GE_HH_Census_2017-07-17_cleanGPS.csv'
-IN_CENSUS_MASTER_DIR = 'data/External/GiveDirectly/GE_HH-Census_Analysis_RA_2017-07-17.dta'
+IN_CENSUS_GPS_DIR = ('data/External/GiveDirectly/'
+                     'GE_HH_Census_2017-07-17_cleanGPS.csv')
+IN_CENSUS_MASTER_DIR = (
+    'data/External/GiveDirectly/GE_HH-Census_Analysis_RA_2017-07-17.dta')
 IN_SAT_DIR = 'data/Siaya/Merged/sat.csv'
 
 OUT_DIR = 'output/fig-map'
@@ -72,22 +75,24 @@ df_treat = load_gd_census(
     eligible=pd.NamedAgg(column='eligible', aggfunc='sum'),
     treat_eligible=pd.NamedAgg(column='treat_eligible', aggfunc='sum'),
 )
-df_raster.fillna(0, inplace=True)
-# construct pct of eligible households treated
-df_raster.loc[:, 'treat_pct'] = df_raster.apply(
-    lambda x: np.nan if x['eligible'] == 0 else (x['treat_eligible'] / x['eligible']),
-    axis=1)
+# df_raster.fillna(0, inplace=True)
+# # construct pct of eligible households treated
+# df_raster.loc[:, 'treat_pct'] = df_raster.apply(
+#     lambda x: np.nan if x['eligible'] == 0 else (
+#         x['treat_eligible'] / x['eligible']),
+#     axis=1)
 
 # plotting begins
 cmap = LinearSegmentedColormap.from_list(
-    '', [(0, '#bbbbbb'), (1, palette[0])], N=2)
+    '', [(0, '#bbbbbb'), (1, palette[0])], N=4)
 cmap.set_bad('#ffffff')
 # convert to raster
-raster = df_raster['treat_pct'].values.reshape(grid_lon.shape)[::-1, :]
+raster = (df_raster['treat_eligible'].astype('float').values
+                                     .reshape(grid_lon.shape)[::-1, :])
 plot(
     raster=raster,
-    file=os.path.join(OUT_DIR, 'treat_pct.pdf'),
-    cmap=cmap, vmin=0, vmax=1,
+    file=os.path.join(OUT_DIR, 'treat_eligible.pdf'),
+    cmap=cmap, vmin=0, vmax=3,
     bound=bound, **grid)
 
 # PLOT OUTCOMES
@@ -95,13 +100,19 @@ plot(
 # load satellite predictions
 df_sat = pd.read_csv(IN_SAT_DIR)
 # create new var: luminosity
-df_sat.loc[:, 'RGB_mean'] = df_sat.loc[:, ['R_mean', 'G_mean', 'B_mean']].mean(axis=1)
+df_sat.loc[:, 'RGB_mean'] = (df_sat.loc[:, ['R_mean', 'G_mean', 'B_mean']]
+                                   .mean(axis=1))
 # control for lat lon cubic spline
 df_sat.loc[:, 'RGB_mean_spline'] = control_for_spline(
     x=df_sat['centroid_lon'].values,
     y=df_sat['centroid_lat'].values,
     z=df_sat['RGB_mean'].values,
 )
+# normalize
+df_sat.loc[:, 'RGB_mean_spline'] = (
+    (df_sat['RGB_mean_spline'].values -
+        np.nanmean(df_sat['RGB_mean_spline'].values)) /
+    np.nanstd(df_sat['RGB_mean_spline'].values))
 
 # snap to grid
 (grid_lon, grid_lat), df_raster = snap_to_grid(
@@ -111,13 +122,18 @@ df_sat.loc[:, 'RGB_mean_spline'] = control_for_spline(
     RGB_mean=pd.NamedAgg(column='RGB_mean', aggfunc='mean'),
     RGB_mean_spline=pd.NamedAgg(column='RGB_mean_spline', aggfunc='mean'),
 )
+# convert unit
+df_raster.loc[:, 'area_sum'] *= (
+    (0.001716 * 111000 / 800) ** 2)  # in sq meters
+df_raster.loc[:, 'area_sum_pct'] = (
+    df_raster['area_sum'].values / ((grid['step'] * 111000) ** 2))
 df_raster = df_raster.fillna({'house_count': 0, 'area_sum': 0})
 
 # plotting begins
 for outcome, vmin, vmax, cmap_break in zip(
-    ['area_sum', 'RGB_mean_spline'],  # outcome
-    [0, -30],  # vmin
-    [4e4, 30],  # vmax
+    ['area_sum_pct', 'RGB_mean_spline'],  # outcome
+    [0, -1],  # vmin
+    [0.04, 1],  # vmax
     [None, None],  # cmap_break
 ):
     cmap_break = [0, .25, .5, .75, 1] if cmap_break is None else cmap_break

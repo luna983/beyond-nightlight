@@ -135,6 +135,11 @@ def load_nightlight(df, NL_IN_DIR, lon_col='lon', lat_col='lat'):
         xy=df.loc[:, [lon_col, lat_col]].values)).astype(np.int)
 
     df.loc[:, 'sat_nightlight'] = [band[i[1], i[0]] for i in idx]
-    # winsorize
-    df.loc[:, 'sat_nightlight_wins'] = winsorize(df['sat_nightlight'], 0, 99)
+    # winsorize + normalize
+    df.loc[:, 'sat_nightlight_winsnorm'] = winsorize(
+        df['sat_nightlight'], 0, 99)
+    df.loc[:, 'sat_nightlight_winsnorm'] = (
+        (df['sat_nightlight_winsnorm'].values -
+            np.nanmean(df['sat_nightlight_winsnorm'].values)) /
+        np.nanstd(df['sat_nightlight_winsnorm'].values))
     return df

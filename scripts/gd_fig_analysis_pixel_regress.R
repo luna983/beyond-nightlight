@@ -123,7 +123,9 @@ g_style <- ggplot2::theme_bw() +
 
 folders <- c('nightlight/', 'building/', 'building/')
 col_ys <- c('nightlight', 'area_sum', 'RGB_mean_spline')
-titles <- c('Nightlight', 'Total Square Footage of Buildings', 'Roof Reflectance')
+titles <- c('Normalized Nightlight Values',
+            'Building Footprint (sq meters)',
+            'Normalized Roof Reflectance')
 y_breaks <- list(c(-0.05, 0, 0.05), c(-50, -25, 0, 25, 50), c(-3, 0, 3, 6))
 
 for (outcome_i in c(1:length(col_ys))) {
