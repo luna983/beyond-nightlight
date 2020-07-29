@@ -1,108 +1,13 @@
 import os
 import numpy as np
 import pandas as pd
-import rasterio
 
 from maskrcnn.postprocess.analysis import (
-    load_gd_census, snap_to_grid, control_for_spline, winsorize)
+    load_gd_census, snap_to_grid,
+    load_building, load_nightlight_asis)
 
 
 np.random.seed(0)
-
-
-def load_nightlight(input_dir):
-    # load satellite data
-    print('Loading nightlight data')
-    ds = rasterio.open(input_dir)
-    band = ds.read().squeeze(0)
-
-    # define the grid
-    grid = {
-        'min_lon': ds.bounds[0],
-        'min_lat': ds.bounds[1],
-        'max_lon': ds.bounds[2],
-        'max_lat': ds.bounds[3],
-        'step': ds.transform[0],
-    }
-
-    # construct the grid
-    grid_lon, grid_lat = np.meshgrid(
-        np.arange(0, ds.width),
-        np.arange(0, ds.height))
-
-    # convert to data frame
-    df = pd.DataFrame({
-        'grid_lon': grid_lon.flatten(),
-        'grid_lat': grid_lat[::-1].flatten(),
-        'nightlight': band.flatten(),
-    })
-
-    # recover lon, lat
-    df.loc[:, 'lon'] = (
-        df['grid_lon'] * grid['step'] + grid['min_lon'] + grid['step'] / 2)
-    df.loc[:, 'lat'] = (
-        df['grid_lat'] * grid['step'] + grid['min_lat'] + grid['step'] / 2)
-
-    # winsorize + normalize
-    df.loc[:, 'nightlight'] = winsorize(
-        df['nightlight'], 0, 99)
-    df.loc[:, 'nightlight'] = (
-        (df['nightlight'].values -
-            np.nanmean(df['nightlight'].values)) /
-        np.nanstd(df['nightlight'].values))
-    return grid, df
-
-
-def load_building(input_dir):
-    # define the grid
-    grid = {
-        'min_lon': 34.03,  # 34.067830
-        'max_lon': 34.46,  # 34.450290
-        'min_lat': -0.06,  # -0.048042
-        'max_lat': 0.32,  # 0.317786
-        'step': 0.001,  # degrees
-    }
-
-    # load satellite predictions
-    print('Loading building polygon data')
-    df = pd.read_csv(input_dir)
-    # create new var: luminosity
-    df.loc[:, 'RGB_mean'] = (
-        df.loc[:, ['R_mean', 'G_mean', 'B_mean']].mean(axis=1))
-    # control for lat lon cubic spline
-    df.loc[:, 'RGB_mean_spline'] = control_for_spline(
-        x=df['centroid_lon'].values,
-        y=df['centroid_lat'].values,
-        z=df['RGB_mean'].values,
-    )
-    # normalize
-    df.loc[:, 'RGB_mean_spline'] = (
-        (df['RGB_mean_spline'].values -
-            np.nanmean(df['RGB_mean_spline'].values)) /
-        np.nanstd(df['RGB_mean_spline'].values))
-    # snap to grid
-    _, df = snap_to_grid(
-        df, lon_col='centroid_lon', lat_col='centroid_lat', **grid,
-        house_count=pd.NamedAgg(column='area', aggfunc='count'),
-        area_sum=pd.NamedAgg(column='area', aggfunc='sum'),
-        RGB_mean=pd.NamedAgg(column='RGB_mean', aggfunc='mean'),
-        RGB_mean_spline=pd.NamedAgg(column='RGB_mean_spline', aggfunc='mean'),
-    )
-    df.fillna({'house_count': 0, 'area_sum': 0}, inplace=True)
-    df.loc[:, 'house_count_0'] = (
-        df['house_count'] == 0).values.astype(np.float)
-
-    # recover lon, lat
-    df.loc[:, 'lon'] = (
-        df['grid_lon'] * grid['step'] + grid['min_lon'] + grid['step'] / 2)
-    df.loc[:, 'lat'] = (
-        df['grid_lat'] * grid['step'] + grid['min_lat'] + grid['step'] / 2)
-
-    # convert unit
-    df.loc[:, 'area_sum'] *= ((0.001716 * 111000 / 800) ** 2)  # in sq meters
-    df.loc[:, 'area_sum_pct'] = (
-        df['area_sum'].values / ((grid['step'] * 111000) ** 2))
-    return grid, df
 
 
 def merge_treatment(grid, df_sat, GPS_FILE, MASTER_FILE, OUT_DIR, N=200):
@@ -182,14 +87,21 @@ if __name__ == '__main__':
     OUT_DIR_ROOT = 'output/fig-ate/data'
 
     # main
-    grid, df_sat = load_building(IN_SAT_BD_DIR)
+    grid = {
+        'min_lon': 34.03,  # 34.067830
+        'max_lon': 34.46,  # 34.450290
+        'min_lat': -0.06,  # -0.048042
+        'max_lat': 0.32,  # 0.317786
+        'step': 0.001,  # degrees
+    }
+    _, df_sat = load_building(IN_SAT_BD_DIR, grid)
     merge_treatment(
         grid=grid, df_sat=df_sat,
         GPS_FILE=IN_CEN_GPS_DIR, MASTER_FILE=IN_CEN_MASTER_DIR,
         OUT_DIR=os.path.join(OUT_DIR_ROOT, 'building'))
 
     # nightlight
-    grid, df_sat = load_nightlight(IN_SAT_NL_DIR)
+    grid, df_sat = load_nightlight_asis(IN_SAT_NL_DIR)
     merge_treatment(
         grid=grid, df_sat=df_sat,
         GPS_FILE=IN_CEN_GPS_DIR, MASTER_FILE=IN_CEN_MASTER_DIR,

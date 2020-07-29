@@ -124,7 +124,7 @@ def control_for_spline(x, y, z, cr_df=3):
     return z_out
 
 
-def load_nightlight(df, NL_IN_DIR, lon_col='lon', lat_col='lat'):
+def load_nightlight_from_point(df, NL_IN_DIR, lon_col='lon', lat_col='lat'):
     # extract nightlight values
     ds = rasterio.open(NL_IN_DIR)
     band = ds.read().squeeze(0)
@@ -143,3 +143,101 @@ def load_nightlight(df, NL_IN_DIR, lon_col='lon', lat_col='lat'):
             np.nanmean(df['sat_nightlight_winsnorm'].values)) /
         np.nanstd(df['sat_nightlight_winsnorm'].values))
     return df
+
+
+def load_nightlight_asis(input_dir):
+    # load satellite data
+    print('Loading nightlight data')
+    ds = rasterio.open(input_dir)
+    band = ds.read().squeeze(0)
+
+    # define the grid
+    grid = {
+        'min_lon': ds.bounds[0],
+        'min_lat': ds.bounds[1],
+        'max_lon': ds.bounds[2],
+        'max_lat': ds.bounds[3],
+        'step': ds.transform[0],
+    }
+
+    # construct the grid
+    grid_lon, grid_lat = np.meshgrid(
+        np.arange(0, ds.width),
+        np.arange(0, ds.height))
+
+    # convert to data frame
+    df = pd.DataFrame({
+        'grid_lon': grid_lon.flatten(),
+        'grid_lat': grid_lat[::-1].flatten(),
+        'nightlight': band.flatten(),
+    })
+
+    # recover lon, lat
+    df.loc[:, 'lon'] = (
+        df['grid_lon'] * grid['step'] + grid['min_lon'] + grid['step'] / 2)
+    df.loc[:, 'lat'] = (
+        df['grid_lat'] * grid['step'] + grid['min_lat'] + grid['step'] / 2)
+
+    # winsorize + normalize
+    df.loc[:, 'nightlight'] = winsorize(
+        df['nightlight'], 0, 99)
+    df.loc[:, 'nightlight'] = (
+        (df['nightlight'].values -
+            np.nanmean(df['nightlight'].values)) /
+        np.nanstd(df['nightlight'].values))
+    return grid, df
+
+
+def load_building(input_dir, grid):
+    """Loads building polygons.
+
+    Args:
+        input_dir (str): file to load
+        grid (dict {str: float}): dict with the following keys:
+            min_lon, max_lon, min_lat, max_lat, step
+
+    Returns:
+        tuple of numpy.ndarray: (grid_lon, grid_lat)
+        pandas.DataFrame: gridded dataframe
+    """
+    # load satellite predictions
+    print('Loading building polygon data')
+    df = pd.read_csv(input_dir)
+    # create new var: luminosity
+    df.loc[:, 'RGB_mean'] = (
+        df.loc[:, ['R_mean', 'G_mean', 'B_mean']].mean(axis=1))
+    # control for lat lon cubic spline
+    df.loc[:, 'RGB_mean_spline'] = control_for_spline(
+        x=df['centroid_lon'].values,
+        y=df['centroid_lat'].values,
+        z=df['RGB_mean'].values,
+    )
+    # normalize
+    df.loc[:, 'RGB_mean_spline'] = (
+        (df['RGB_mean_spline'].values -
+            np.nanmean(df['RGB_mean_spline'].values)) /
+        np.nanstd(df['RGB_mean_spline'].values))
+    # snap to grid
+    (grid_lon, grid_lat), df = snap_to_grid(
+        df, lon_col='centroid_lon', lat_col='centroid_lat', **grid,
+        house_count=pd.NamedAgg(column='area', aggfunc='count'),
+        area_sum=pd.NamedAgg(column='area', aggfunc='sum'),
+        RGB_mean=pd.NamedAgg(column='RGB_mean', aggfunc='mean'),
+        RGB_mean_spline=pd.NamedAgg(column='RGB_mean_spline', aggfunc='mean'),
+    )
+    df.fillna({'house_count': 0, 'area_sum': 0}, inplace=True)
+    df.loc[:, 'house_count_0'] = (
+        df['house_count'] == 0).values.astype(np.float)
+
+    # convert unit
+    df.loc[:, 'area_sum'] *= ((0.001716 * 111000 / 800) ** 2)  # in sq meters
+    df.loc[:, 'area_sum_pct'] = (
+        df['area_sum'].values / ((grid['step'] * 111000) ** 2))
+
+    # recover lon, lat
+    df.loc[:, 'lon'] = (
+        df['grid_lon'] * grid['step'] + grid['min_lon'] + grid['step'] / 2)
+    df.loc[:, 'lat'] = (
+        df['grid_lat'] * grid['step'] + grid['min_lat'] + grid['step'] / 2)
+
+    return (grid_lon, grid_lat), df

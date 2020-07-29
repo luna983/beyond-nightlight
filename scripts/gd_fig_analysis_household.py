@@ -9,7 +9,7 @@ import scipy.spatial
 from skmisc.loess import loess
 
 from maskrcnn.postprocess.analysis import (
-    control_for_spline, winsorize, load_nightlight)
+    control_for_spline, winsorize, load_nightlight_from_point)
 
 
 np.random.seed(0)
@@ -295,7 +295,7 @@ if __name__ == '__main__':
     df_close, df_circle = match(df_svy, df_sat)
 
     # load nightlight
-    df_circle = load_nightlight(
+    df_circle = load_nightlight_from_point(
         df_circle, NL_IN_DIR,
         lon_col='longitude', lat_col='latitude')
 

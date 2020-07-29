@@ -1,5 +1,4 @@
 import os
-import numpy as np
 import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
@@ -10,7 +9,7 @@ import matplotlib
 from matplotlib.colors import LinearSegmentedColormap
 
 from maskrcnn.postprocess.analysis import (
-    load_gd_census, snap_to_grid, control_for_spline)
+    load_gd_census, snap_to_grid, load_building)
 
 
 matplotlib.rc('pdf', fonttype=42)
@@ -98,36 +97,7 @@ plot(
 # PLOT OUTCOMES
 
 # load satellite predictions
-df_sat = pd.read_csv(IN_SAT_DIR)
-# create new var: luminosity
-df_sat.loc[:, 'RGB_mean'] = (df_sat.loc[:, ['R_mean', 'G_mean', 'B_mean']]
-                                   .mean(axis=1))
-# control for lat lon cubic spline
-df_sat.loc[:, 'RGB_mean_spline'] = control_for_spline(
-    x=df_sat['centroid_lon'].values,
-    y=df_sat['centroid_lat'].values,
-    z=df_sat['RGB_mean'].values,
-)
-# normalize
-df_sat.loc[:, 'RGB_mean_spline'] = (
-    (df_sat['RGB_mean_spline'].values -
-        np.nanmean(df_sat['RGB_mean_spline'].values)) /
-    np.nanstd(df_sat['RGB_mean_spline'].values))
-
-# snap to grid
-(grid_lon, grid_lat), df_raster = snap_to_grid(
-    df_sat, lon_col='centroid_lon', lat_col='centroid_lat', **grid,
-    house_count=pd.NamedAgg(column='area', aggfunc='count'),
-    area_sum=pd.NamedAgg(column='area', aggfunc='sum'),
-    RGB_mean=pd.NamedAgg(column='RGB_mean', aggfunc='mean'),
-    RGB_mean_spline=pd.NamedAgg(column='RGB_mean_spline', aggfunc='mean'),
-)
-# convert unit
-df_raster.loc[:, 'area_sum'] *= (
-    (0.001716 * 111000 / 800) ** 2)  # in sq meters
-df_raster.loc[:, 'area_sum_pct'] = (
-    df_raster['area_sum'].values / ((grid['step'] * 111000) ** 2))
-df_raster = df_raster.fillna({'house_count': 0, 'area_sum': 0})
+(grid_lon, grid_lat), df_raster = load_building(IN_SAT_DIR, grid)
 
 # plotting begins
 for outcome, vmin, vmax, cmap_break in zip(

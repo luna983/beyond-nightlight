@@ -8,7 +8,7 @@ from scipy.stats import pearsonr, spearmanr
 from sklearn.decomposition import PCA
 from skmisc.loess import loess
 
-from maskrcnn.postprocess.analysis import winsorize, load_nightlight
+from maskrcnn.postprocess.analysis import winsorize, load_nightlight_from_point
 
 
 sns.set(font='Helvetica', font_scale=1)
@@ -239,7 +239,7 @@ if __name__ == '__main__':
     # winsorize
     df.loc[:, 'sat_size_sum_pc_wins'] = winsorize(df['sat_size_sum_pc'], 0, 99)
     # load nightlight values
-    df = load_nightlight(df, NL_IN_DIR)
+    df = load_nightlight_from_point(df, NL_IN_DIR)
 
     # plotting begins
     plot_scatter(
