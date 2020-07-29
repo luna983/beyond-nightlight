@@ -36,12 +36,12 @@ To replicate `fig-map` (map of treatment and outcome variables)
 
 To replicate `fig-ate` (average treatment effect estimation)
 
-- `python scripts/gd_fig_analysis_pixel_rasterize.py`: Rasterize treatment and outcome data.
-- `Rscript scripts/gd_fig_analysis_pixel_regress.R`: Generate the raw figures.
+- `python scripts/gd_fig_ate_rasterize.py`: Rasterize treatment and outcome data.
+- `Rscript scripts/gd_fig_ate_regress.R`: Generate the raw figures.
 
 To replicate `fig-engel` (Engel curve)
 
-- `python scripts/gd_fig_analysis_household.py`: Generate the raw figures.
+- `python scripts/gd_fig_engel.py`: Generate the raw figures.
 
 To replicate the analysis in the appendix (in rural Mexico)
 
