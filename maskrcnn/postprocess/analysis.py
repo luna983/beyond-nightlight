@@ -146,6 +146,15 @@ def load_nightlight_from_point(df, NL_IN_DIR, lon_col='lon', lat_col='lat'):
 
 
 def load_nightlight_asis(input_dir):
+    """Loads nightlight data, keeping its raster grid as is.
+
+    Args:
+        input_dir (str)
+    Returns:
+        dict {str: float}: with the following keys
+            min_lon, max_lon, min_lat, max_lat, step
+        pandas.DataFrame
+    """
     # load satellite data
     print('Loading nightlight data')
     ds = rasterio.open(input_dir)

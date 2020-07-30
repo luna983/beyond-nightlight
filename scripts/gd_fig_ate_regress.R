@@ -106,7 +106,7 @@ regress_linear <- function(df, col_y, cutoff=3) {
     )
 
     # collate result for plotting
-    res <- tibble::tibble(beta=se$betahat[1, 1], se=se$conleySE)
+    res <- tibble::tibble(x=NA, beta=se$betahat[1, 1], se=se$conleySE)
     return(res)
 }
 
@@ -126,7 +126,7 @@ col_ys <- c('nightlight', 'area_sum', 'RGB_mean_spline')
 titles <- c('Normalized Nightlight Values',
             'Building Footprint (sq meters)',
             'Normalized Roof Reflectance')
-y_breaks <- list(c(-0.05, 0, 0.05), c(-50, -25, 0, 25, 50), c(-3, 0, 3, 6))
+y_breaks <- list(c(-0.5, 0, 0.5), c(-50, -25, 0, 25, 50), c(-0.1, 0, 0.1))
 
 for (outcome_i in c(1:length(col_ys))) {
     print(paste0('outcome: ', col_ys[outcome_i]))
@@ -136,6 +136,11 @@ for (outcome_i in c(1:length(col_ys))) {
         col_type=readr::cols())
     main_res <- regress_bin(df=df, col_y=col_ys[outcome_i])
     linear_effect <- regress_linear(df=df, col_y=col_ys[outcome_i])
+    # write to file - main results
+    main_res_file <- paste0(working_dir, 'data/intermediate/',
+                            col_ys[outcome_i], '_main.csv')
+    readr::write_csv(rbind(linear_effect, main_res), main_res_file)
+    # write to file - placebo results
     placebo_res_file <- paste0(working_dir, 'data/intermediate/',
                                col_ys[outcome_i], '_placebo.csv')
     if (file.exists(placebo_res_file)) {
