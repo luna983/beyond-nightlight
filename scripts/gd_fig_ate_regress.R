@@ -126,7 +126,7 @@ col_ys <- c('nightlight', 'area_sum', 'RGB_mean_spline')
 titles <- c('Normalized Nightlight Values',
             'Building Footprint (sq meters)',
             'Normalized Roof Reflectance')
-y_breaks <- list(c(-0.05, 0, 0.05), c(-50, -25, 0, 25, 50), c(-3, 0, 3, 6))
+y_breaks <- list(c(-0.5, 0, 0.5), c(-50, -25, 0, 25, 50), c(-0.1, 0, 0.1))
 
 for (outcome_i in c(1:length(col_ys))) {
     print(paste0('outcome: ', col_ys[outcome_i]))
