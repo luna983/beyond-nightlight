@@ -21,6 +21,8 @@ _x-axis represents the intensity of the cash inflow (in nominal USD) to each pix
 
 ![fig-ate](/docs/fig-ate.jpg)
 
+----
+
 ## Instructions for Replication
 
 To pretrain the deep learning model (required for replication of all the subsequent analyses)
