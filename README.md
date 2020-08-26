@@ -1,4 +1,14 @@
-# Instructions for Replication
+# Measuring the Impacts of Poverty Alleviation Programs with Satellite Imagery and Deep Learning
+
+_Luna Yue Huang_
+
+Household surveys are expensive. In this project, I argue that housing, a strong correlate of wealth, can be accurately and cheaply measured with high-resolution satellite imagery and deep learning models, and can be used to conduct impact evaluations with much lower costs. In Western Kenya, I evaluate the GiveDirectly randomized controlled trial, a large unconditional cash transfer program, with satellite imagery, and observe statistically significant and economically sizeable increases in overall building footprint and roof reflectance, a proxy for housing quality. Using an Engel curve approach, I infer overall treatment effects from observed increases in the consumption of housing, and obtain consistent resultswith extensive in-person surveys.
+
+![fig-chips](/docs/fig-chips.jpg)
+
+![fig-ate](/docs/fig-ate.jpg)
+
+## Instructions for Replication
 
 To pretrain the deep learning model (required for replication of all the subsequent analyses)
 
