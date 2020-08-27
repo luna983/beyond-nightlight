@@ -2,6 +2,8 @@
 
 _Luna Yue Huang_
 
+[![DOI](https://zenodo.org/badge/192596578.svg)](https://zenodo.org/badge/latestdoi/192596578)
+
 [__Working Paper__](http://luna-yue-huang.com/assets/pdf/jmp.pdf) | [__Website__](http://luna-yue-huang.com/research-jmp.html) | [__GitHub__](https://github.com/luna983/beyond-nightlight)
 
 ----
