@@ -277,7 +277,7 @@ def match(
     return df_close, df_circle
 
 
-def main():
+if __name__ == '__main__':
 
     palette = ['#d7191c', '#fdae61', '#ffffbf', '#abd9e9', '#2c7bb6']
 
@@ -298,7 +298,7 @@ def main():
     df_circle = load_nightlight_from_point(
         df_circle, NL_IN_DIR,
         lon_col='longitude', lat_col='latitude')
-    return df_close, df_circle
+
     # plotting begins
     plot(
         df=df_circle,

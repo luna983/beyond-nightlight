@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import rasterio
 import statsmodels.formula.api as smf
+from sklearn.cluster import KMeans
 
 from .utils import transform_coord
 
@@ -197,13 +198,14 @@ def load_nightlight_asis(input_dir):
     return grid, df
 
 
-def load_building(input_dir, grid):
+def load_building(input_dir, grid, n_clusters=5):
     """Loads building polygons.
 
     Args:
         input_dir (str): file to load
         grid (dict {str: float}): dict with the following keys:
             min_lon, max_lon, min_lat, max_lat, step
+        n_clusters (int): how many color groups to use
 
     Returns:
         tuple of numpy.ndarray: (grid_lon, grid_lat)
@@ -212,6 +214,12 @@ def load_building(input_dir, grid):
     # load satellite predictions
     print('Loading building polygon data')
     df = pd.read_csv(input_dir)
+    # color grouping
+    m = KMeans(n_clusters=n_clusters, random_state=0)
+    m.fit(df.loc[:, ['R_mean', 'G_mean', 'B_mean']].values)
+    df.loc[:, 'color_group'] = m.labels_
+    for i in range(n_clusters):
+        df.loc[:, f'color_group_{i}'] = (df['color_group'].values == i)
     # create new var: luminosity
     df.loc[:, 'RGB_mean'] = (
         df.loc[:, ['R_mean', 'G_mean', 'B_mean']].mean(axis=1))
@@ -227,12 +235,16 @@ def load_building(input_dir, grid):
             np.nanmean(df['RGB_mean_spline'].values)) /
         np.nanstd(df['RGB_mean_spline'].values))
     # snap to grid
+    color_group_agg = {
+        f'color_group_{i}': pd.NamedAgg(column=f'color_group_{i}', aggfunc='mean')
+        for i in range(n_clusters)}
     (grid_lon, grid_lat), df = snap_to_grid(
         df, lon_col='centroid_lon', lat_col='centroid_lat', **grid,
         house_count=pd.NamedAgg(column='area', aggfunc='count'),
         area_sum=pd.NamedAgg(column='area', aggfunc='sum'),
         RGB_mean=pd.NamedAgg(column='RGB_mean', aggfunc='mean'),
         RGB_mean_spline=pd.NamedAgg(column='RGB_mean_spline', aggfunc='mean'),
+        **color_group_agg,
     )
     df.fillna({'house_count': 0, 'area_sum': 0}, inplace=True)
     df.loc[:, 'house_count_0'] = (

@@ -121,12 +121,17 @@ g_style <- ggplot2::theme_bw() +
         panel.grid.major.x=ggplot2::element_blank(),
         panel.grid.minor=ggplot2::element_blank())
 
-folders <- c('nightlight/', 'building/', 'building/')
-col_ys <- c('nightlight', 'area_sum', 'RGB_mean_spline')
+placebo <- F
+n_clusters <- 5
+folders <- c('nightlight/', 'building/', 'building/',
+             rep('building/', n_clusters))
+col_ys <- c('nightlight', 'area_sum', 'RGB_mean_spline',
+            paste0('color_group_', 0:(n_clusters - 1)))
 titles <- c('Normalized Nightlight Values',
             'Building Footprint (sq meters)',
-            'Normalized Roof Reflectance')
-y_breaks <- list(c(-0.5, 0, 0.5), c(-50, -25, 0, 25, 50), c(-0.1, 0, 0.1))
+            'Normalized Roof Reflectance',
+            paste0('Color Group: ', 0:(n_clusters - 1)))
+# y_breaks <- list(c(-0.5, 0, 0.5), c(-50, -25, 0, 25, 50), c(-0.1, 0, 0.1))
 
 for (outcome_i in c(1:length(col_ys))) {
     print(paste0('outcome: ', col_ys[outcome_i]))
@@ -140,32 +145,39 @@ for (outcome_i in c(1:length(col_ys))) {
     main_res_file <- paste0(working_dir, 'data/intermediate/',
                             col_ys[outcome_i], '_main.csv')
     readr::write_csv(rbind(linear_effect, main_res), main_res_file)
-    # write to file - placebo results
-    placebo_res_file <- paste0(working_dir, 'data/intermediate/',
-                               col_ys[outcome_i], '_placebo.csv')
-    if (file.exists(placebo_res_file)) {
-        placebo_res <- readr::read_csv(
-            placebo_res_file,
-            # to suppress warnings
-            col_type=readr::cols())
-    } else {
-        placebo_res <- tibble::tibble()
-        for (i in c(0:199)) {
-            df <- readr::read_csv(
-                paste0(working_dir, 'data/', folders[outcome_i],
-                       'placebo_', sprintf("%03d", i), '.csv'),
+    if (placebo) {
+        # write to file - placebo results
+        placebo_res_file <- paste0(working_dir, 'data/intermediate/',
+                                col_ys[outcome_i], '_placebo.csv')
+        if (file.exists(placebo_res_file)) {
+            placebo_res <- readr::read_csv(
+                placebo_res_file,
                 # to suppress warnings
                 col_type=readr::cols())
-            res <- regress_bin(df=df, col_y=col_ys[outcome_i])
-            placebo_res <- rbind(placebo_res, res %>% dplyr::mutate(iter=i))
+        } else {
+            placebo_res <- tibble::tibble()
+            for (i in c(0:199)) {
+                df <- readr::read_csv(
+                    paste0(working_dir, 'data/', folders[outcome_i],
+                        'placebo_', sprintf("%03d", i), '.csv'),
+                    # to suppress warnings
+                    col_type=readr::cols())
+                res <- regress_bin(df=df, col_y=col_ys[outcome_i])
+                placebo_res <- rbind(placebo_res, res %>% dplyr::mutate(iter=i))
+            }
+            readr::write_csv(placebo_res, placebo_res_file)
         }
-        readr::write_csv(placebo_res, placebo_res_file)
     }
+
     # plotting
-    g <- ggplot2::ggplot() +
-        ggplot2::geom_line(
-            data=placebo_res %>% dplyr::filter(iter < 100),
-            ggplot2::aes(x=x, y=beta, group=iter), size=0.5, color='#dddddd', alpha=0.5) +
+    g <- ggplot2::ggplot()
+    if (placebo) {
+        g <- g +
+            ggplot2::geom_line(
+                data=placebo_res %>% dplyr::filter(iter < 100),
+                ggplot2::aes(x=x, y=beta, group=iter), size=0.5, color='#dddddd', alpha=0.5)
+    }
+    g <- g +
         ggplot2::geom_line(
             data=main_res, ggplot2::aes(x=x, y=beta), size=1, color='#d7191c') +
         ggplot2::geom_point(
@@ -177,9 +189,9 @@ for (outcome_i in c(1:length(col_ys))) {
             name='Cash infusion per 0.012 sq km',
             breaks=c(0, 1, 2, 3),
             labels=c('$0', '$1000', '$2000', '>$2000')) +
-        ggplot2::scale_y_continuous(
-            name='',
-            breaks=y_breaks[[outcome_i]]) +
+        # ggplot2::scale_y_continuous(
+        #     name='',
+        #     breaks=y_breaks[[outcome_i]]) +
         ggplot2::ggtitle(paste0("Treatment Effect on ", titles[outcome_i], ":\n",
                                 round(linear_effect$beta[1], 3), ", 95% CI: [",
                                 round(linear_effect$beta[1] - 1.96 * linear_effect$se[1], 3), ", ",
