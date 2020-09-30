@@ -144,11 +144,14 @@ def load_census(df_idx, CEN_IN_DIR):
             [db_cols, housing_cols, public_cols, vph_cols],
             ['cen_durable_score_pca', 'cen_housing_score_pca',
              'cen_public_score_pca', 'cen_asset_score_pca']):
-        # demean
-        centered = (df_cen.loc[:, cols].values -
-                    df_cen.loc[:, cols].values.mean(axis=0)[np.newaxis, :])
+        # normalize before feeding into PCA
+        raw = df_cen.loc[:, cols].values
+        normalized = ((raw - raw.mean(axis=0)[np.newaxis, :])
+                      / (raw.std(axis=0)[np.newaxis, :] + 1e-10))
         m = PCA(n_components=1)
-        df_cen.loc[:, output_col] = m.fit_transform(centered)
+        pca_score = m.fit_transform(normalized)
+        df_cen.loc[:, output_col] = ((pca_score - pca_score.mean())
+                                     / (pca_score.std() + 1e-10))
 
     df_cen['cen_housing_score_pca'] *= -1
     df_cen['cen_public_score_pca'] *= -1
