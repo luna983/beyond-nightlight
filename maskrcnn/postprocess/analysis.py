@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 import rasterio
 import statsmodels.formula.api as smf
-from sklearn.cluster import KMeans
 
 from .utils import transform_coord
 
@@ -198,14 +197,13 @@ def load_nightlight_asis(input_dir):
     return grid, df
 
 
-def load_building(input_dir, grid, n_clusters=5):
+def load_building(input_dir, grid):
     """Loads building polygons.
 
     Args:
         input_dir (str): file to load
         grid (dict {str: float}): dict with the following keys:
             min_lon, max_lon, min_lat, max_lat, step
-        n_clusters (int): how many color groups to use
 
     Returns:
         tuple of numpy.ndarray: (grid_lon, grid_lat)
@@ -214,10 +212,7 @@ def load_building(input_dir, grid, n_clusters=5):
     # load satellite predictions
     print('Loading building polygon data')
     df = pd.read_csv(input_dir)
-    # color grouping
-    m = KMeans(n_clusters=n_clusters, random_state=0)
-    m.fit(df.loc[:, ['R_mean', 'G_mean', 'B_mean']].values)
-    df.loc[:, 'color_group'] = m.labels_
+    n_clusters = df['color_group'].max() + 1
     for i in range(n_clusters):
         df.loc[:, f'color_group_{i}'] = (df['color_group'].values == i)
     # create new var: luminosity
@@ -236,7 +231,8 @@ def load_building(input_dir, grid, n_clusters=5):
         np.nanstd(df['RGB_mean_spline'].values))
     # snap to grid
     color_group_agg = {
-        f'color_group_{i}': pd.NamedAgg(column=f'color_group_{i}', aggfunc='mean')
+        f'color_group_{i}': pd.NamedAgg(
+            column=f'color_group_{i}', aggfunc='mean')
         for i in range(n_clusters)}
     (grid_lon, grid_lat), df = snap_to_grid(
         df, lon_col='centroid_lon', lat_col='centroid_lat', **grid,
@@ -249,9 +245,6 @@ def load_building(input_dir, grid, n_clusters=5):
     df.fillna({'house_count': 0, 'area_sum': 0}, inplace=True)
     df.loc[:, 'house_count_0'] = (
         df['house_count'] == 0).values.astype(np.float)
-
-    # convert unit
-    df.loc[:, 'area_sum'] *= ((0.001716 * 111000 / 800) ** 2)  # in sq meters
     df.loc[:, 'area_sum_pct'] = (
         df['area_sum'].values / ((grid['step'] * 111000) ** 2))
 

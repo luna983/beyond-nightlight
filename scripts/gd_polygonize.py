@@ -16,8 +16,8 @@ LOG_IN_DIR = 'data/Siaya/Meta/aoi_download_log.csv'
 # satellite derived data
 SAT_IN_ANN_DIR = 'data/Siaya/Pred/infer/'
 SAT_IN_IMG_DIR = 'data/Siaya/Image/'
-SAT_OUT_GEOM_DIR = 'data/Siaya/Merged/sat.geojson'
-SAT_OUT_CSV_DIR = 'data/Siaya/Merged/sat.csv'
+SAT_OUT_GEOM_DIR = 'data/Siaya/Merged/sat_raw.geojson'
+SAT_OUT_CSV_DIR = 'data/Siaya/Merged/sat_raw.csv'
 
 # boundary
 BOUND_IN_DIR = 'data/External/GiveDirectly/figure2/SampleArea.shp'
