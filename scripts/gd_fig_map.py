@@ -101,10 +101,11 @@ plot(
 
 # plotting begins
 for outcome, vmin, vmax, cmap_break in zip(
-    ['area_sum_pct', 'RGB_mean_spline'],  # outcome
-    [0, -1],  # vmin
-    [0.04, 1],  # vmax
-    [None, None],  # cmap_break
+    (['area_sum_pct', 'RGB_mean_spline'] +
+     [f'color_group_{i}' for i in range(8)]),  # outcome
+    [0, -1] + [0] * 8,  # vmin
+    [0.04, 1] + [0.4] * 8,  # vmax
+    [None, None] + [None] * 8,  # cmap_break
 ):
     cmap_break = [0, .25, .5, .75, 1] if cmap_break is None else cmap_break
     cmap = LinearSegmentedColormap.from_list(

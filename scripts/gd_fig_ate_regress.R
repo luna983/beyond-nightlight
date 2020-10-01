@@ -122,7 +122,7 @@ g_style <- ggplot2::theme_bw() +
         panel.grid.minor=ggplot2::element_blank())
 
 placebo <- F
-n_clusters <- 5
+n_clusters <- 8
 folders <- c('nightlight/', 'building/', 'building/',
              rep('building/', n_clusters))
 col_ys <- c('nightlight', 'area_sum', 'RGB_mean_spline',
