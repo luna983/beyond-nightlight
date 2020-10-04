@@ -195,7 +195,8 @@ def load_survey(SVY_IN_DIR):
 
 def match(
     df_svy, df_sat,
-    radius=0.00045,  # = 50m
+    radius=0.0008,
+    # radius=0.00045,  # = 50m
     k=20,  # no. of nearest neighbors examined
 ):
     # match structures to households
@@ -286,7 +287,7 @@ if __name__ == '__main__':
         y_ticks_l=[-1, 0, 1],
         y_ticklabels_l=[-1, 0, 1],
         y_label_l='Normalized Nightlight Values',
-        y_ticks_r=[-1, -0.5, 0, 0.5, 1],
+        y_ticks_r=[-0.2, 0, 0.2, 0.4, 0.6, 0.8],
         x='logwins_assets_all_pc',
         x_ticks=np.log([50, 100, 300, 1000, 3000]),
         x_ticklabels=[50, 100, 300, 1000, 3000],
@@ -300,7 +301,7 @@ if __name__ == '__main__':
         y_ticks_l=[-1, 0, 1],
         y_ticklabels_l=[-1, 0, 1],
         y_label_l='Normalized Nightlight Values',
-        y_ticks_r=[-1, -0.5, 0, 0.5, 1],
+        y_ticks_r=[-0.2, 0, 0.2, 0.4, 0.6, 0.8],
         x='logwins_p2_consumption_wins_pc',
         x_ticks=np.log([100, 300, 1000, 3000]),
         x_ticklabels=[100, 300, 1000, 3000],
@@ -328,7 +329,7 @@ if __name__ == '__main__':
         y_ticks_l=[50, 100, 150],
         y_ticklabels_l=[50, 100, 150],
         y_label_l='Building footprint per capita (sq meters)',
-        y_ticks_r=[-0.2, 0, 0.2, 0.4, 0.6],
+        y_ticks_r=[-0.2, 0, 0.2, 0.4, 0.6, 0.8],
         x='logwins_p2_consumption_wins_pc',
         x_ticks=np.log([100, 300, 1000, 3000]),
         x_ticklabels=[100, 300, 1000, 3000],
@@ -339,10 +340,10 @@ if __name__ == '__main__':
     plot(
         df=df_circle,
         y='color_tin_area_pc',
-        y_ticks_l=[-.2, 0, .2, .4, .6],
-        y_ticklabels_l=[-.2, 0, .2, .4, .6],
+        y_ticks_l=[0, 50, 100],
+        y_ticklabels_l=[0, 50, 100],
         y_label_l='Tin-roof area per capita (sq meters)',
-        y_ticks_r=[0, 2, 4],
+        y_ticks_r=[-0.2, 0, 0.2, 0.4, 0.6, 0.8],
         x='logwins_assets_all_pc',
         x_ticks=np.log([50, 100, 300, 1000, 3000]),
         x_ticklabels=[50, 100, 300, 1000, 3000],
@@ -353,10 +354,10 @@ if __name__ == '__main__':
     plot(
         df=df_circle,
         y='color_tin_area_pc',
-        y_ticks_l=[-.1, 0, .1, .2, .3],
-        y_ticklabels_l=[-.1, 0, .1, .2, .3],
+        y_ticks_l=[0, 50, 100],
+        y_ticklabels_l=[0, 50, 100],
         y_label_l='Tin-roof area per capita (sq meters)',
-        y_ticks_r=[-5, 0, 5, 10, 15, 20],
+        y_ticks_r=[-0.2, 0, 0.2, 0.4, 0.6, 0.8],
         x='logwins_p2_consumption_wins_pc',
         x_ticks=np.log([100, 300, 1000, 3000]),
         x_ticklabels=[100, 300, 1000, 3000],
