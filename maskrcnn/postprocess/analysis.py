@@ -197,24 +197,35 @@ def load_nightlight_asis(input_dir):
     return grid, df
 
 
-def load_building(input_dir, grid):
+def load_building(input_dir, grid, agg=True):
     """Loads building polygons.
 
     Args:
         input_dir (str): file to load
         grid (dict {str: float}): dict with the following keys:
             min_lon, max_lon, min_lat, max_lat, step
+        agg (bool): whether to perform aggregation
 
     Returns:
         tuple of numpy.ndarray: (grid_lon, grid_lat)
         pandas.DataFrame: gridded dataframe
     """
+    tin_roofs = [0, 1, 5]
+    thatched_roofs = [2, 3, 6]
     # load satellite predictions
     print('Loading building polygon data')
     df = pd.read_csv(input_dir)
     n_clusters = df['color_group'].max() + 1
     for i in range(n_clusters):
         df.loc[:, f'color_group_{i}'] = (df['color_group'].values == i)
+    df.loc[:, 'color_tin'] = df['color_group'].isin(tin_roofs)
+    df.loc[:, 'color_thatched'] = df['color_group'].isin(thatched_roofs)
+    # tin roof area
+    df.loc[:, 'color_tin_area'] = (
+        df['color_tin'].values * df['area'].values)
+    # thatched roof area
+    df.loc[:, 'color_thatched_area'] = (
+        df['color_thatched'].values * df['area'].values)
     # create new var: luminosity
     df.loc[:, 'RGB_mean'] = (
         df.loc[:, ['R_mean', 'G_mean', 'B_mean']].mean(axis=1))
@@ -229,6 +240,8 @@ def load_building(input_dir, grid):
         (df['RGB_mean_spline'].values -
             np.nanmean(df['RGB_mean_spline'].values)) /
         np.nanstd(df['RGB_mean_spline'].values))
+    if not agg:
+        return df
     # snap to grid
     color_group_agg = {
         f'color_group_{i}': pd.NamedAgg(
@@ -240,6 +253,11 @@ def load_building(input_dir, grid):
         area_sum=pd.NamedAgg(column='area', aggfunc='sum'),
         RGB_mean=pd.NamedAgg(column='RGB_mean', aggfunc='mean'),
         RGB_mean_spline=pd.NamedAgg(column='RGB_mean_spline', aggfunc='mean'),
+        tin_area_sum=pd.NamedAgg(column='color_tin_area', aggfunc='sum'),
+        thatched_area_sum=pd.NamedAgg(column='color_thatched_area',
+                                      aggfunc='sum'),
+        tin_count=pd.NamedAgg(column='color_tin', aggfunc='sum'),
+        thatched_count=pd.NamedAgg(column='color_thatched', aggfunc='sum'),
         **color_group_agg,
     )
     df.fillna({'house_count': 0, 'area_sum': 0}, inplace=True)
@@ -247,7 +265,10 @@ def load_building(input_dir, grid):
         df['house_count'] == 0).values.astype(np.float)
     df.loc[:, 'area_sum_pct'] = (
         df['area_sum'].values / ((grid['step'] * 111000) ** 2))
-
+    df.loc[:, 'tin_count_pct'] = (
+        df['tin_count'].values / df['house_count'].values)
+    df.loc[:, 'tin_area_pct'] = (
+        df['tin_area_sum'].values / df['area_sum'].values)
     # recover lon, lat
     df.loc[:, 'lon'] = (
         df['grid_lon'] * grid['step'] + grid['min_lon'] + grid['step'] / 2)

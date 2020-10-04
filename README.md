@@ -49,6 +49,9 @@ _Note that the replication of some of the analyses requires field data collected
 - `python scripts/gd_polygonize.py`: Collate the inference results into a geojson / csv file.
 - `python scripts/gd_postprocess.py`: Post-process the inference results csv file.
 
+To replicate `fig-colors` (roof color K-means clustering result)
+- `python gd_fig_colors`: Generate the raw figures.
+
 To replicate `fig-prcurve` (Precision-Recall curve)
 
 - `python scripts/gd_fig_prcurve_cv.py`: Conduct cross validation on in-sample annotations in rural Kenya. (Before running the script, copy `runs/run_01_PretrainPool/best_checkpoint.pth.tar` to `runs/run_03_SiayaCV0/pretrained_checkpoint.pth.tar`, `runs/run_04_SiayaCV1/pretrained_checkpoint.pth.tar` and `runs/run_05_SiayaCV2/pretrained_checkpoint.pth.tar`.)

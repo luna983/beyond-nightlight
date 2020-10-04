@@ -9,7 +9,8 @@ import scipy.spatial
 from skmisc.loess import loess
 
 from maskrcnn.postprocess.analysis import (
-    control_for_spline, winsorize, load_nightlight_from_point)
+    winsorize, load_nightlight_from_point,
+    load_building)
 
 
 np.random.seed(0)
@@ -124,29 +125,6 @@ def plot(df, y, x,
     fig.savefig(os.path.join(OUT_DIR, f'{y}-{x}.pdf'))
 
 
-def load_satellite(SAT_IN_DIR):
-    # load satellite data
-    df_sat = pd.read_csv(SAT_IN_DIR)
-    # create new var: luminosity
-    df_sat.loc[:, 'RGB_mean'] = (df_sat.loc[:, ['R_mean', 'G_mean', 'B_mean']]
-                                       .mean(axis=1))
-    # control for lat lon cubic spline
-    df_sat.loc[:, 'RGB_mean_spline'] = control_for_spline(
-        x=df_sat['centroid_lon'].values,
-        y=df_sat['centroid_lat'].values,
-        z=df_sat['RGB_mean'].values,
-    )
-    # normalize
-    df_sat.loc[:, 'RGB_mean_spline'] = (
-        (df_sat['RGB_mean_spline'].values -
-         np.nanmean(df_sat['RGB_mean_spline'].values)) /
-        np.nanstd(df_sat['RGB_mean_spline'].values))
-    # convert unit
-    df_sat.loc[:, 'area'] *= ((0.001716 * 111000 / 800) ** 2)  # in sq meters
-
-    return df_sat
-
-
 def load_survey(SVY_IN_DIR):
     # load survey data
     df_svy = pd.read_stata(SVY_IN_DIR)
@@ -169,11 +147,11 @@ def load_survey(SVY_IN_DIR):
         df_svy['hhsize1_BL'].values /
         46.5)
     df_svy.loc[:, 'h1_10_housevalue_pc'] = (
-        df_svy['h1_10_housevalue'].values /
-        df_svy['hhsize1_BL'].values /
-        46.5)
-    df_svy.loc[:, 'h1_11_landvalue_pc'] = (
         df_svy['h1_10_housevalue_wins_PPP'].values /
+        df_svy['hhsize1_BL'].values
+    )
+    df_svy.loc[:, 'h1_11_landvalue_pc'] = (
+        df_svy['h1_11_landvalue_wins_PPP'].values /
         df_svy['hhsize1_BL'].values
     )
     df_svy.loc[:, 'assets_house_pc'] = (
@@ -181,8 +159,8 @@ def load_survey(SVY_IN_DIR):
         df_svy['hhsize1_BL'].values /
         46.5)
     df_svy.loc[:, 'assets_all_pc'] = (
-        (((df_svy['p1_assets'].values +
-           df_svy['h1_10_housevalue'].values) / 46.5) +
+        ((df_svy['p1_assets'].values / 46.5) +
+         df_svy['h1_11_landvalue_wins_PPP'].values +
          df_svy['h1_10_housevalue_wins_PPP'].values) /
         df_svy['hhsize1_BL'].values)
 
@@ -194,21 +172,6 @@ def load_survey(SVY_IN_DIR):
     )
     df_svy.loc[:, 'logwins_p1_assets_pc'] = winsorize(
         df_svy['p1_assets_pc'], 2.5, 97.5
-    ).apply(
-        lambda x: np.log(x) if x > 0 else np.nan
-    )
-    df_svy.loc[:, 'logwins_h1_10_housevalue_pc'] = winsorize(
-        df_svy['h1_10_housevalue_pc'], 2.5, 97.5
-    ).apply(
-        lambda x: np.log(x) if x > 0 else np.nan
-    )
-    df_svy.loc[:, 'logwins_h1_11_landvalue_pc'] = winsorize(
-        df_svy['h1_11_landvalue_pc'], 2.5, 97.5
-    ).apply(
-        lambda x: np.log(x) if x > 0 else np.nan
-    )
-    df_svy.loc[:, 'logwins_assets_house_pc'] = winsorize(
-        df_svy['assets_house_pc'], 2.5, 97.5
     ).apply(
         lambda x: np.log(x) if x > 0 else np.nan
     )
@@ -264,15 +227,32 @@ def match(
     df_circle = df.groupby('s1_hhid_key').agg(
         house_count=pd.NamedAgg(column='area', aggfunc='count'),
         area_sum=pd.NamedAgg(column='area', aggfunc='sum'),
-        RGB_mean=pd.NamedAgg(column='RGB_mean', aggfunc='mean'),
-        RGB_mean_spline=pd.NamedAgg(column='RGB_mean_spline', aggfunc='mean'),
+        # RGB_mean=pd.NamedAgg(column='RGB_mean', aggfunc='mean'),
+        # RGB_mean_spline=pd.NamedAgg(
+        #     column='RGB_mean_spline', aggfunc='mean'),
+        color_tin=pd.NamedAgg(column='color_tin', aggfunc='sum'),
+        color_thatched=pd.NamedAgg(column='color_thatched', aggfunc='sum'),
+        color_tin_area=pd.NamedAgg(column='color_tin_area', aggfunc='sum'),
+        color_thatched_area=pd.NamedAgg(
+            column='color_thatched_area', aggfunc='sum'),
     ).reset_index()
     df_circle = pd.merge(df_svy, df_circle, how='left', on=['s1_hhid_key'])
-    df_circle.fillna({'house_count': 0, 'area_sum': 0}, inplace=True)
+    df_circle.fillna(
+        {'house_count': 0, 'area_sum': 0, 'color_tin': 0,
+         'color_thatched': 0, 'color_tin_area': 0, 'color_thatched_area': 0},
+        inplace=True)
     df_circle.loc[:, 'area_sum_pc'] = (df_circle['area_sum'].values /
                                        df_circle['hhsize1_BL'].values)
+    df_circle.loc[:, 'color_tin_area_pc'] = (
+        df_circle['color_tin_area'].values /
+        df_circle['hhsize1_BL'].values)
     df_circle.loc[:, 'log1_area_sum_pc'] = df_circle['area_sum_pc'].apply(
         lambda x: np.log(x + 1) if x > 0 else np.nan
+    )
+    df_circle.loc[:, 'log1_color_tin_area_pc'] = (
+        df_circle['color_tin_area_pc'].apply(
+            lambda x: np.log(x + 1) if x > 0 else np.nan
+        )
     )
     return df_close, df_circle
 
@@ -288,7 +268,7 @@ if __name__ == '__main__':
     OUT_DIR = 'output/fig-engel'
 
     # load data
-    df_sat = load_satellite(SAT_IN_DIR)
+    df_sat = load_building(SAT_IN_DIR, grid=None, agg=False)
     df_svy = load_survey(SVY_IN_DIR)
 
     # match
@@ -357,11 +337,11 @@ if __name__ == '__main__':
     )
 
     plot(
-        df=df_close,
-        y='RGB_mean_spline',
+        df=df_circle,
+        y='color_tin_area_pc',
         y_ticks_l=[-.2, 0, .2, .4, .6],
         y_ticklabels_l=[-.2, 0, .2, .4, .6],
-        y_label_l='Normalized Roof Reflectance',
+        y_label_l='Tin-roof area per capita (sq meters)',
         y_ticks_r=[0, 2, 4],
         x='logwins_assets_all_pc',
         x_ticks=np.log([50, 100, 300, 1000, 3000]),
@@ -371,11 +351,11 @@ if __name__ == '__main__':
     )
 
     plot(
-        df=df_close,
-        y='RGB_mean_spline',
+        df=df_circle,
+        y='color_tin_area_pc',
         y_ticks_l=[-.1, 0, .1, .2, .3],
         y_ticklabels_l=[-.1, 0, .1, .2, .3],
-        y_label_l='Normalized Roof Reflectance',
+        y_label_l='Tin-roof area per capita (sq meters)',
         y_ticks_r=[-5, 0, 5, 10, 15, 20],
         x='logwins_p2_consumption_wins_pc',
         x_ticks=np.log([100, 300, 1000, 3000]),

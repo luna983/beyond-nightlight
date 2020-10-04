@@ -123,14 +123,19 @@ g_style <- ggplot2::theme_bw() +
 
 placebo <- F
 n_clusters <- 8
-folders <- c('nightlight/', 'building/', 'building/',
-             rep('building/', n_clusters))
+folders <- c('nightlight/', rep('building/', n_clusters + 8))
 col_ys <- c('nightlight', 'area_sum', 'RGB_mean_spline',
-            paste0('color_group_', 0:(n_clusters - 1)))
+            paste0('color_group_', 0:(n_clusters - 1)),
+            'tin_area_sum', 'thatched_area_sum',
+            'tin_count', 'thatched_count',
+            'tin_area_pct', 'tin_count_pct')
 titles <- c('Normalized Nightlight Values',
             'Building Footprint (sq meters)',
             'Normalized Roof Reflectance',
-            paste0('Color Group: ', 0:(n_clusters - 1)))
+            paste0('Color Group: ', 0:(n_clusters - 1)),
+            'tin_area_sum', 'thatched_area_sum',
+            'tin_count', 'thatched_count',
+            'tin_area_pct', 'tin_count_pct')
 # y_breaks <- list(c(-0.5, 0, 0.5), c(-50, -25, 0, 25, 50), c(-0.1, 0, 0.1))
 
 for (outcome_i in c(1:length(col_ys))) {
