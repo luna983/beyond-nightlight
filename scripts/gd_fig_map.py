@@ -1,18 +1,19 @@
 import os
+import numpy as np
 import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import shapely
 import shapely.geometry
 from descartes import PolygonPatch
-import matplotlib
 from matplotlib.colors import LinearSegmentedColormap
+import seaborn as sns
 
 from maskrcnn.postprocess.analysis import (
     load_gd_census, snap_to_grid, load_building)
 
 
-matplotlib.rc('pdf', fonttype=42)
+sns.set(style='ticks', font='Helvetica', font_scale=1)
 
 
 def plot(raster, file,
@@ -22,7 +23,7 @@ def plot(raster, file,
          add_polygons=None):
     outside = shapely.geometry.box(
         min_lon, min_lat, max_lon, max_lat).difference(bound)
-    fig, ax = plt.subplots(figsize=(16, 12))
+    fig, ax = plt.subplots(figsize=(8, 8))
     im = ax.imshow(raster,
                    extent=(min_lon, max_lon, min_lat, max_lat),
                    cmap=cmap, vmin=vmin, vmax=vmax)
@@ -55,10 +56,14 @@ grid = {
     'max_lon': 34.46,  # 34.450290
     'min_lat': -0.06,  # -0.048042
     'max_lat': 0.32,  # 0.317786
-    'step': 0.002,  # degrees
+    'step': 0.005,  # degrees
 }
 
-palette = ['#d7191c', '#fdae61', '#ffffbf', '#abd9e9', '#2c7bb6']
+palette = ['#820000', '#ea0000', '#fff4da', '#5d92c4', '#070490']
+cmap_break = np.linspace(0, 1, len(palette))
+cmap = LinearSegmentedColormap.from_list(
+    '', list(zip(cmap_break, palette[::-1])), N=10)
+cmap.set_bad('#ffffff')
 
 # load sample area / towns geometry
 bound, = gpd.read_file(IN_BOUND_DIR)['geometry']
@@ -82,16 +87,14 @@ df_treat = load_gd_census(
 #     axis=1)
 
 # plotting begins
-cmap = LinearSegmentedColormap.from_list(
-    '', [(0, '#bbbbbb'), (1, palette[0])], N=4)
-cmap.set_bad('#ffffff')
+
 # convert to raster
 raster = (df_raster['treat_eligible'].astype('float').values
                                      .reshape(grid_lon.shape)[::-1, :])
 plot(
     raster=raster,
     file=os.path.join(OUT_DIR, 'treat_eligible.pdf'),
-    cmap=cmap, vmin=0, vmax=3,
+    cmap=cmap, vmin=-9.9, vmax=10,
     bound=bound, **grid)
 
 # PLOT OUTCOMES
@@ -100,16 +103,11 @@ plot(
 (grid_lon, grid_lat), df_raster = load_building(IN_SAT_DIR, grid)
 
 # plotting begins
-for outcome, vmin, vmax, cmap_break in zip(
-    ['area_sum_pct', 'RGB_mean_spline'],  # outcome
-    [0, -1],  # vmin
-    [0.04, 1],  # vmax
-    [None, None],  # cmap_break
+for outcome, vmin, vmax in zip(
+    ['area_sum_pct', 'tin_area_sum_pct'],  # outcome
+    [0, 0],  # vmin
+    [0.04, 0.025],  # vmax
 ):
-    cmap_break = [0, .25, .5, .75, 1] if cmap_break is None else cmap_break
-    cmap = LinearSegmentedColormap.from_list(
-        '', list(zip(cmap_break, palette[::-1])), N=20)
-    cmap.set_bad('#ffffff')
     raster = df_raster[outcome].values.reshape(grid_lon.shape)[::-1, :]
     plot(
         raster=raster,

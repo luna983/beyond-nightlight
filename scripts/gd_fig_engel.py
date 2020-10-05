@@ -9,7 +9,8 @@ import scipy.spatial
 from skmisc.loess import loess
 
 from maskrcnn.postprocess.analysis import (
-    control_for_spline, winsorize, load_nightlight_from_point)
+    winsorize, load_nightlight_from_point,
+    load_building)
 
 
 np.random.seed(0)
@@ -20,8 +21,8 @@ def plot(df, y, x,
          x_ticks, x_ticklabels, y_ticks_l, y_ticklabels_l,
          y_ticks_r,
          treat='treat',
-         cmap={0: '#2c7bb6', 1: '#d7191c'},
-         method='loess',
+         cmap=None,
+         method='linear',
          x_label='', y_label_l='', y_label_r=''):
     loess_params = {'degree': 1}
     df_nona = df.dropna(subset=[x, y]).sort_values(by=x)
@@ -124,29 +125,6 @@ def plot(df, y, x,
     fig.savefig(os.path.join(OUT_DIR, f'{y}-{x}.pdf'))
 
 
-def load_satellite(SAT_IN_DIR):
-    # load satellite data
-    df_sat = pd.read_csv(SAT_IN_DIR)
-    # create new var: luminosity
-    df_sat.loc[:, 'RGB_mean'] = (df_sat.loc[:, ['R_mean', 'G_mean', 'B_mean']]
-                                       .mean(axis=1))
-    # control for lat lon cubic spline
-    df_sat.loc[:, 'RGB_mean_spline'] = control_for_spline(
-        x=df_sat['centroid_lon'].values,
-        y=df_sat['centroid_lat'].values,
-        z=df_sat['RGB_mean'].values,
-    )
-    # normalize
-    df_sat.loc[:, 'RGB_mean_spline'] = (
-        (df_sat['RGB_mean_spline'].values -
-         np.nanmean(df_sat['RGB_mean_spline'].values)) /
-        np.nanstd(df_sat['RGB_mean_spline'].values))
-    # convert unit
-    df_sat.loc[:, 'area'] *= ((0.001716 * 111000 / 800) ** 2)  # in sq meters
-
-    return df_sat
-
-
 def load_survey(SVY_IN_DIR):
     # load survey data
     df_svy = pd.read_stata(SVY_IN_DIR)
@@ -169,11 +147,11 @@ def load_survey(SVY_IN_DIR):
         df_svy['hhsize1_BL'].values /
         46.5)
     df_svy.loc[:, 'h1_10_housevalue_pc'] = (
-        df_svy['h1_10_housevalue'].values /
-        df_svy['hhsize1_BL'].values /
-        46.5)
-    df_svy.loc[:, 'h1_11_landvalue_pc'] = (
         df_svy['h1_10_housevalue_wins_PPP'].values /
+        df_svy['hhsize1_BL'].values
+    )
+    df_svy.loc[:, 'h1_11_landvalue_pc'] = (
+        df_svy['h1_11_landvalue_wins_PPP'].values /
         df_svy['hhsize1_BL'].values
     )
     df_svy.loc[:, 'assets_house_pc'] = (
@@ -181,8 +159,8 @@ def load_survey(SVY_IN_DIR):
         df_svy['hhsize1_BL'].values /
         46.5)
     df_svy.loc[:, 'assets_all_pc'] = (
-        (((df_svy['p1_assets'].values +
-           df_svy['h1_10_housevalue'].values) / 46.5) +
+        ((df_svy['p1_assets'].values / 46.5) +
+         df_svy['h1_11_landvalue_wins_PPP'].values +
          df_svy['h1_10_housevalue_wins_PPP'].values) /
         df_svy['hhsize1_BL'].values)
 
@@ -194,21 +172,6 @@ def load_survey(SVY_IN_DIR):
     )
     df_svy.loc[:, 'logwins_p1_assets_pc'] = winsorize(
         df_svy['p1_assets_pc'], 2.5, 97.5
-    ).apply(
-        lambda x: np.log(x) if x > 0 else np.nan
-    )
-    df_svy.loc[:, 'logwins_h1_10_housevalue_pc'] = winsorize(
-        df_svy['h1_10_housevalue_pc'], 2.5, 97.5
-    ).apply(
-        lambda x: np.log(x) if x > 0 else np.nan
-    )
-    df_svy.loc[:, 'logwins_h1_11_landvalue_pc'] = winsorize(
-        df_svy['h1_11_landvalue_pc'], 2.5, 97.5
-    ).apply(
-        lambda x: np.log(x) if x > 0 else np.nan
-    )
-    df_svy.loc[:, 'logwins_assets_house_pc'] = winsorize(
-        df_svy['assets_house_pc'], 2.5, 97.5
     ).apply(
         lambda x: np.log(x) if x > 0 else np.nan
     )
@@ -232,7 +195,8 @@ def load_survey(SVY_IN_DIR):
 
 def match(
     df_svy, df_sat,
-    radius=0.00045,  # = 50m
+    radius=0.0008,
+    # radius=0.00045,  # = 50m
     k=20,  # no. of nearest neighbors examined
 ):
     # match structures to households
@@ -254,32 +218,44 @@ def match(
     ], axis=1)
     df = df.sort_values(by=['s1_hhid_key', 'distance'])
 
-    # option A: take the closest structure
-    df_close = df.drop_duplicates(subset=['s1_hhid_key'], keep='first')
-    df_close = pd.merge(df_svy, df_close, how='left', on=['s1_hhid_key'])
-    df_close.loc[:, 'area_pc'] = (df_close['area'].values /
-                                  df_close['hhsize1_BL'].values)
-
-    # option B: take all the structures within the radius
+    # take all the structures within the radius
     df_circle = df.groupby('s1_hhid_key').agg(
         house_count=pd.NamedAgg(column='area', aggfunc='count'),
         area_sum=pd.NamedAgg(column='area', aggfunc='sum'),
-        RGB_mean=pd.NamedAgg(column='RGB_mean', aggfunc='mean'),
-        RGB_mean_spline=pd.NamedAgg(column='RGB_mean_spline', aggfunc='mean'),
+        # RGB_mean=pd.NamedAgg(column='RGB_mean', aggfunc='mean'),
+        # RGB_mean_spline=pd.NamedAgg(
+        #     column='RGB_mean_spline', aggfunc='mean'),
+        color_tin=pd.NamedAgg(column='color_tin', aggfunc='sum'),
+        color_thatched=pd.NamedAgg(column='color_thatched', aggfunc='sum'),
+        color_tin_area=pd.NamedAgg(column='color_tin_area', aggfunc='sum'),
+        color_thatched_area=pd.NamedAgg(
+            column='color_thatched_area', aggfunc='sum'),
     ).reset_index()
     df_circle = pd.merge(df_svy, df_circle, how='left', on=['s1_hhid_key'])
-    df_circle.fillna({'house_count': 0, 'area_sum': 0}, inplace=True)
+    df_circle.fillna(
+        {'house_count': 0, 'area_sum': 0, 'color_tin': 0,
+         'color_thatched': 0, 'color_tin_area': 0, 'color_thatched_area': 0},
+        inplace=True)
     df_circle.loc[:, 'area_sum_pc'] = (df_circle['area_sum'].values /
                                        df_circle['hhsize1_BL'].values)
+    df_circle.loc[:, 'color_tin_area_pc'] = (
+        df_circle['color_tin_area'].values /
+        df_circle['hhsize1_BL'].values)
     df_circle.loc[:, 'log1_area_sum_pc'] = df_circle['area_sum_pc'].apply(
         lambda x: np.log(x + 1) if x > 0 else np.nan
     )
-    return df_close, df_circle
+    df_circle.loc[:, 'log1_color_tin_area_pc'] = (
+        df_circle['color_tin_area_pc'].apply(
+            lambda x: np.log(x + 1) if x > 0 else np.nan
+        )
+    )
+    return df_circle
 
 
 if __name__ == '__main__':
 
-    palette = ['#d7191c', '#fdae61', '#ffffbf', '#abd9e9', '#2c7bb6']
+    palette = ['#820000', '#ea0000', '#fff4da', '#5d92c4', '#070490']
+    cmap = {0: palette[-1], 1: palette[0]}
 
     SVY_IN_DIR = 'data/External/GiveDirectly/GE_Luna_Extract_2020-07-27.dta'
     SAT_IN_DIR = 'data/Siaya/Merged/sat.csv'
@@ -288,50 +264,52 @@ if __name__ == '__main__':
     OUT_DIR = 'output/fig-engel'
 
     # load data
-    df_sat = load_satellite(SAT_IN_DIR)
+    df_sat = load_building(SAT_IN_DIR, grid=None, agg=False)
     df_svy = load_survey(SVY_IN_DIR)
 
     # match
-    df_close, df_circle = match(df_svy, df_sat)
+    df = match(df_svy, df_sat)
 
     # load nightlight
-    df_circle = load_nightlight_from_point(
-        df_circle, NL_IN_DIR,
+    df = load_nightlight_from_point(
+        df, NL_IN_DIR,
         lon_col='longitude', lat_col='latitude')
 
     # plotting begins
     plot(
-        df=df_circle,
+        df=df,
         y='sat_nightlight_winsnorm',
         y_ticks_l=[-1, 0, 1],
         y_ticklabels_l=[-1, 0, 1],
         y_label_l='Normalized Nightlight Values',
-        y_ticks_r=[-1, -0.5, 0, 0.5, 1],
+        y_ticks_r=[-0.2, 0, 0.2, 0.4, 0.6, 0.8],
         x='logwins_assets_all_pc',
         x_ticks=np.log([50, 100, 300, 1000, 3000]),
         x_ticklabels=[50, 100, 300, 1000, 3000],
         x_label='Assets per capita (USD PPP)',
         y_label_r='Effects on log(Assets per capita)',
+        cmap=cmap,
     )
 
     plot(
-        df=df_circle,
+        df=df,
         y='sat_nightlight_winsnorm',
         y_ticks_l=[-1, 0, 1],
         y_ticklabels_l=[-1, 0, 1],
         y_label_l='Normalized Nightlight Values',
-        y_ticks_r=[-1, -0.5, 0, 0.5, 1],
+        y_ticks_r=[-0.2, 0, 0.2, 0.4, 0.6, 0.8],
         x='logwins_p2_consumption_wins_pc',
         x_ticks=np.log([100, 300, 1000, 3000]),
         x_ticklabels=[100, 300, 1000, 3000],
         x_label='Consumption per capita (USD PPP)',
         y_label_r='Effects on log(Consumption per capita)',
+        cmap=cmap,
     )
 
     plot(
-        df=df_circle,
-        y='area_sum_pc',
-        y_ticks_l=[50, 100, 150],
+        df=df,
+        y='log1_area_sum_pc',
+        y_ticks_l=np.log([50, 100, 150]),
         y_ticklabels_l=[50, 100, 150],
         y_label_l='Building footprint per capita (sq meters)',
         y_ticks_r=[-0.2, 0, 0.2, 0.4, 0.6, 0.8],
@@ -340,46 +318,50 @@ if __name__ == '__main__':
         x_ticklabels=[50, 100, 300, 1000, 3000],
         x_label='Assets per capita (USD PPP)',
         y_label_r='Effects on log(Assets per capita)',
+        cmap=cmap,
     )
 
     plot(
-        df=df_circle,
-        y='area_sum_pc',
-        y_ticks_l=[50, 100, 150],
+        df=df,
+        y='log1_area_sum_pc',
+        y_ticks_l=np.log([50, 100, 150]),
         y_ticklabels_l=[50, 100, 150],
         y_label_l='Building footprint per capita (sq meters)',
-        y_ticks_r=[-0.2, 0, 0.2, 0.4, 0.6],
+        y_ticks_r=[-0.2, 0, 0.2, 0.4, 0.6, 0.8],
         x='logwins_p2_consumption_wins_pc',
         x_ticks=np.log([100, 300, 1000, 3000]),
         x_ticklabels=[100, 300, 1000, 3000],
         x_label='Consumption per capita (USD PPP)',
         y_label_r='Effects on log(Consumption per capita)',
+        cmap=cmap,
     )
 
     plot(
-        df=df_close,
-        y='RGB_mean_spline',
-        y_ticks_l=[-.2, 0, .2, .4, .6],
-        y_ticklabels_l=[-.2, 0, .2, .4, .6],
-        y_label_l='Normalized Roof Reflectance',
-        y_ticks_r=[0, 2, 4],
+        df=df,
+        y='log1_color_tin_area_pc',
+        y_ticks_l=np.log([50, 100]),
+        y_ticklabels_l=[50, 100],
+        y_label_l='Tin-roof area per capita (sq meters)',
+        y_ticks_r=[-0.2, 0, 0.2, 0.4, 0.6, 0.8],
         x='logwins_assets_all_pc',
         x_ticks=np.log([50, 100, 300, 1000, 3000]),
         x_ticklabels=[50, 100, 300, 1000, 3000],
         x_label='Assets per capita (USD PPP)',
         y_label_r='Effects on log(Assets per capita)',
+        cmap=cmap,
     )
 
     plot(
-        df=df_close,
-        y='RGB_mean_spline',
-        y_ticks_l=[-.1, 0, .1, .2, .3],
-        y_ticklabels_l=[-.1, 0, .1, .2, .3],
-        y_label_l='Normalized Roof Reflectance',
-        y_ticks_r=[-5, 0, 5, 10, 15, 20],
+        df=df,
+        y='log1_color_tin_area_pc',
+        y_ticks_l=np.log([50, 100]),
+        y_ticklabels_l=[50, 100],
+        y_label_l='Tin-roof area per capita (sq meters)',
+        y_ticks_r=[-0.2, 0, 0.2, 0.4, 0.6, 0.8],
         x='logwins_p2_consumption_wins_pc',
         x_ticks=np.log([100, 300, 1000, 3000]),
         x_ticklabels=[100, 300, 1000, 3000],
         x_label='Consumption per capita (USD PPP)',
         y_label_r='Effects on log(Consumption per capita)',
+        cmap=cmap,
     )

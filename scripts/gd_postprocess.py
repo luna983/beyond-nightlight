@@ -1,70 +1,26 @@
-import os
-import tempfile
-import glob
-import tqdm
 import pandas as pd
-import geopandas as gpd
+import skimage.color
+from sklearn.cluster import KMeans
+from maskrcnn.postprocess.analysis import winsorize
 
-from maskrcnn.postprocess.polygonize import load_ann
 
+IN_DIR = 'data/Siaya/Merged/sat_raw.csv'
+OUT_DIR = 'data/Siaya/Merged/sat.csv'
+K = 8  # number of clusters
 
-# AOI index data w/ georeferencing info
-AOI_IN_DIR = 'data/Siaya/Meta/aoi.csv'
-# download log data
-LOG_IN_DIR = 'data/Siaya/Meta/aoi_download_log.csv'
+df = pd.read_csv(IN_DIR)
+# variable selection
+df = df.loc[:, ['angle', 'R_mean', 'G_mean', 'B_mean',
+                'area', 'centroid_lon', 'centroid_lat']]
+# unit conversion, winsorize to reduce the influence of outliers
+df.loc[:, 'area'] *= ((0.001716 * 111000 / 800) ** 2)  # in sq meters
+df.loc[:, 'area'] = winsorize(df['area'], 1, 99)
 
-# satellite derived data
-SAT_IN_ANN_DIR = 'data/Siaya/Pred/infer/'
-SAT_IN_IMG_DIR = 'data/Siaya/Image/'
-SAT_OUT_GEOM_DIR = 'data/Siaya/Merged/sat.geojson'
-SAT_OUT_CSV_DIR = 'data/Siaya/Merged/sat.csv'
+# color grouping
+rgb = df.loc[:, ['R_mean', 'G_mean', 'B_mean']].values
+lab = skimage.color.rgb2lab(rgb)
+m = KMeans(n_clusters=K, random_state=0)
+m.fit(lab)
+df.loc[:, 'color_group'] = m.labels_
 
-# boundary
-BOUND_IN_DIR = 'data/External/GiveDirectly/figure2/SampleArea.shp'
-
-# read boundary shapefile
-bound, = gpd.read_file(BOUND_IN_DIR)['geometry']
-
-# read image index data frame
-df = pd.merge(pd.read_csv(AOI_IN_DIR),
-              pd.read_csv(LOG_IN_DIR).loc[:, 'index'],
-              how='right', on='index')
-# quick drop
-df = df.loc[df['lat_max'] >= bound.bounds[1]]
-df.set_index('index', inplace=True)
-
-# read sat annotations
-ann_files = glob.glob(SAT_IN_ANN_DIR + '*.json')
-img_files = [os.path.join(
-    SAT_IN_IMG_DIR,
-    (os.path.relpath(f, SAT_IN_ANN_DIR).replace('.json', '.png')))
-    for f in ann_files]
-
-with tempfile.TemporaryDirectory() as tmp_dir:
-    for ann_file, img_file in tqdm.tqdm(zip(ann_files, img_files)):
-        idx = os.path.basename(ann_file).split('.')[0]
-        if idx not in df.index:
-            print('skipped: ', idx)
-            continue
-        else:
-            extent = tuple(
-                df.loc[idx, ['lon_min', 'lat_min',
-                             'lon_max', 'lat_max']].values)
-        df_file = load_ann(ann_file=ann_file,
-                           img_file=img_file,
-                           extent=extent,
-                           out_dir=tmp_dir)
-
-    # collate all annotations
-    files = glob.glob(os.path.join(tmp_dir, '*.geojson'))
-    df_all = [gpd.read_file(file) for file in files]
-    df_all = pd.concat(df_all)
-    # drop outside geoms
-    # df_all = df_all.loc[df_all.geometry.intersects(bound), :]
-    df_all.to_file(SAT_OUT_GEOM_DIR, driver='GeoJSON', index=False)
-
-# save a csv for quick loading
-df_all.loc[:, 'centroid_lon'] = df_all.geometry.centroid.x.values
-df_all.loc[:, 'centroid_lat'] = df_all.geometry.centroid.y.values
-df_all = df_all.drop(columns=['geometry'])
-pd.DataFrame(df_all).to_csv(SAT_OUT_CSV_DIR, index=False)
+df.to_csv(OUT_DIR, index=False)

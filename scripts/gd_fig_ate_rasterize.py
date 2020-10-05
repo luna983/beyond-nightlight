@@ -10,7 +10,8 @@ from maskrcnn.postprocess.analysis import (
 np.random.seed(0)
 
 
-def merge_treatment(grid, df_sat, GPS_FILE, MASTER_FILE, OUT_DIR, N=200):
+def merge_treatment(grid, df_sat, GPS_FILE, MASTER_FILE,
+                    OUT_DIR, placebo=True, N=200):
     # load the data frame for treatment status
     print('Loading treatment data')
     df_treat_raw = load_gd_census(
@@ -36,6 +37,8 @@ def merge_treatment(grid, df_sat, GPS_FILE, MASTER_FILE, OUT_DIR, N=200):
     df.to_csv(os.path.join(OUT_DIR, 'main.csv'), index=False)
 
     # PLACEBO TEST
+    if not placebo:
+        return None
     for i_simu in range(N):
         # draw saturation level
         df_draw = pd.merge(
@@ -98,11 +101,13 @@ if __name__ == '__main__':
     merge_treatment(
         grid=grid, df_sat=df_sat,
         GPS_FILE=IN_CEN_GPS_DIR, MASTER_FILE=IN_CEN_MASTER_DIR,
-        OUT_DIR=os.path.join(OUT_DIR_ROOT, 'building'))
+        OUT_DIR=os.path.join(OUT_DIR_ROOT, 'building'),
+        placebo=True)
 
     # nightlight
     grid, df_sat = load_nightlight_asis(IN_SAT_NL_DIR)
     merge_treatment(
         grid=grid, df_sat=df_sat,
         GPS_FILE=IN_CEN_GPS_DIR, MASTER_FILE=IN_CEN_MASTER_DIR,
-        OUT_DIR=os.path.join(OUT_DIR_ROOT, 'nightlight'))
+        OUT_DIR=os.path.join(OUT_DIR_ROOT, 'nightlight'),
+        placebo=True)

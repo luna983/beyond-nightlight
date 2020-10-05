@@ -46,7 +46,11 @@ _Note that the replication of some of the analyses requires field data collected
 - `python scripts/gd_sample_for_annotation.py`: Randomly sample images from the downloaded data for annotation on [Supervisely](https://supervise.ly/). Save annotations in `data/Siaya/Mask/`.
 - `python scripts/gd_train.py`: Fine tune Mask R-CNN on in-sample annotations in rural Kenya. (Before running the script, copy `runs/run_01_PretrainPool/best_checkpoint.pth.tar` to `runs/run_02_Siaya/pretrained_checkpoint.pth.tar`.)
 - `python scripts/gd_infer.py`: Run inference to generate predictions on all the images in Siaya.
-- `python scripts/gd_postprocess.py`: Post-process inference results and collate into a geojson file.
+- `python scripts/gd_polygonize.py`: Collate the inference results into a geojson / csv file.
+- `python scripts/gd_postprocess.py`: Post-process the inference results csv file.
+
+To replicate `fig-colors` (roof color K-means clustering result)
+- `python gd_fig_colors`: Generate the raw figures.
 
 To replicate `fig-prcurve` (Precision-Recall curve)
 
