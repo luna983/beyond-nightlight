@@ -10,119 +10,115 @@ from skmisc.loess import loess
 
 from maskrcnn.postprocess.analysis import (
     winsorize, load_nightlight_from_point,
-    load_building)
+    load_building, load_gd_census)
 
 
 np.random.seed(0)
 sns.set(style='ticks', font='Helvetica', font_scale=1)
 
 
-def plot(df, y, x,
-         x_ticks, x_ticklabels, y_ticks_l, y_ticklabels_l,
-         y_ticks_r,
-         treat='treat',
-         cmap=None,
-         method='linear',
-         x_label='', y_label_l='', y_label_r=''):
-    loess_params = {'degree': 1}
-    df_nona = df.dropna(subset=[x, y]).sort_values(by=x)
-    # regression
-    results = smf.ols(y + ' ~ ' + treat, data=df_nona).fit()
-    y_coef = results.params[treat]
-    y_se = results.bse[treat]
-    # y_pvalue = results.pvalues[treat]
-    results = smf.ols(x + ' ~ ' + treat, data=df_nona).fit()
-    x_coef = results.params[treat]
-    x_se = results.bse[treat]
-    # x_pvalue = results.pvalues[treat]
-    results = sm.OLS(df_nona[y].values,
-                     sm.add_constant(df_nona[x].values)).fit()
-    scale = results.params[1]
-    scale_se = results.bse[1]
+def reg(df, y, x):
+    results = smf.ols(y + ' ~ ' + x, data=df.dropna(subset=[x, y])).fit()
+    beta = results.params[x]
+    se = results.bse[x]
+    return beta, se
+
+
+def compute_est(y_coef, y_se, scale, scale_se):
     # calculate estimated effect
     est = y_coef / scale
     est_se = np.sqrt((y_se / y_coef) ** 2 + (scale_se / scale) ** 2) * abs(est)
-    # make figure
-    fig, (ax0, ax1) = plt.subplots(ncols=2, figsize=(7, 4))
-    for cmap_value, cmap_color in cmap.items():
-        y_col = df_nona.loc[df_nona[treat] == cmap_value, y]
-        x_col = df_nona.loc[df_nona[treat] == cmap_value, x]
-        if method == 'loess':
-            m = loess(x_col, y_col, **loess_params)
-            m.fit()
-            pred = m.predict(x_col, stderror=True).confidence()
-            pred_fit = pred.fit
-            pred_lower, pred_upper = pred.lower, pred.upper
-        elif method == 'linear':
-            results = sm.OLS(y_col,
-                             sm.add_constant(x_col)).fit()
-            pred = results.get_prediction(sm.add_constant(x_col))
-            pred_fit = pred.predicted_mean
-            pred_lower, pred_upper = pred.conf_int().T
-        else:
-            raise NotImplementedError
-        ax0.plot(x_col, pred_fit, color=cmap_color, linewidth=2, alpha=0.8)
-        # ax0.fill_between(x_col, pred_lower, pred_upper,
-        #                  color=cmap_color, alpha=.2)
+    return est, est_se
+
+
+def plot_curve(ax, method, x_col, y_col, color='dimgrey', se=True, **kwargs):
     if method == 'loess':
-        m = loess(df_nona[x].values, df_nona[y].values, **loess_params)
+        m = loess(x_col, y_col, **kwargs)
         m.fit()
-        pred = m.predict(df_nona[x].values, stderror=True).confidence()
+        pred = m.predict(x_col, stderror=True).confidence()
         pred_fit = pred.fit
         pred_lower, pred_upper = pred.lower, pred.upper
     elif method == 'linear':
-        results = sm.OLS(df_nona[y].values,
-                         sm.add_constant(df_nona[x].values)).fit()
-        pred = results.get_prediction(sm.add_constant(df_nona[x].values))
+        X = sm.add_constant(x_col)
+        m = sm.OLS(y_col, X).fit()
+        pred = m.get_prediction(X)
         pred_fit = pred.predicted_mean
         pred_lower, pred_upper = pred.conf_int().T
     else:
         raise NotImplementedError
-    ax0.plot(df_nona[x].values, pred_fit,
-             color='dimgray', linewidth=1, alpha=0.4)
-    ax0.fill_between(df_nona[x].values, pred_lower, pred_upper,
-                     color='dimgray', alpha=.2)
-    ax0.set_title(
-        f'N = {df_nona.shape[0]}\n'
-        f'Observed effects: {x_coef:.4f}\n'
-        f'95% CI: [{x_coef - 1.96 * x_se:.4f}, {x_coef + 1.96 * x_se:.4f}]\n'
-        f'Estimated effects: {y_coef:.4f} / {scale:.4f} = {est:.4f}\n'
-        f'95% CI: [{est - 1.96 * est_se:.4f}, {est + 1.96 * est_se:.4f}]\n')
-    ax0.set_xlabel(x_label)
-    ax0.set_ylabel(y_label_l)
-    ax0.set_xticks(x_ticks)
-    ax0.set_xticklabels(x_ticklabels)
-    ax0.set_yticks(y_ticks_l)
-    ax0.set_yticklabels(y_ticklabels_l)
-    ax0.spines['left'].set_bounds(ax0.get_yticks()[0], ax0.get_yticks()[-1])
-    ax0.spines['left'].set_color('dimgray')
-    ax0.spines['bottom'].set_bounds(ax0.get_xticks()[0], ax0.get_xticks()[-1])
-    ax0.spines['bottom'].set_color('dimgray')
-    ax0.spines['right'].set_color('none')
-    ax0.spines['top'].set_color('none')
-    ax0.tick_params(axis='x', colors='dimgray')
-    ax0.tick_params(axis='y', colors='dimgray')
-    ax0.grid(False)
-    ax1.errorbar(0, est, yerr=1.96 * est_se, color='#d7191c',
-                 capsize=3, fmt='--o')
-    ax1.errorbar(1, x_coef, yerr=1.96 * x_se, color='#999999',
-                 capsize=3, fmt='--o')
-    ax1.set_xticks([0, 1])
-    ax1.set_xticklabels(['Estimated', 'Observed'])
-    ax1.set_yticks(y_ticks_r)
-    ax1.set_xlim(-0.5, 1.5)
-    ax1.set_ylim(y_ticks_r[0], y_ticks_r[-1])
-    ax1.set_ylabel(y_label_r)
-    ax1.spines['left'].set_bounds(ax1.get_yticks()[0], ax1.get_yticks()[-1])
-    ax1.spines['left'].set_color('dimgray')
-    ax1.spines['bottom'].set_color('none')
-    ax1.spines['right'].set_color('none')
-    ax1.spines['top'].set_color('none')
-    ax1.tick_params(axis='y', colors='dimgray')
-    ax1.tick_params(axis='x', color='none')
-    ax1.grid(False)
+    ax.plot(x_col, pred_fit,
+            color=color, linewidth=1, alpha=0.4)
+    if se:
+        ax.fill_between(x_col, pred_lower, pred_upper,
+                        color=color, alpha=.2)
+
+
+def plot_engel(df, y, x, treat='treat',
+               method='linear',
+               cmap=None,
+               x_label=None, y_label=None,
+               x_ticks=None, x_ticklabels=None,
+               y_ticks=None, y_ticklabels=None):
+
+    # make figure
+    fig, ax = plt.subplots(figsize=(4, 3))
+    df_nona = df.dropna(subset=[y, x]).sort_values(by=[x])
+    x_col = df_nona[x].values
+    y_col = df_nona[y].values
+    plot_curve(ax=ax, method=method, x_col=x_col, y_col=y_col,
+               color='dimgrey', se=True)
+    for color_key, df_group in df_nona.groupby(treat):
+        color = cmap[color_key]
+        x_col = df_group[x].values
+        y_col = df_group[y].values
+        plot_curve(ax=ax, method=method, x_col=x_col, y_col=y_col,
+                   color=color, se=False)
+    if x_label is not None:
+        ax.set_xlabel(x_label)
+    if y_label is not None:
+        ax.set_ylabel(y_label)
+    if x_ticks is not None:
+        ax.set_xticks(x_ticks)
+    if x_ticklabels is not None:
+        ax.set_xticklabels(x_ticklabels)
+    if y_ticks is not None:
+        ax.set_yticks(y_ticks)
+    if y_ticklabels is not None:
+        ax.set_yticklabels(y_ticklabels)
+    ax.spines['left'].set_bounds(ax.get_yticks()[0], ax.get_yticks()[-1])
+    ax.spines['left'].set_color('dimgray')
+    ax.spines['bottom'].set_bounds(ax.get_xticks()[0], ax.get_xticks()[-1])
+    ax.spines['bottom'].set_color('dimgray')
+    ax.spines['right'].set_color('none')
+    ax.spines['top'].set_color('none')
+    ax.tick_params(axis='x', colors='dimgray')
+    ax.tick_params(axis='y', colors='dimgray')
+    ax.grid(False)
     fig.tight_layout()
     fig.savefig(os.path.join(OUT_DIR, f'{y}-{x}.pdf'))
+
+
+def plot_est(y, labels, betas, ses, xticks=None):
+    fig, ax = plt.subplots(figsize=(8, 3))
+    ax.errorbar(
+        x=betas, y=range(len(betas)),
+        xerr=1.96 * np.array(ses), color='#999999',
+        capsize=3, fmt='o')
+    ax.set_yticks(range(len(betas)))
+    ax.set_yticklabels(labels)
+    ax.set_ylim(-0.5, len(betas) - 0.5)
+    if xticks is not None:
+        ax.set_xticks(xticks)
+        ax.spines['bottom'].set_bounds(ax.get_xticks()[0], ax.get_xticks()[-1])
+    ax.spines['bottom'].set_color('dimgray')
+    ax.spines['left'].set_color('none')
+    ax.spines['right'].set_color('none')
+    ax.spines['top'].set_color('none')
+    ax.tick_params(axis='x', colors='dimgray')
+    ax.tick_params(axis='y', color='none')
+    ax.grid(False)
+    fig.tight_layout()
+    fig.savefig(os.path.join(OUT_DIR, f'est_{y}.pdf'))
 
 
 def load_survey(SVY_IN_DIR):
@@ -194,62 +190,72 @@ def load_survey(SVY_IN_DIR):
 
 
 def match(
-    df_svy, df_sat,
-    radius=0.0008,
-    # radius=0.00045,  # = 50m
-    k=20,  # no. of nearest neighbors examined
+    df_cen, df_svy, df_sat,
+    radius=0.00045,  # = 50m
 ):
-    # match structures to households
-    # one structure is matched to one household at most
+    df_cen = df_cen.reset_index(drop=True)
+    df_cen.loc[:, 'census_id'] = df_cen.index
     tree = scipy.spatial.cKDTree(
-        df_svy.loc[:, ['longitude', 'latitude']].values)
-    dists, svy_idxes = tree.query(
-        df_sat.loc[:, ['centroid_lon', 'centroid_lat']].values, k=k)
-    rank, sat_idxes = np.meshgrid(range(k), range(df_sat.shape[0]))
-    assert (dists[:, -1] > radius).all(), 'increase k value'
-
-    svy_idxes = svy_idxes[dists < radius]
-    sat_idxes = sat_idxes[dists < radius]
-    df = pd.concat([
-        df_svy.loc[svy_idxes, ['s1_hhid_key']].reset_index(drop=True),
-        df_sat.loc[sat_idxes, :].reset_index(drop=True),
-        pd.DataFrame({'rank': rank[dists < radius],
-                      'distance': dists[dists < radius]}),
-    ], axis=1)
-    df = df.sort_values(by=['s1_hhid_key', 'distance'])
-
+        df_cen.loc[:, ['longitude', 'latitude']].values)
+    # match structures to households
+    dists, cen_idxes = tree.query(
+        df_sat.loc[:, ['centroid_lon', 'centroid_lat']].values, k=1)
+    df_sat.loc[:, 'dist'] = dists
+    df_sat.loc[:, 'census_id'] = cen_idxes
+    df_sat = df_sat.loc[df_sat['dist'] < radius, :]
     # take all the structures within the radius
-    df_circle = df.groupby('s1_hhid_key').agg(
+    df_sat = df_sat.groupby('census_id').agg(
         house_count=pd.NamedAgg(column='area', aggfunc='count'),
         area_sum=pd.NamedAgg(column='area', aggfunc='sum'),
-        # RGB_mean=pd.NamedAgg(column='RGB_mean', aggfunc='mean'),
-        # RGB_mean_spline=pd.NamedAgg(
-        #     column='RGB_mean_spline', aggfunc='mean'),
         color_tin=pd.NamedAgg(column='color_tin', aggfunc='sum'),
         color_thatched=pd.NamedAgg(column='color_thatched', aggfunc='sum'),
         color_tin_area=pd.NamedAgg(column='color_tin_area', aggfunc='sum'),
         color_thatched_area=pd.NamedAgg(
             column='color_thatched_area', aggfunc='sum'),
     ).reset_index()
-    df_circle = pd.merge(df_svy, df_circle, how='left', on=['s1_hhid_key'])
-    df_circle.fillna(
+    # match surveys to households
+    dists, cen_idxes = tree.query(
+        df_svy.loc[:, ['longitude', 'latitude']].values, k=1)
+    df_svy.loc[:, 'dist'] = dists
+    df_svy.loc[:, 'census_id'] = cen_idxes
+    df_svy = df_svy.loc[df_svy['dist'] < radius, :]
+    df_svy = df_svy.sort_values(by=['census_id', 'dist'])
+    df_svy = df_svy.drop_duplicates(subset=['census_id'], keep='first')
+    # merge
+    df = pd.merge(
+        df_cen.loc[:, ['census_id', 'treat', 'eligible',
+                       'longitude', 'latitude']],
+        df_sat.loc[:, ['census_id', 'house_count', 'area_sum',
+                       'color_tin', 'color_thatched',
+                       'color_tin_area', 'color_thatched_area']],
+        how='left', on='census_id',
+    )
+    df.fillna(
         {'house_count': 0, 'area_sum': 0, 'color_tin': 0,
          'color_thatched': 0, 'color_tin_area': 0, 'color_thatched_area': 0},
         inplace=True)
-    df_circle.loc[:, 'area_sum_pc'] = (df_circle['area_sum'].values /
-                                       df_circle['hhsize1_BL'].values)
-    df_circle.loc[:, 'color_tin_area_pc'] = (
-        df_circle['color_tin_area'].values /
-        df_circle['hhsize1_BL'].values)
-    df_circle.loc[:, 'log1_area_sum_pc'] = df_circle['area_sum_pc'].apply(
+    df = pd.merge(
+        df,
+        df_svy.loc[:, ['census_id', 's1_hhid_key',
+                       'hhsize1_BL', 'logwins_p2_consumption_wins_pc',
+                       'logwins_assets_all_pc']],
+        how='left', on='census_id',
+    )
+
+    df.loc[:, 'area_sum_pc'] = (
+        df['area_sum'].values / df['hhsize1_BL'].values)
+    df.loc[:, 'color_tin_area_pc'] = (
+        df['color_tin_area'].values /
+        df['hhsize1_BL'].values)
+    df.loc[:, 'log1_area_sum_pc'] = df['area_sum_pc'].apply(
         lambda x: np.log(x + 1) if x > 0 else np.nan
     )
-    df_circle.loc[:, 'log1_color_tin_area_pc'] = (
-        df_circle['color_tin_area_pc'].apply(
+    df.loc[:, 'log1_color_tin_area_pc'] = (
+        df['color_tin_area_pc'].apply(
             lambda x: np.log(x + 1) if x > 0 else np.nan
         )
     )
-    return df_circle
+    return df
 
 
 if __name__ == '__main__':
@@ -260,15 +266,22 @@ if __name__ == '__main__':
     SVY_IN_DIR = 'data/External/GiveDirectly/GE_Luna_Extract_2020-07-27.dta'
     SAT_IN_DIR = 'data/Siaya/Merged/sat.csv'
     NL_IN_DIR = 'data/External/Nightlight/VIIRS_DNB_KE_2019.tif'
-
+    IN_CENSUS_GPS_DIR = ('data/External/GiveDirectly/'
+                         'GE_HH_Census_2017-07-17_cleanGPS.csv')
+    IN_CENSUS_MASTER_DIR = (
+        'data/External/GiveDirectly/GE_HH-Census_Analysis_RA_2017-07-17.dta')
     OUT_DIR = 'output/fig-engel'
 
     # load data
     df_sat = load_building(SAT_IN_DIR, grid=None, agg=False)
     df_svy = load_survey(SVY_IN_DIR)
+    df_cen = load_gd_census(
+        GPS_FILE=IN_CENSUS_GPS_DIR, MASTER_FILE=IN_CENSUS_MASTER_DIR)
 
     # match
-    df = match(df_svy, df_sat)
+    df = match(df_cen, df_svy, df_sat)
+    df = df.loc[df['eligible'] == 1, :]
+    df.loc[:, 'treat'] = df['treat'].astype(float)
 
     # load nightlight
     df = load_nightlight_from_point(
@@ -276,92 +289,57 @@ if __name__ == '__main__':
         lon_col='longitude', lat_col='latitude')
 
     # plotting begins
-    plot(
-        df=df,
-        y='sat_nightlight_winsnorm',
-        y_ticks_l=[-1, 0, 1],
-        y_ticklabels_l=[-1, 0, 1],
-        y_label_l='Normalized Nightlight Values',
-        y_ticks_r=[-0.2, 0, 0.2, 0.4, 0.6, 0.8],
-        x='logwins_assets_all_pc',
-        x_ticks=np.log([50, 100, 300, 1000, 3000]),
-        x_ticklabels=[50, 100, 300, 1000, 3000],
-        x_label='Assets per capita (USD PPP)',
-        y_label_r='Effects on log(Assets per capita)',
-        cmap=cmap,
-    )
+    ys = ['sat_nightlight_winsnorm',
+          'log1_area_sum_pc',
+          'log1_color_tin_area_pc']
+    y_labels = ['Normalized Nightlight Values',
+                'Building footprint per capita (sq meters)',
+                'Tin-roof area per capita (sq meters)']
+    y_ticks = [[-1, 0, 1],
+               np.log(np.array([10, 30, 50, 70]) + 1),
+               np.log(np.array([10, 30, 50, 70]) + 1)]
+    y_ticklabels = [None,
+                    [10, 30, 50, 70],
+                    [10, 30, 50, 70]]
+    xs = ['logwins_assets_all_pc',
+          'logwins_p2_consumption_wins_pc']
+    x_labels = ['Assets per capita (USD PPP)',
+                'Consumption per capita (USD PPP)']
+    x_ticks = [np.log([300, 1000, 3000, 8000]),
+               np.log([100, 300, 1000, 3000])]
+    x_ticklabels = [[300, 1000, 3000, 8000],
+                    [100, 300, 1000, 3000]]
 
-    plot(
-        df=df,
-        y='sat_nightlight_winsnorm',
-        y_ticks_l=[-1, 0, 1],
-        y_ticklabels_l=[-1, 0, 1],
-        y_label_l='Normalized Nightlight Values',
-        y_ticks_r=[-0.2, 0, 0.2, 0.4, 0.6, 0.8],
-        x='logwins_p2_consumption_wins_pc',
-        x_ticks=np.log([100, 300, 1000, 3000]),
-        x_ticklabels=[100, 300, 1000, 3000],
-        x_label='Consumption per capita (USD PPP)',
-        y_label_r='Effects on log(Consumption per capita)',
-        cmap=cmap,
-    )
-
-    plot(
-        df=df,
-        y='log1_area_sum_pc',
-        y_ticks_l=np.log([50, 100, 150]),
-        y_ticklabels_l=[50, 100, 150],
-        y_label_l='Building footprint per capita (sq meters)',
-        y_ticks_r=[-0.2, 0, 0.2, 0.4, 0.6, 0.8],
-        x='logwins_assets_all_pc',
-        x_ticks=np.log([50, 100, 300, 1000, 3000]),
-        x_ticklabels=[50, 100, 300, 1000, 3000],
-        x_label='Assets per capita (USD PPP)',
-        y_label_r='Effects on log(Assets per capita)',
-        cmap=cmap,
-    )
-
-    plot(
-        df=df,
-        y='log1_area_sum_pc',
-        y_ticks_l=np.log([50, 100, 150]),
-        y_ticklabels_l=[50, 100, 150],
-        y_label_l='Building footprint per capita (sq meters)',
-        y_ticks_r=[-0.2, 0, 0.2, 0.4, 0.6, 0.8],
-        x='logwins_p2_consumption_wins_pc',
-        x_ticks=np.log([100, 300, 1000, 3000]),
-        x_ticklabels=[100, 300, 1000, 3000],
-        x_label='Consumption per capita (USD PPP)',
-        y_label_r='Effects on log(Consumption per capita)',
-        cmap=cmap,
-    )
-
-    plot(
-        df=df,
-        y='log1_color_tin_area_pc',
-        y_ticks_l=np.log([50, 100]),
-        y_ticklabels_l=[50, 100],
-        y_label_l='Tin-roof area per capita (sq meters)',
-        y_ticks_r=[-0.2, 0, 0.2, 0.4, 0.6, 0.8],
-        x='logwins_assets_all_pc',
-        x_ticks=np.log([50, 100, 300, 1000, 3000]),
-        x_ticklabels=[50, 100, 300, 1000, 3000],
-        x_label='Assets per capita (USD PPP)',
-        y_label_r='Effects on log(Assets per capita)',
-        cmap=cmap,
-    )
-
-    plot(
-        df=df,
-        y='log1_color_tin_area_pc',
-        y_ticks_l=np.log([50, 100]),
-        y_ticklabels_l=[50, 100],
-        y_label_l='Tin-roof area per capita (sq meters)',
-        y_ticks_r=[-0.2, 0, 0.2, 0.4, 0.6, 0.8],
-        x='logwins_p2_consumption_wins_pc',
-        x_ticks=np.log([100, 300, 1000, 3000]),
-        x_ticklabels=[100, 300, 1000, 3000],
-        x_label='Consumption per capita (USD PPP)',
-        y_label_r='Effects on log(Consumption per capita)',
-        cmap=cmap,
-    )
+    for x, x_label, x_tick, x_ticklabel in zip(
+        xs, x_labels, x_ticks, x_ticklabels
+    ):
+        est_labels = []
+        est_betas = []
+        est_ses = []
+        obs, obs_se = reg(df, x, 'treat')
+        est_labels.append('Observed')
+        est_betas.append(obs)
+        est_ses.append(obs_se)
+        for y, y_label, y_tick, y_ticklabel in zip(
+            ys, y_labels, y_ticks, y_ticklabels
+        ):
+            plot_engel(
+                df=df,
+                y=y,
+                y_ticks=y_tick,
+                y_ticklabels=y_ticklabel,
+                y_label=y_label,
+                x=x,
+                x_ticks=x_tick,
+                x_ticklabels=x_ticklabel,
+                x_label=x_label,
+                cmap=cmap,
+            )
+            y_coef, y_se = reg(df, y, 'treat')
+            scale, scale_se = reg(df, y, x)
+            est, est_se = compute_est(y_coef, y_se, scale, scale_se)
+            est_labels.append(y_label)
+            est_betas.append(est)
+            est_ses.append(est_se)
+        plot_est(y=x, labels=est_labels, betas=est_betas, ses=est_ses,
+                 xticks=[-0.5, 0, 0.5, 1])
