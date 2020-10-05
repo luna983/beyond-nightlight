@@ -345,7 +345,7 @@ if __name__ == '__main__':
     # massive plotting begins
     sat_cols = [col for col in df.columns if col.startswith('sat')]
     cen_cols = [col for col in df.columns if col.startswith('cen')]
-    for f in glob.glob(os.path.join(OUT_DIR, 'all/*.pdf')):
+    for f in glob.glob(os.path.join(OUT_DIR, 'archive/*.pdf')):
         os.remove(f)
     for sat_col in sat_cols:
         for cen_col in cen_cols:
