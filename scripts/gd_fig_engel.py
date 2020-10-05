@@ -21,8 +21,8 @@ def plot(df, y, x,
          x_ticks, x_ticklabels, y_ticks_l, y_ticklabels_l,
          y_ticks_r,
          treat='treat',
-         cmap={0: '#2c7bb6', 1: '#d7191c'},
-         method='loess',
+         cmap=None,
+         method='linear',
          x_label='', y_label_l='', y_label_r=''):
     loess_params = {'degree': 1}
     df_nona = df.dropna(subset=[x, y]).sort_values(by=x)
@@ -218,13 +218,7 @@ def match(
     ], axis=1)
     df = df.sort_values(by=['s1_hhid_key', 'distance'])
 
-    # option A: take the closest structure
-    df_close = df.drop_duplicates(subset=['s1_hhid_key'], keep='first')
-    df_close = pd.merge(df_svy, df_close, how='left', on=['s1_hhid_key'])
-    df_close.loc[:, 'area_pc'] = (df_close['area'].values /
-                                  df_close['hhsize1_BL'].values)
-
-    # option B: take all the structures within the radius
+    # take all the structures within the radius
     df_circle = df.groupby('s1_hhid_key').agg(
         house_count=pd.NamedAgg(column='area', aggfunc='count'),
         area_sum=pd.NamedAgg(column='area', aggfunc='sum'),
@@ -255,12 +249,13 @@ def match(
             lambda x: np.log(x + 1) if x > 0 else np.nan
         )
     )
-    return df_close, df_circle
+    return df_circle
 
 
 if __name__ == '__main__':
 
-    palette = ['#d7191c', '#fdae61', '#ffffbf', '#abd9e9', '#2c7bb6']
+    palette = ['#820000', '#ea0000', '#fff4da', '#5d92c4', '#070490']
+    cmap = {0: palette[-1], 1: palette[0]}
 
     SVY_IN_DIR = 'data/External/GiveDirectly/GE_Luna_Extract_2020-07-27.dta'
     SAT_IN_DIR = 'data/Siaya/Merged/sat.csv'
@@ -273,16 +268,16 @@ if __name__ == '__main__':
     df_svy = load_survey(SVY_IN_DIR)
 
     # match
-    df_close, df_circle = match(df_svy, df_sat)
+    df = match(df_svy, df_sat)
 
     # load nightlight
-    df_circle = load_nightlight_from_point(
-        df_circle, NL_IN_DIR,
+    df = load_nightlight_from_point(
+        df, NL_IN_DIR,
         lon_col='longitude', lat_col='latitude')
 
     # plotting begins
     plot(
-        df=df_circle,
+        df=df,
         y='sat_nightlight_winsnorm',
         y_ticks_l=[-1, 0, 1],
         y_ticklabels_l=[-1, 0, 1],
@@ -293,10 +288,11 @@ if __name__ == '__main__':
         x_ticklabels=[50, 100, 300, 1000, 3000],
         x_label='Assets per capita (USD PPP)',
         y_label_r='Effects on log(Assets per capita)',
+        cmap=cmap,
     )
 
     plot(
-        df=df_circle,
+        df=df,
         y='sat_nightlight_winsnorm',
         y_ticks_l=[-1, 0, 1],
         y_ticklabels_l=[-1, 0, 1],
@@ -307,12 +303,13 @@ if __name__ == '__main__':
         x_ticklabels=[100, 300, 1000, 3000],
         x_label='Consumption per capita (USD PPP)',
         y_label_r='Effects on log(Consumption per capita)',
+        cmap=cmap,
     )
 
     plot(
-        df=df_circle,
-        y='area_sum_pc',
-        y_ticks_l=[50, 100, 150],
+        df=df,
+        y='log1_area_sum_pc',
+        y_ticks_l=np.log([50, 100, 150]),
         y_ticklabels_l=[50, 100, 150],
         y_label_l='Building footprint per capita (sq meters)',
         y_ticks_r=[-0.2, 0, 0.2, 0.4, 0.6, 0.8],
@@ -321,12 +318,13 @@ if __name__ == '__main__':
         x_ticklabels=[50, 100, 300, 1000, 3000],
         x_label='Assets per capita (USD PPP)',
         y_label_r='Effects on log(Assets per capita)',
+        cmap=cmap,
     )
 
     plot(
-        df=df_circle,
-        y='area_sum_pc',
-        y_ticks_l=[50, 100, 150],
+        df=df,
+        y='log1_area_sum_pc',
+        y_ticks_l=np.log([50, 100, 150]),
         y_ticklabels_l=[50, 100, 150],
         y_label_l='Building footprint per capita (sq meters)',
         y_ticks_r=[-0.2, 0, 0.2, 0.4, 0.6, 0.8],
@@ -335,13 +333,14 @@ if __name__ == '__main__':
         x_ticklabels=[100, 300, 1000, 3000],
         x_label='Consumption per capita (USD PPP)',
         y_label_r='Effects on log(Consumption per capita)',
+        cmap=cmap,
     )
 
     plot(
-        df=df_circle,
-        y='color_tin_area_pc',
-        y_ticks_l=[0, 50, 100],
-        y_ticklabels_l=[0, 50, 100],
+        df=df,
+        y='log1_color_tin_area_pc',
+        y_ticks_l=np.log([50, 100]),
+        y_ticklabels_l=[50, 100],
         y_label_l='Tin-roof area per capita (sq meters)',
         y_ticks_r=[-0.2, 0, 0.2, 0.4, 0.6, 0.8],
         x='logwins_assets_all_pc',
@@ -349,13 +348,14 @@ if __name__ == '__main__':
         x_ticklabels=[50, 100, 300, 1000, 3000],
         x_label='Assets per capita (USD PPP)',
         y_label_r='Effects on log(Assets per capita)',
+        cmap=cmap,
     )
 
     plot(
-        df=df_circle,
-        y='color_tin_area_pc',
-        y_ticks_l=[0, 50, 100],
-        y_ticklabels_l=[0, 50, 100],
+        df=df,
+        y='log1_color_tin_area_pc',
+        y_ticks_l=np.log([50, 100]),
+        y_ticklabels_l=[50, 100],
         y_label_l='Tin-roof area per capita (sq meters)',
         y_ticks_r=[-0.2, 0, 0.2, 0.4, 0.6, 0.8],
         x='logwins_p2_consumption_wins_pc',
@@ -363,4 +363,5 @@ if __name__ == '__main__':
         x_ticklabels=[100, 300, 1000, 3000],
         x_label='Consumption per capita (USD PPP)',
         y_label_r='Effects on log(Consumption per capita)',
+        cmap=cmap,
     )

@@ -265,10 +265,13 @@ def load_building(input_dir, grid, agg=True):
         df['house_count'] == 0).values.astype(np.float)
     df.loc[:, 'area_sum_pct'] = (
         df['area_sum'].values / ((grid['step'] * 111000) ** 2))
+
     df.loc[:, 'tin_count_pct'] = (
         df['tin_count'].values / df['house_count'].values)
     df.loc[:, 'tin_area_pct'] = (
         df['tin_area_sum'].values / df['area_sum'].values)
+    df.loc[:, 'tin_area_sum_pct'] = (
+        df['tin_area_sum'].values / ((grid['step'] * 111000) ** 2))
     # recover lon, lat
     df.loc[:, 'lon'] = (
         df['grid_lon'] * grid['step'] + grid['min_lon'] + grid['step'] / 2)

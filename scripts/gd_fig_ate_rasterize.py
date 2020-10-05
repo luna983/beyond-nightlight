@@ -102,7 +102,7 @@ if __name__ == '__main__':
         grid=grid, df_sat=df_sat,
         GPS_FILE=IN_CEN_GPS_DIR, MASTER_FILE=IN_CEN_MASTER_DIR,
         OUT_DIR=os.path.join(OUT_DIR_ROOT, 'building'),
-        placebo=False)
+        placebo=True)
 
     # nightlight
     grid, df_sat = load_nightlight_asis(IN_SAT_NL_DIR)
@@ -110,4 +110,4 @@ if __name__ == '__main__':
         grid=grid, df_sat=df_sat,
         GPS_FILE=IN_CEN_GPS_DIR, MASTER_FILE=IN_CEN_MASTER_DIR,
         OUT_DIR=os.path.join(OUT_DIR_ROOT, 'nightlight'),
-        placebo=False)
+        placebo=True)
