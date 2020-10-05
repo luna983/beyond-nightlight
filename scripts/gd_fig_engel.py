@@ -18,7 +18,9 @@ sns.set(style='ticks', font='Helvetica', font_scale=1)
 
 
 def reg(df, y, x):
-    results = smf.ols(y + ' ~ ' + x, data=df.dropna(subset=[x, y])).fit()
+    df_nona = df.dropna(subset=[x, y])
+    print(f'y: {y}, x: {x}, N = {df_nona.shape[0]}')
+    results = smf.ols(y + ' ~ ' + x, data=df_nona).fit()
     beta = results.params[x]
     se = results.bse[x]
     return beta, se
@@ -109,6 +111,7 @@ def plot_est(y, labels, betas, ses, xticks=None):
     ax.set_ylim(-0.5, len(betas) - 0.5)
     if xticks is not None:
         ax.set_xticks(xticks)
+        ax.set_xlim(xticks[0], xticks[-1])
         ax.spines['bottom'].set_bounds(ax.get_xticks()[0], ax.get_xticks()[-1])
     ax.spines['bottom'].set_color('dimgray')
     ax.spines['left'].set_color('none')
@@ -182,8 +185,8 @@ def load_survey(SVY_IN_DIR):
                   .notna().all().all())
 
     # subset to eligible sample
-    df_svy = (df_svy.loc[df_svy['h1_6_nonthatchedroof_BL'] == 0, :]
-                    .reset_index(drop=True).copy())
+    # df_svy = (df_svy.loc[df_svy['h1_6_nonthatchedroof_BL'] == 0, :]
+    #                 .reset_index(drop=True).copy())
     print('Observations in final sample: ', df_svy.shape[0])
 
     return df_svy
@@ -255,6 +258,15 @@ def match(
             lambda x: np.log(x + 1) if x > 0 else np.nan
         )
     )
+    df.loc[:, 'log1_area_sum'] = df['area_sum'].apply(
+        lambda x: np.log(x + 1) if x > 0 else np.nan
+    )
+    df.loc[:, 'log1_color_tin_area'] = (
+        df['color_tin_area'].apply(
+            lambda x: np.log(x + 1) if x > 0 else np.nan
+        )
+    )
+    print(df.describe().T)
     return df
 
 
@@ -280,7 +292,6 @@ if __name__ == '__main__':
 
     # match
     df = match(df_cen, df_svy, df_sat)
-    df = df.loc[df['eligible'] == 1, :]
     df.loc[:, 'treat'] = df['treat'].astype(float)
 
     # load nightlight
@@ -292,7 +303,7 @@ if __name__ == '__main__':
     ys = ['sat_nightlight_winsnorm',
           'log1_area_sum_pc',
           'log1_color_tin_area_pc']
-    y_labels = ['Normalized Nightlight Values',
+    y_labels = ['Normalized nightlight values',
                 'Building footprint per capita (sq meters)',
                 'Tin-roof area per capita (sq meters)']
     y_ticks = [[-1, 0, 1],
@@ -316,7 +327,7 @@ if __name__ == '__main__':
         est_labels = []
         est_betas = []
         est_ses = []
-        obs, obs_se = reg(df, x, 'treat')
+        obs, obs_se = reg(df.loc[df['eligible'] == 1, :], x, 'treat')
         est_labels.append('Observed')
         est_betas.append(obs)
         est_ses.append(obs_se)
@@ -335,9 +346,13 @@ if __name__ == '__main__':
                 x_label=x_label,
                 cmap=cmap,
             )
-            y_coef, y_se = reg(df, y, 'treat')
+            y_coef, y_se = reg(df.loc[df['eligible'] == 1, :], y, 'treat')
             scale, scale_se = reg(df, y, x)
             est, est_se = compute_est(y_coef, y_se, scale, scale_se)
+            print(f'y: {y}, x: {x}')
+            print(f'{est:.3f}, {est_se:.3f} = '
+                  f'compute_est({y_coef:.3f}, {y_se:.3f}, '
+                  f'{scale:.3f}, {scale_se:.3f})')
             est_labels.append(y_label)
             est_betas.append(est)
             est_ses.append(est_se)
