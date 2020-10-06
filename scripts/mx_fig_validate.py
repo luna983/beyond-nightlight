@@ -11,7 +11,7 @@ from skmisc.loess import loess
 from maskrcnn.postprocess.analysis import winsorize, load_nightlight_from_point
 
 
-sns.set(font='Helvetica', font_scale=1)
+sns.set(style='ticks', font='Helvetica', font_scale=1)
 
 
 def plot_scatter(col_x_key, col_y_key, col_x_label, col_y_label, df, out_dir,
@@ -51,7 +51,10 @@ def plot_scatter(col_x_key, col_y_key, col_x_label, col_y_label, df, out_dir,
     fig, ax = plt.subplots(figsize=figsize)
     x = transform_x(cols[:, 0])
     y = transform_y(cols[:, 1])
-    ax.plot(x, y, marker='o', color='slategrey', linestyle='None', alpha=alpha)
+    ax.plot(x, y,
+            markeredgecolor='none',
+            marker='o', color='dimgrey',
+            linestyle='None', alpha=alpha)
     if line:
         m = loess(x, y)
         m.fit()
@@ -63,7 +66,7 @@ def plot_scatter(col_x_key, col_y_key, col_x_label, col_y_label, df, out_dir,
     if square:
         ax.axis('square')
         ax.plot(xlim, ylim, '--', color='gray', linewidth=2)
-    ax.set_title(f'Pearson: {pcorr:.2f}; Spearman: {scorr:.2f}')
+    ax.set_title(f'Pearson: {pcorr:.2f}')
     ax.set_xlabel(col_x_label)
     ax.set_ylabel(col_y_label)
     if xlim is not None:
@@ -89,13 +92,19 @@ def plot_scatter(col_x_key, col_y_key, col_x_label, col_y_label, df, out_dir,
             scorr, _ = spearmanr(g.iloc[:, 0].values, g.iloc[:, 1].values)
             x_pos = np.mean([bins[i], bins[i + 1]])
             ax.text(x_pos, y_pos,
-                    f'Pearson: {pcorr:.2f}; Spearman: {scorr:.2f}')
+                    f'Pearson: {pcorr:.2f}')
         for b in bins[1:-1]:
             ax.plot([b, b], [ymin, ymax], '-', color='gray', linewidth=1)
-    ax.set_frame_on(False)
-    ax.tick_params(top=False, bottom=False, left=False, right=False)
-    ax.grid()
-    plt.tight_layout()
+    ax.spines['left'].set_bounds(ax.get_yticks()[0], ax.get_yticks()[-1])
+    ax.spines['left'].set_color('dimgray')
+    ax.spines['bottom'].set_bounds(ax.get_xticks()[0], ax.get_xticks()[-1])
+    ax.spines['bottom'].set_color('dimgray')
+    ax.spines['right'].set_color('none')
+    ax.spines['top'].set_color('none')
+    ax.tick_params(axis='x', colors='dimgray')
+    ax.tick_params(axis='y', colors='dimgray')
+    ax.grid(False)
+    fig.tight_layout()
     fig.savefig(os.path.join(
         out_dir, '{}_vs_{}.pdf'.format(col_x_key, col_y_key)))
     if show:
@@ -247,13 +256,13 @@ if __name__ == '__main__':
     # plotting begins
     plot_scatter(
         col_x_key='cen_pop',
-        col_x_label='Census: Population Count',
+        col_x_label='Census: Population Size',
         transform_x=lambda x: np.log10(x + 1),
         xlim=(np.log10(2 + 1), np.log10(3000 + 1)),
         xticks=[np.log10(10 + 1), np.log10(100 + 1), np.log10(1000 + 1)],
         xticklabels=[10, 100, 1000],
         col_y_key='sat_house',
-        col_y_label='Satellite: House Count',
+        col_y_label='Satellite: Number of Houses',
         transform_y=lambda x: np.log10(x + 1),
         ylim=(np.log10(0.5 + 1), np.log10(1500 + 1)),
         yticks=[np.log10(1 + 1), np.log10(10 + 1),
@@ -267,7 +276,7 @@ if __name__ == '__main__':
         xlim=(-1.6, 1.6),
         xticks=[-1, 0, 1],
         col_y_key='sat_size_mean',
-        col_y_label='Satellite: Mean House Size\n(sq meters)',
+        col_y_label='Satellite: Average House Size\n(sq meters)',
         ylim=(-1, 220),
         yticks=[0, 100, 200],
         line=True, df=df, out_dir=OUT_DIR, show=True)
@@ -278,20 +287,20 @@ if __name__ == '__main__':
         xlim=(-1.25, 1.25),
         xticks=[-1, 0, 1],
         col_y_key='sat_size_mean',
-        col_y_label='Satellite: Mean House Size\n(sq meters)',
+        col_y_label='Satellite: Average House Size\n(sq meters)',
         ylim=(-1, 220),
         yticks=[0, 100, 200],
         line=True, df=df, out_dir=OUT_DIR, show=True)
 
     plot_scatter(
         col_x_key='cen_pop',
-        col_x_label='Census: Population Count',
+        col_x_label='Census: Population Size',
         transform_x=lambda x: np.log10(x + 1),
         xlim=(np.log10(3), np.log10(3000)),
         xticks=[np.log10(10 + 1), np.log10(100 + 1), np.log10(1000 + 1)],
         xticklabels=[10, 100, 1000],
         col_y_key='sat_nightlight',
-        col_y_label='Satellite: Night Light',
+        col_y_label='Satellite: Nightlight Values',
         ylim=(-0.01, 4),
         yticks=[0, 2, 4],
         alpha=0.3, line=True, df=df,
@@ -304,7 +313,7 @@ if __name__ == '__main__':
         xlim=(-1.75, 1.75),
         xticks=[-1, 0, 1],
         col_y_key='sat_nightlight',
-        col_y_label='Satellite: Night Light',
+        col_y_label='Satellite: Nightlight Values',
         ylim=(-0.01, 4),
         yticks=[0, 2, 4],
         alpha=0.3,
@@ -316,29 +325,9 @@ if __name__ == '__main__':
         xlim=(-1.5, 1.5),
         xticks=[-1, 0, 1],
         col_y_key='sat_nightlight',
-        col_y_label='Satellite: Night Light',
+        col_y_label='Satellite: Nightlight Values',
         ylim=(-0.01, 4),
         yticks=[0, 2, 4],
-        alpha=0.3,
-        line=True, df=df, out_dir=OUT_DIR, show=True)
-
-    plot_scatter(
-        col_x_key='cen_asset_score_pca',
-        col_x_label='Census: Asset Score (PCA 1st Dimension)',
-        xlim=(-1.75, 1.75),
-        xticks=[-1, 0, 1],
-        col_y_key='sat_lum_mean',
-        col_y_label='Satellite: Average Roof Reflectance',
-        alpha=0.3,
-        line=True, df=df, out_dir=OUT_DIR, show=True)
-
-    plot_scatter(
-        col_x_key='cen_durable_score_pca',
-        col_x_label='Census: Durable Score (PCA 1st Dimension)',
-        xlim=(-1.5, 1.5),
-        xticks=[-1, 0, 1],
-        col_y_key='sat_lum_mean',
-        col_y_label='Satellite: Average Roof Reflectance',
         alpha=0.3,
         line=True, df=df, out_dir=OUT_DIR, show=True)
 
@@ -352,4 +341,4 @@ if __name__ == '__main__':
             plot_scatter(col_x_key=cen_col, col_y_key=sat_col,
                          col_x_label=cen_col, col_y_label=sat_col,
                          line=True,
-                         df=df, out_dir=os.path.join(OUT_DIR, 'all'))
+                         df=df, out_dir=os.path.join(OUT_DIR, 'archive'))
