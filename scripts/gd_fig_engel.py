@@ -4,6 +4,7 @@ import pandas as pd
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 import seaborn as sns
+import matplotlib
 import matplotlib.pyplot as plt
 import scipy.spatial
 from skmisc.loess import loess
@@ -14,6 +15,7 @@ from maskrcnn.postprocess.analysis import (
 
 
 np.random.seed(0)
+matplotlib.rc('pdf', fonttype=42)
 sns.set(style='ticks', font='Helvetica', font_scale=1)
 
 
