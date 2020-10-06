@@ -2,6 +2,7 @@ import os
 import glob
 import numpy as np
 import pandas as pd
+import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import pearsonr, spearmanr
@@ -11,6 +12,7 @@ from skmisc.loess import loess
 from maskrcnn.postprocess.analysis import winsorize, load_nightlight_from_point
 
 
+matplotlib.rc('pdf', fonttype=42)
 sns.set(style='ticks', font='Helvetica', font_scale=1)
 
 
