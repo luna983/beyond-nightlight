@@ -103,7 +103,7 @@ def plot_engel(df, y, x, treat='treat',
 
 
 def plot_est(y, labels, betas, ses, xticks=None):
-    fig, ax = plt.subplots(figsize=(8, 3))
+    fig, ax = plt.subplots(figsize=(7, 2))
     ax.errorbar(
         x=betas, y=range(len(betas)),
         xerr=1.96 * np.array(ses), color='#999999',
@@ -111,6 +111,7 @@ def plot_est(y, labels, betas, ses, xticks=None):
     ax.set_yticks(range(len(betas)))
     ax.set_yticklabels(labels)
     ax.set_ylim(-0.5, len(betas) - 0.5)
+    ax.set_xlabel('Treatment Effects in Percentage Change')
     if xticks is not None:
         ax.set_xticks(xticks)
         ax.set_xlim(xticks[0], xticks[-1])
@@ -181,6 +182,11 @@ def load_survey(SVY_IN_DIR):
     ).apply(
         lambda x: np.log(x) if x > 0 else np.nan
     )
+    df_svy.loc[:, 'logwins_housevalue_pc'] = winsorize(
+        df_svy['h1_10_housevalue_pc'], 2.5, 97.5
+    ).apply(
+        lambda x: np.log(x) if x > 0 else np.nan
+    )
 
     # check missing
     assert (df_svy.loc[:, ['treat', 'hi_sat', 's1_hhid_key', 'satcluster']]
@@ -243,7 +249,7 @@ def match(
         df,
         df_svy.loc[:, ['census_id', 's1_hhid_key',
                        'hhsize1_BL', 'logwins_p2_consumption_wins_pc',
-                       'logwins_assets_all_pc']],
+                       'logwins_assets_all_pc', 'logwins_housevalue_pc']],
         how='left', on='census_id',
     )
 
@@ -315,13 +321,17 @@ if __name__ == '__main__':
                     [10, 30, 50, 70],
                     [10, 30, 50, 70]]
     xs = ['logwins_assets_all_pc',
-          'logwins_p2_consumption_wins_pc']
+          'logwins_p2_consumption_wins_pc',
+          'logwins_housevalue_pc']
     x_labels = ['Assets per capita (USD PPP)',
-                'Consumption per capita (USD PPP)']
+                'Consumption per capita (USD PPP)',
+                'Housing asset per capita (USD PPP)']
     x_ticks = [np.log([300, 1000, 3000, 8000]),
-               np.log([100, 300, 1000, 3000])]
+               np.log([100, 300, 1000, 3000]),
+               np.log([10, 30, 100, 300, 1000])]
     x_ticklabels = [[300, 1000, 3000, 8000],
-                    [100, 300, 1000, 3000]]
+                    [100, 300, 1000, 3000],
+                    [10, 30, 100, 300, 1000]]
 
     for x, x_label, x_tick, x_ticklabel in zip(
         xs, x_labels, x_ticks, x_ticklabels
@@ -359,4 +369,4 @@ if __name__ == '__main__':
             est_betas.append(est)
             est_ses.append(est_se)
         plot_est(y=x, labels=est_labels, betas=est_betas, ses=est_ses,
-                 xticks=[-0.5, 0, 0.5, 1])
+                 xticks=[-0.4, -0.2, 0, 0.2, 0.4, 0.6, 0.8, 1])
