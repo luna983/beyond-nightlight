@@ -35,7 +35,8 @@ def compute_est(y_coef, y_se, scale, scale_se):
     return est, est_se
 
 
-def plot_curve(ax, method, x_col, y_col, color='dimgrey', se=True, **kwargs):
+def plot_curve(ax, method, x_col, y_col, color='dimgrey',
+               scatter=True, se=False, **kwargs):
     if method == 'loess':
         m = loess(x_col, y_col, **kwargs)
         m.fit()
@@ -52,31 +53,34 @@ def plot_curve(ax, method, x_col, y_col, color='dimgrey', se=True, **kwargs):
         raise NotImplementedError
     ax.plot(x_col, pred_fit,
             color=color, linewidth=1, alpha=0.4)
+    if scatter:
+        ax.plot(x_col, y_col, '.',
+                color=color, alpha=0.1)
     if se:
         ax.fill_between(x_col, pred_lower, pred_upper,
                         color=color, alpha=.2)
 
 
-def plot_engel(df, y, x, treat='treat',
+def plot_engel(df, y, x, ax, split=None,
                method='linear',
                cmap=None,
                x_label=None, y_label=None,
                x_ticks=None, x_ticklabels=None,
                y_ticks=None, y_ticklabels=None):
 
-    # make figure
-    fig, ax = plt.subplots(figsize=(4, 3))
     df_nona = df.dropna(subset=[y, x]).sort_values(by=[x])
-    x_col = df_nona[x].values
-    y_col = df_nona[y].values
-    plot_curve(ax=ax, method=method, x_col=x_col, y_col=y_col,
-               color='dimgrey', se=True)
-    for color_key, df_group in df_nona.groupby(treat):
-        color = cmap[color_key]
-        x_col = df_group[x].values
-        y_col = df_group[y].values
+    if split is None:
+        x_col = df_nona[x].values
+        y_col = df_nona[y].values
         plot_curve(ax=ax, method=method, x_col=x_col, y_col=y_col,
-                   color=color, se=False)
+                   color='dimgrey', scatter=True)
+    else:
+        for color_key, df_group in df_nona.groupby(split):
+            color = cmap[color_key]
+            x_col = df_group[x].values
+            y_col = df_group[y].values
+            plot_curve(ax=ax, method=method, x_col=x_col, y_col=y_col,
+                       color=color, se=False)
     if x_label is not None:
         ax.set_xlabel(x_label)
     if y_label is not None:
@@ -98,8 +102,6 @@ def plot_engel(df, y, x, treat='treat',
     ax.tick_params(axis='x', colors='dimgray')
     ax.tick_params(axis='y', colors='dimgray')
     ax.grid(False)
-    fig.tight_layout()
-    fig.savefig(os.path.join(OUT_DIR, f'{y}-{x}.pdf'))
 
 
 def plot_est(y, labels, betas, ses, xticks=None):
@@ -111,7 +113,7 @@ def plot_est(y, labels, betas, ses, xticks=None):
     ax.set_yticks(range(len(betas)))
     ax.set_yticklabels(labels)
     ax.set_ylim(-0.5, len(betas) - 0.5)
-    ax.set_xlabel('Treatment Effects in Percentage Change')
+    ax.set_xlabel('Treatment Effects (USD PPP)')
     if xticks is not None:
         ax.set_xticks(xticks)
         ax.set_xlim(xticks[0], xticks[-1])
@@ -124,79 +126,45 @@ def plot_est(y, labels, betas, ses, xticks=None):
     ax.tick_params(axis='y', color='none')
     ax.grid(False)
     fig.tight_layout()
-    fig.savefig(os.path.join(OUT_DIR, f'est_{y}.pdf'))
+    fig.savefig(os.path.join(OUT_DIR, f'betas-{y}.pdf'))
 
 
 def load_survey(SVY_IN_DIR):
     # load survey data
     df_svy = pd.read_stata(SVY_IN_DIR)
-    print('Observations in raw data: ', df_svy.shape[0])
+    # print('Observations in raw data: ', df_svy.shape[0])
 
     # drop households without geo coords
     df_svy = df_svy.dropna(
         subset=['latitude', 'longitude'],
     ).reset_index(drop=True)
-    print('Observations w/ coords: ', df_svy.shape[0])
+    # print('Observations w/ coords: ', df_svy.shape[0])
 
+    # f for final variables
     # calculate per capita consumption / assets
     # convert to USD PPP by dividing by 46.5, per the GiveDirectly paper
-    df_svy.loc[:, 'p2_consumption_wins_pc'] = (
-        df_svy['p2_consumption_wins'].values /
-        df_svy['hhsize1_BL'].values /
-        46.5)
-    df_svy.loc[:, 'p1_assets_pc'] = (
-        df_svy['p1_assets'].values /
-        df_svy['hhsize1_BL'].values /
-        46.5)
-    df_svy.loc[:, 'h1_10_housevalue_pc'] = (
-        df_svy['h1_10_housevalue_wins_PPP'].values /
-        df_svy['hhsize1_BL'].values
-    )
-    df_svy.loc[:, 'h1_11_landvalue_pc'] = (
-        df_svy['h1_11_landvalue_wins_PPP'].values /
-        df_svy['hhsize1_BL'].values
-    )
-    df_svy.loc[:, 'assets_house_pc'] = (
-        (df_svy['p1_assets'].values + df_svy['h1_10_housevalue'].values) /
-        df_svy['hhsize1_BL'].values /
-        46.5)
-    df_svy.loc[:, 'assets_all_pc'] = (
-        ((df_svy['p1_assets'].values / 46.5) +
-         df_svy['h1_11_landvalue_wins_PPP'].values +
-         df_svy['h1_10_housevalue_wins_PPP'].values) /
-        df_svy['hhsize1_BL'].values)
-
-    # log and winsorize more
-    df_svy.loc[:, 'logwins_p2_consumption_wins_pc'] = winsorize(
-        df_svy['p2_consumption_wins_pc'], 2.5, 97.5
-    ).apply(
-        lambda x: np.log(x) if x > 0 else np.nan
-    )
-    df_svy.loc[:, 'logwins_p1_assets_pc'] = winsorize(
-        df_svy['p1_assets_pc'], 2.5, 97.5
-    ).apply(
-        lambda x: np.log(x) if x > 0 else np.nan
-    )
-    df_svy.loc[:, 'logwins_assets_all_pc'] = winsorize(
-        df_svy['assets_all_pc'], 2.5, 97.5
-    ).apply(
-        lambda x: np.log(x) if x > 0 else np.nan
-    )
-    df_svy.loc[:, 'logwins_housevalue_pc'] = winsorize(
-        df_svy['h1_10_housevalue_pc'], 2.5, 97.5
-    ).apply(
-        lambda x: np.log(x) if x > 0 else np.nan
-    )
+    df_svy.loc[:, 'f_consumption'] = winsorize(
+        df_svy['p2_consumption_wins'] / 46.5,
+        2.5, 97.5)
+    df_svy.loc[:, 'f_assets'] = winsorize(
+        ((df_svy['p1_assets'] / 46.5) +
+         df_svy['h1_11_landvalue_wins_PPP'] +
+         df_svy['h1_10_housevalue_wins_PPP']),
+        2.5, 97.5)
+    df_svy.loc[:, 'f_housing'] = winsorize(
+        df_svy['h1_10_housevalue_wins_PPP'],
+        2.5, 97.5)
 
     # check missing
     assert (df_svy.loc[:, ['treat', 'hi_sat', 's1_hhid_key', 'satcluster']]
                   .notna().all().all())
 
-    # subset to eligible sample
-    # df_svy = (df_svy.loc[df_svy['h1_6_nonthatchedroof_BL'] == 0, :]
-    #                 .reset_index(drop=True).copy())
-    print('Observations in final sample: ', df_svy.shape[0])
-
+    df_svy.loc[:, 'eligible'] = 1 - df_svy['h1_6_nonthatchedroof_BL']
+    # print('Observations in final sample: ', df_svy.shape[0])
+    # print('Eligible Sample:')
+    # print(df_svy.loc[df_svy['eligible'] > 0.5, :].describe().T)
+    # print('Ineligible Sample:')
+    # print(df_svy.loc[df_svy['eligible'] < 0.5, :].describe().T)
     return df_svy
 
 
@@ -213,32 +181,28 @@ def match(
         df_sat.loc[:, ['centroid_lon', 'centroid_lat']].values, k=1)
     df_sat.loc[:, 'dist'] = dists
     df_sat.loc[:, 'census_id'] = cen_idxes
+    print(f"Matching {(df_sat['dist'] < radius).sum()} observations")
+    print(f"Dropping {(df_sat['dist'] >= radius).sum()} observations")
     df_sat = df_sat.loc[df_sat['dist'] < radius, :]
     # take all the structures within the radius
     df_sat = df_sat.groupby('census_id').agg(
-        house_count=pd.NamedAgg(column='area', aggfunc='count'),
         area_sum=pd.NamedAgg(column='area', aggfunc='sum'),
-        color_tin=pd.NamedAgg(column='color_tin', aggfunc='sum'),
-        color_thatched=pd.NamedAgg(column='color_thatched', aggfunc='sum'),
-        color_tin_area=pd.NamedAgg(column='color_tin_area', aggfunc='sum'),
-        color_thatched_area=pd.NamedAgg(
-            column='color_thatched_area', aggfunc='sum'),
+        tin_area_sum=pd.NamedAgg(column='color_tin_area', aggfunc='sum'),
     ).reset_index()
     # match surveys to households
     dists, cen_idxes = tree.query(
         df_svy.loc[:, ['longitude', 'latitude']].values, k=1)
     df_svy.loc[:, 'dist'] = dists
     df_svy.loc[:, 'census_id'] = cen_idxes
+    print(f"Matching {(df_svy['dist'] < radius).sum()} observations")
+    print(f"Dropping {(df_svy['dist'] >= radius).sum()} observations")
     df_svy = df_svy.loc[df_svy['dist'] < radius, :]
     df_svy = df_svy.sort_values(by=['census_id', 'dist'])
     df_svy = df_svy.drop_duplicates(subset=['census_id'], keep='first')
     # merge
     df = pd.merge(
-        df_cen.loc[:, ['census_id', 'treat', 'eligible',
-                       'longitude', 'latitude']],
-        df_sat.loc[:, ['census_id', 'house_count', 'area_sum',
-                       'color_tin', 'color_thatched',
-                       'color_tin_area', 'color_thatched_area']],
+        df_cen.loc[:, ['census_id', 'longitude', 'latitude']],
+        df_sat.loc[:, ['census_id', 'area_sum', 'tin_area_sum']],
         how='left', on='census_id',
     )
     df.fillna(
@@ -248,31 +212,9 @@ def match(
     df = pd.merge(
         df,
         df_svy.loc[:, ['census_id', 's1_hhid_key',
-                       'hhsize1_BL', 'logwins_p2_consumption_wins_pc',
-                       'logwins_assets_all_pc', 'logwins_housevalue_pc']],
+                       'treat', 'eligible', 'hi_sat',
+                       'f_consumption', 'f_assets', 'f_housing']],
         how='left', on='census_id',
-    )
-
-    df.loc[:, 'area_sum_pc'] = (
-        df['area_sum'].values / df['hhsize1_BL'].values)
-    df.loc[:, 'color_tin_area_pc'] = (
-        df['color_tin_area'].values /
-        df['hhsize1_BL'].values)
-    df.loc[:, 'log1_area_sum_pc'] = df['area_sum_pc'].apply(
-        lambda x: np.log(x + 1) if x > 0 else np.nan
-    )
-    df.loc[:, 'log1_color_tin_area_pc'] = (
-        df['color_tin_area_pc'].apply(
-            lambda x: np.log(x + 1) if x > 0 else np.nan
-        )
-    )
-    df.loc[:, 'log1_area_sum'] = df['area_sum'].apply(
-        lambda x: np.log(x + 1) if x > 0 else np.nan
-    )
-    df.loc[:, 'log1_color_tin_area'] = (
-        df['color_tin_area'].apply(
-            lambda x: np.log(x + 1) if x > 0 else np.nan
-        )
     )
     print(df.describe().T)
     return df
@@ -286,20 +228,39 @@ if __name__ == '__main__':
     SVY_IN_DIR = 'data/External/GiveDirectly/GE_Luna_Extract_2020-07-27.dta'
     SAT_IN_DIR = 'data/Siaya/Merged/sat.csv'
     NL_IN_DIR = 'data/External/Nightlight/VIIRS_DNB_KE_2019.tif'
-    IN_CENSUS_GPS_DIR = ('data/External/GiveDirectly/'
-                         'GE_HH_Census_2017-07-17_cleanGPS.csv')
-    IN_CENSUS_MASTER_DIR = (
+    CENSUS_GPS_IN_DIR = (
+        'data/External/GiveDirectly/GE_HH_Census_2017-07-17_cleanGPS.csv')
+    CENSUS_MASTER_IN_DIR = (
         'data/External/GiveDirectly/GE_HH-Census_Analysis_RA_2017-07-17.dta')
+    ATE_IN_DIR = 'output/fig-ate/cache/{}_main.csv'
     OUT_DIR = 'output/fig-engel'
+
+    # 'True' Effect from the original paper
+    # https://www.nber.org/system/files/working_papers/w26600/w26600.pdf
+    # From Table 1, Column 1
+    obs = {
+        'f_assets': 178.47 + 377.14 + 49.50,  # row 6-8
+        'f_consumption': 292.98,  # row 1
+        'f_housing': 377.14,  # row 7
+    }
+    obs_se = {
+        # row 6-8
+        'f_assets': np.sqrt(np.square(24.63) +
+                            np.square(26.37) +
+                            np.square(186.30)),
+        'f_consumption': 60.09,  # row 1
+        'f_housing': 26.37,  # row 7
+    }
 
     # load data
     df_sat = load_building(SAT_IN_DIR, grid=None, agg=False)
     df_svy = load_survey(SVY_IN_DIR)
     df_cen = load_gd_census(
-        GPS_FILE=IN_CENSUS_GPS_DIR, MASTER_FILE=IN_CENSUS_MASTER_DIR)
+        GPS_FILE=CENSUS_GPS_IN_DIR, MASTER_FILE=CENSUS_MASTER_IN_DIR)
 
     # match
-    df = match(df_cen, df_svy, df_sat)
+    df = match(df_cen, df_svy, df_sat,
+               radius=0.0009)  # = 100m
     df.loc[:, 'treat'] = df['treat'].astype(float)
 
     # load nightlight
@@ -307,66 +268,78 @@ if __name__ == '__main__':
         df, NL_IN_DIR,
         lon_col='longitude', lat_col='latitude')
 
-    # plotting begins
-    ys = ['sat_nightlight_winsnorm',
-          'log1_area_sum_pc',
-          'log1_color_tin_area_pc']
-    y_labels = ['Normalized nightlight values',
-                'Building footprint per capita (sq meters)',
-                'Tin-roof area per capita (sq meters)']
-    y_ticks = [[-1, 0, 1],
-               np.log(np.array([10, 30, 50, 70]) + 1),
-               np.log(np.array([10, 30, 50, 70]) + 1)]
-    y_ticklabels = [None,
-                    [10, 30, 50, 70],
-                    [10, 30, 50, 70]]
-    xs = ['logwins_assets_all_pc',
-          'logwins_p2_consumption_wins_pc',
-          'logwins_housevalue_pc']
-    x_labels = ['Assets per capita (USD PPP)',
-                'Consumption per capita (USD PPP)',
-                'Housing asset per capita (USD PPP)']
-    x_ticks = [np.log([300, 1000, 3000, 8000]),
-               np.log([100, 300, 1000, 3000]),
-               np.log([10, 30, 100, 300, 1000])]
-    x_ticklabels = [[300, 1000, 3000, 8000],
-                    [100, 300, 1000, 3000],
-                    [10, 30, 100, 300, 1000]]
+    # examine data
+    # print('Eligible Sample:')
+    # print(df.loc[df['eligible'] > 0.5, :].describe().T)
+    # print('Ineligible Sample:')
+    # print(df.loc[df['eligible'] < 0.5, :].describe().T)
 
+    # plotting begins
+    ys = ['nightlight',
+          'area_sum',
+          'tin_area_sum']
+    y_labels = ['Night Light',
+                'Building Footprint (sq meters)',
+                'Tin-roof Area (sq meters)']
+    y_ticks = [None, None, None]
+    y_ticklabels = [None, None, None]
+    xs = ['f_assets',
+          'f_consumption',
+          'f_housing']
+    x_labels = ['Assets (USD PPP)',
+                'Consumption (USD PPP)',
+                'Housing Asset (USD PPP)']
+    x_ticks = [None, None, None]
+    x_ticklabels = [None, None, None]
+    # load previous estimates
+    y_coefs = []
+    y_coef_ses = []
+    for y in ys:
+        df_y = pd.read_csv(ATE_IN_DIR.format(y))
+        y_coef, = df_y.loc[df_y['x'].isna(), 'beta']
+        y_coef_se, = df_y.loc[df_y['x'].isna(), 'se']
+        y_coefs.append(y_coef)
+        y_coef_ses.append(y_coef_se)
+
+    # double loop
     for x, x_label, x_tick, x_ticklabel in zip(
         xs, x_labels, x_ticks, x_ticklabels
     ):
-        est_labels = []
-        est_betas = []
-        est_ses = []
-        obs, obs_se = reg(df.loc[df['eligible'] == 1, :], x, 'treat')
-        est_labels.append('Observed')
-        est_betas.append(obs)
-        est_ses.append(obs_se)
-        for y, y_label, y_tick, y_ticklabel in zip(
-            ys, y_labels, y_ticks, y_ticklabels
+        print('-' * 36)
+        print(x_label)
+        print('Replicate the results from the original paper')
+        print('Treatment Effect: {} ({})'.format(
+            *reg(df.loc[df['eligible'] > 0, :], x, 'treat')))
+        est_labels = ['Observed (Egger et al., 2019)']
+        est_betas = [obs[x]]
+        est_ses = [obs_se[x]]
+
+        fig, axes = plt.subplots(figsize=(6, 3), ncols=3)
+        for ax, y, y_coef, y_coef_se, y_label, y_tick, y_ticklabel in zip(
+            axes, ys, y_coefs, y_coef_ses, y_labels, y_ticks, y_ticklabels
         ):
             plot_engel(
                 df=df,
                 y=y,
+                x=x,
+                ax=ax,
                 y_ticks=y_tick,
                 y_ticklabels=y_ticklabel,
                 y_label=y_label,
-                x=x,
                 x_ticks=x_tick,
                 x_ticklabels=x_ticklabel,
                 x_label=x_label,
-                cmap=cmap,
             )
-            y_coef, y_se = reg(df.loc[df['eligible'] == 1, :], y, 'treat')
             scale, scale_se = reg(df, y, x)
-            est, est_se = compute_est(y_coef, y_se, scale, scale_se)
+            est, est_se = compute_est(y_coef, y_coef_se, scale, scale_se)
             print(f'y: {y}, x: {x}')
             print(f'{est:.3f}, {est_se:.3f} = '
-                  f'compute_est({y_coef:.3f}, {y_se:.3f}, '
+                  f'compute_est({y_coef:.3f}, {y_coef_se:.3f}, '
                   f'{scale:.3f}, {scale_se:.3f})')
             est_labels.append(y_label)
             est_betas.append(est)
             est_ses.append(est_se)
+        fig.tight_layout()
+        fig.savefig(os.path.join(OUT_DIR, f'engel-{x}.pdf'))
         plot_est(y=x, labels=est_labels, betas=est_betas, ses=est_ses,
-                 xticks=[-0.4, -0.2, 0, 0.2, 0.4, 0.6, 0.8, 1])
+                 xticks=None)
