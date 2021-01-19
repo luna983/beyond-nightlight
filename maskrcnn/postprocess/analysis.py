@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import rasterio
 import statsmodels.formula.api as smf
+from scipy.sparse import coo_matrix
 
 from .utils import transform_coord
 
@@ -134,14 +135,14 @@ def load_nightlight_from_point(df, NL_IN_DIR, lon_col='lon', lat_col='lat'):
         to='colrow',
         xy=df.loc[:, [lon_col, lat_col]].values)).astype(np.int)
 
-    df.loc[:, 'sat_nightlight'] = [band[i[1], i[0]] for i in idx]
+    df.loc[:, 'nightlight'] = [band[i[1], i[0]] for i in idx]
     # winsorize + normalize
-    df.loc[:, 'sat_nightlight_winsnorm'] = winsorize(
-        df['sat_nightlight'], 0, 99)
-    df.loc[:, 'sat_nightlight_winsnorm'] = (
-        (df['sat_nightlight_winsnorm'].values -
-            np.nanmean(df['sat_nightlight_winsnorm'].values)) /
-        np.nanstd(df['sat_nightlight_winsnorm'].values))
+    # df.loc[:, 'nightlight_winsnorm'] = winsorize(
+    #     df['nightlight'], 0, 99)
+    # df.loc[:, 'nightlight_winsnorm'] = (
+    #     (df['nightlight_winsnorm'].values -
+    #         np.nanmean(df['nightlight_winsnorm'].values)) /
+    #     np.nanstd(df['nightlight_winsnorm'].values))
     return df
 
 
@@ -227,51 +228,52 @@ def load_building(input_dir, grid, agg=True):
     df.loc[:, 'color_thatched_area'] = (
         df['color_thatched'].values * df['area'].values)
     # create new var: luminosity
-    df.loc[:, 'RGB_mean'] = (
-        df.loc[:, ['R_mean', 'G_mean', 'B_mean']].mean(axis=1))
+    # df.loc[:, 'RGB_mean'] = (
+    # df.loc[:, ['R_mean', 'G_mean', 'B_mean']].mean(axis=1))
     # control for lat lon cubic spline
-    df.loc[:, 'RGB_mean_spline'] = control_for_spline(
-        x=df['centroid_lon'].values,
-        y=df['centroid_lat'].values,
-        z=df['RGB_mean'].values,
-    )
+    # df.loc[:, 'RGB_mean_spline'] = control_for_spline(
+    #     x=df['centroid_lon'].values,
+    #     y=df['centroid_lat'].values,
+    #     z=df['RGB_mean'].values,
+    # )
     # normalize
-    df.loc[:, 'RGB_mean_spline'] = (
-        (df['RGB_mean_spline'].values -
-            np.nanmean(df['RGB_mean_spline'].values)) /
-        np.nanstd(df['RGB_mean_spline'].values))
+    # df.loc[:, 'RGB_mean_spline'] = (
+    #     (df['RGB_mean_spline'].values -
+    #         np.nanmean(df['RGB_mean_spline'].values)) /
+    #     np.nanstd(df['RGB_mean_spline'].values))
     if not agg:
         return df
     # snap to grid
-    color_group_agg = {
-        f'color_group_{i}': pd.NamedAgg(
-            column=f'color_group_{i}', aggfunc='mean')
-        for i in range(n_clusters)}
+    # color_group_agg = {
+    #     f'color_group_{i}': pd.NamedAgg(
+    #         column=f'color_group_{i}', aggfunc='mean')
+    #     for i in range(n_clusters)}
     (grid_lon, grid_lat), df = snap_to_grid(
         df, lon_col='centroid_lon', lat_col='centroid_lat', **grid,
-        house_count=pd.NamedAgg(column='area', aggfunc='count'),
+        # house_count=pd.NamedAgg(column='area', aggfunc='count'),
         area_sum=pd.NamedAgg(column='area', aggfunc='sum'),
-        RGB_mean=pd.NamedAgg(column='RGB_mean', aggfunc='mean'),
-        RGB_mean_spline=pd.NamedAgg(column='RGB_mean_spline', aggfunc='mean'),
+        # RGB_mean=pd.NamedAgg(column='RGB_mean', aggfunc='mean'),
+        # RGB_mean_spline=pd.NamedAgg(column='RGB_mean_spline',
+        #                             aggfunc='mean'),
         tin_area_sum=pd.NamedAgg(column='color_tin_area', aggfunc='sum'),
         thatched_area_sum=pd.NamedAgg(column='color_thatched_area',
                                       aggfunc='sum'),
-        tin_count=pd.NamedAgg(column='color_tin', aggfunc='sum'),
-        thatched_count=pd.NamedAgg(column='color_thatched', aggfunc='sum'),
-        **color_group_agg,
+        # tin_count=pd.NamedAgg(column='color_tin', aggfunc='sum'),
+        # thatched_count=pd.NamedAgg(column='color_thatched', aggfunc='sum'),
+        # **color_group_agg,
     )
-    df.fillna({'house_count': 0, 'area_sum': 0}, inplace=True)
-    df.loc[:, 'house_count_0'] = (
-        df['house_count'] == 0).values.astype(np.float)
-    df.loc[:, 'area_sum_pct'] = (
-        df['area_sum'].values / ((grid['step'] * 111000) ** 2))
+    df.fillna(0, inplace=True)
+    # df.loc[:, 'house_count_0'] = (
+    #     df['house_count'] == 0).values.astype(np.float)
+    # df.loc[:, 'area_sum_pct'] = (
+    #     df['area_sum'].values / ((grid['step'] * 111000) ** 2))
 
-    df.loc[:, 'tin_count_pct'] = (
-        df['tin_count'].values / df['house_count'].values)
-    df.loc[:, 'tin_area_pct'] = (
-        df['tin_area_sum'].values / df['area_sum'].values)
-    df.loc[:, 'tin_area_sum_pct'] = (
-        df['tin_area_sum'].values / ((grid['step'] * 111000) ** 2))
+    # df.loc[:, 'tin_count_pct'] = (
+    #     df['tin_count'].values / df['house_count'].values)
+    # df.loc[:, 'tin_area_pct'] = (
+    #     df['tin_area_sum'].values / df['area_sum'].values)
+    # df.loc[:, 'tin_area_sum_pct'] = (
+    #     df['tin_area_sum'].values / ((grid['step'] * 111000) ** 2))
     # recover lon, lat
     df.loc[:, 'lon'] = (
         df['grid_lon'] * grid['step'] + grid['min_lon'] + grid['step'] / 2)
@@ -279,3 +281,12 @@ def load_building(input_dir, grid, agg=True):
         df['grid_lat'] * grid['step'] + grid['min_lat'] + grid['step'] / 2)
 
     return (grid_lon, grid_lat), df
+
+
+def df2raster(df, data, row, col):
+    n_row = df[row].max() + 1
+    n_col = df[col].max() + 1
+    matrix = coo_matrix(
+        (df[data].values, (df[row].values, df[col].values)),
+        shape=(n_row, n_col))
+    return matrix.toarray()

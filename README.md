@@ -48,8 +48,10 @@ _Note that the replication of some of the analyses requires field data collected
 - `python scripts/gd_infer.py`: Run inference to generate predictions on all the images in Siaya.
 - `python scripts/gd_polygonize.py`: Collate the inference results into a geojson / csv file.
 - `python scripts/gd_postprocess.py`: Post-process the inference results csv file.
+- `python scripts/gd_merge.py --resolution 0.005` and `python scripts/gd_merge.py --resolution 0.001 --placebo 100  --eligible-only`: Merge the satellite observations with field survey data.
 
 To replicate `fig-colors` (roof color K-means clustering result)
+
 - `python gd_fig_colors`: Generate the raw figures.
 
 To replicate `fig-prcurve` (Precision-Recall curve)
@@ -67,8 +69,7 @@ To replicate `fig-map` (map of treatment and outcome variables)
 
 To replicate `fig-ate` (average treatment effect estimation)
 
-- `python scripts/gd_fig_ate_rasterize.py`: Rasterize treatment and outcome data.
-- `Rscript scripts/gd_fig_ate_regress.R`: Generate raw figures.
+- `Rscript scripts/gd_fig_ate.R`: Generate raw figures.
 
 To replicate `fig-engel` (Engel curve)
 

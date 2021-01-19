@@ -50,10 +50,10 @@ ConleySE <- function(ydata, xdata, latdata, londata, cutoff) {
 }
 
 
-regress_bin <- function(df, col_y, cutoff=3, compute_se=T) {
+regress_bin <- function(df, col_y, col_x='treat_eligible', cutoff=3, compute_se=T) {
     df <- df %>%
         # cut x into bins
-        dplyr::mutate(x_bin=cut(df[['treat_eligible']],
+        dplyr::mutate(x_bin=cut(df[[col_x]],
                                 breaks=c(-Inf, 0, 1, 2, Inf),
                                 labels=c(0, 1, 2, 3)))
 
@@ -90,11 +90,11 @@ regress_bin <- function(df, col_y, cutoff=3, compute_se=T) {
 }
 
 
-regress_linear <- function(df, col_y, cutoff=3) {
+regress_linear <- function(df, col_y, col_x='treat_eligible', cutoff=3) {
 
     # regression
     reg <- lfe::felm(
-        formula(paste0(col_y, ' ~ treat_eligible | factor(eligible) | 0 | lat + lon')),
+        formula(paste0(col_y, ' ~ ', col_x, ' | factor(eligible) | 0 | lat + lon')),
         data=df %>% tidyr::drop_na(!! col_y),
         keepCX=TRUE)
     # print(summary(reg))
@@ -115,45 +115,64 @@ regress_linear <- function(df, col_y, cutoff=3) {
 }
 
 
-working_dir <- 'output/fig-ate/'
+input_dir <- 'data/Siaya/Merged/main_res0.0010.csv'
+output_dir <- 'output/fig-ate/'
 
 # set color palette
 palette <- c('#820000', '#ea0000', '#fff4da', '#5d92c4', '#070490')
 # plotting style
 g_style <- ggplot2::theme_bw() +
     ggplot2::theme(
-        panel.grid.major.x=ggplot2::element_blank(),
-        panel.grid.minor=ggplot2::element_blank())
+        panel.border=ggplot2::element_blank(),
+        panel.grid.major=ggplot2::element_blank(),
+        panel.grid.minor=ggplot2::element_blank(),
+        axis.title=ggplot2::element_text(size=11),
+        axis.text=ggplot2::element_text(size=11),
+        plot.title=ggplot2::element_text(size=11),
+        axis.ticks.length=ggplot2::unit(.07, "in"),
+        axis.ticks.x=ggplot2::element_blank())
 
-n_clusters <- 8
-placebos <- c(T, T, T, rep(F, times=n_clusters))
-folders <- c('nightlight/', rep('building/', n_clusters + 2))
-col_ys <- c('nightlight', 'area_sum', 'tin_area_sum',
-            paste0('color_group_', 0:(n_clusters - 1)))
-titles <- c('Normalized Nightlight Values',
+col_ys <- c('nightlight', 'area_sum', 'tin_area_sum')
+titles <- c('Night Light',
             'Building Footprint (sq meters)',
-            'Tin-roof Building Footprint (sq meters)',
-            paste0('Color Group: ', 0:(n_clusters - 1)))
-y_breaks <- c(
-    list(c(-0.5, 0, 0.5), c(-50, -25, 0, 25, 50), c(-50, -25, 0, 25, 50, 75)),
-    as.list(rep(NA, times=n_clusters)))
+            'Tin-roof Area (sq meters)')
+y_breaks <- list(
+    c(-0.05, 0, 0.05), c(-25, 0, 25, 50), c(-25, 0, 25, 50, 75))
+y_lims <- list(
+    c(-0.055, 0.055), c(-30, 55), c(-30, 80))
+x_lim <- c(-0.2, 3.5)
+placebo <- T
+n_iter <- 100
 
+# load data
+df <- readr::read_csv(
+    input_dir,
+    # to suppress warnings
+    col_type=readr::cols())
 for (outcome_i in c(1:length(col_ys))) {
+    print('----------------------------------')
     print(paste0('outcome: ', col_ys[outcome_i]))
-    df <- readr::read_csv(
-        paste0(working_dir, 'data/', folders[outcome_i], 'main.csv'),
-        # to suppress warnings
-        col_type=readr::cols())
-    main_res <- regress_bin(df=df, col_y=col_ys[outcome_i])
-    linear_effect <- regress_linear(df=df, col_y=col_ys[outcome_i])
-    # write to file - main results
-    main_res_file <- paste0(working_dir, 'data/intermediate/',
+    print('Main effect estimation...')
+    main_res_file <- paste0(output_dir, 'cache/',
                             col_ys[outcome_i], '_main.csv')
-    readr::write_csv(rbind(linear_effect, main_res), main_res_file)
-    if (placebos[outcome_i]) {
+    if (file.exists(main_res_file)) {
+        main_res_merged <- readr::read_csv(
+            main_res_file,
+            # to suppress warnings
+            col_type=readr::cols())
+        main_res <- main_res_merged %>% dplyr::filter(!is.na(x))
+        linear_effect <- main_res_merged %>% dplyr::filter(is.na(x))
+    } else {
+        main_res <- regress_bin(df=df, col_y=col_ys[outcome_i])
+        linear_effect <- regress_linear(df=df, col_y=col_ys[outcome_i])
+        # write to file - main results
+        readr::write_csv(rbind(linear_effect, main_res), main_res_file)
+    }
+    print('Placebo effect estimation...')
+    if (placebo) {
         # write to file - placebo results
-        placebo_res_file <- paste0(working_dir, 'data/intermediate/',
-                                col_ys[outcome_i], '_placebo.csv')
+        placebo_res_file <- paste0(output_dir, 'cache/',
+                                   col_ys[outcome_i], '_placebo.csv')
         if (file.exists(placebo_res_file)) {
             placebo_res <- readr::read_csv(
                 placebo_res_file,
@@ -161,13 +180,10 @@ for (outcome_i in c(1:length(col_ys))) {
                 col_type=readr::cols())
         } else {
             placebo_res <- tibble::tibble()
-            for (i in c(0:199)) {
-                df <- readr::read_csv(
-                    paste0(working_dir, 'data/', folders[outcome_i],
-                        'placebo_', sprintf("%03d", i), '.csv'),
-                    # to suppress warnings
-                    col_type=readr::cols())
-                res <- regress_bin(df=df, col_y=col_ys[outcome_i], compute_se=F)
+            for (i in c(0:(n_iter - 1))) {
+                if (i %% 10 == 0) {print('++++++++++')}
+                res <- regress_bin(df=df, col_x=sprintf('treat_eligible_placebo%02d', i),
+                                   col_y=col_ys[outcome_i], compute_se=F)
                 placebo_res <- rbind(placebo_res, res %>% dplyr::mutate(iter=i))
             }
             readr::write_csv(placebo_res, placebo_res_file)
@@ -175,18 +191,18 @@ for (outcome_i in c(1:length(col_ys))) {
     }
 
     # plotting
+    y_lim <- y_lims[[outcome_i]]
+    y_break <- y_breaks[[outcome_i]]
     g <- ggplot2::ggplot()
-    if (placebos[outcome_i]) {
+    if (placebo) {
         g <- g +
             ggplot2::geom_line(
                 data=placebo_res %>% dplyr::filter(iter < 100),
-                ggplot2::aes(x=x, y=beta, group=iter), size=0.5, color='#dddddd', alpha=0.5)
+                ggplot2::aes(x=x, y=beta, group=iter), size=0.5, color='grey30', alpha=0.05)
     }
-    if (!is.na(y_breaks[[outcome_i]]) %>% any()) {
-        g <- g + ggplot2::scale_y_continuous(
-            name='',
-            breaks=y_breaks[[outcome_i]])
-    }
+    g <- g +
+        ggplot2::scale_y_continuous(name='', breaks=y_break) +
+        ggplot2::coord_cartesian(ylim=y_lim, xlim=x_lim, expand=F)
     g <- g +
         ggplot2::geom_line(
             data=main_res, ggplot2::aes(x=x, y=beta), size=1, color=palette[1]) +
@@ -195,15 +211,17 @@ for (outcome_i in c(1:length(col_ys))) {
         ggplot2::geom_errorbar(
             data=main_res %>% dplyr::filter(x > 0),
             ggplot2::aes(x=x, y=beta, ymin=beta - 1.96 * se, ymax=beta + 1.96 * se),
-            color=palette[1], width=.3) +
+            color=palette[1], width=.1) +
         ggplot2::scale_x_continuous(
-            name='Cash infusion per 0.012 sq km',
+            name='Cash Infusion (per 0.012 sq km)',
             breaks=c(0, 1, 2, 3),
             labels=c('$0', '$1000', '$2000', '>$2000')) +
-        ggplot2::ggtitle(paste0("Treatment Effect on ", titles[outcome_i], ":\n",
+        ggplot2::ggtitle(paste0(titles[outcome_i], "\nPoint Estimate: ",
                                 round(linear_effect$beta[1], 3), ", 95% CI: [",
                                 round(linear_effect$beta[1] - 1.96 * linear_effect$se[1], 3), ", ",
                                 round(linear_effect$beta[1] + 1.96 * linear_effect$se[1], 3), "]")) +
+        ggplot2::annotate(x=x_lim[1], xend=x_lim[1],
+                          y=y_break[1], yend=y_break[length(y_break)], lwd=0.75, geom="segment") +
         g_style
-    ggplot2::ggsave(paste0(working_dir, col_ys[outcome_i], '_ate.pdf'), g, width=5, height=3)
+    ggplot2::ggsave(paste0(output_dir, col_ys[outcome_i], '_ate.pdf'), g, width=4, height=2)
 }
