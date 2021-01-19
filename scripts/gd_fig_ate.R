@@ -126,9 +126,9 @@ g_style <- ggplot2::theme_bw() +
         panel.border=ggplot2::element_blank(),
         panel.grid.major=ggplot2::element_blank(),
         panel.grid.minor=ggplot2::element_blank(),
-        axis.title=ggplot2::element_text(size=11),
-        axis.text=ggplot2::element_text(size=11),
-        plot.title=ggplot2::element_text(size=11),
+        axis.title=ggplot2::element_text(size=12),
+        axis.text=ggplot2::element_text(size=12),
+        plot.title=ggplot2::element_text(size=12),
         axis.ticks.length=ggplot2::unit(.07, "in"),
         axis.ticks.x=ggplot2::element_blank())
 
