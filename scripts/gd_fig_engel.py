@@ -15,8 +15,17 @@ from maskrcnn.postprocess.analysis import (
 
 
 np.random.seed(0)
+
+sns.set(style='ticks', font='Helvetica')
 matplotlib.rc('pdf', fonttype=42)
-sns.set(style='ticks', font='Helvetica', font_scale=1)
+
+plt.rc('font', size=12)  # controls default text sizes
+plt.rc('axes', titlesize=12)  # fontsize of the axes title
+plt.rc('axes', labelsize=12)  # fontsize of the x and y labels
+plt.rc('xtick', labelsize=12)  # fontsize of the tick labels
+plt.rc('ytick', labelsize=12)  # fontsize of the tick labels
+plt.rc('legend', fontsize=12)  # legend fontsize
+plt.rc('figure', titlesize=12)  # fontsize of the figure title
 
 
 def reg(df, y, x):
@@ -88,7 +97,7 @@ def plot_engel(df, y, x, ax, split=None,
     if x_label is not None:
         ax.set_xlabel(x_label)
     if y_label is not None:
-        ax.set_title(y_label)
+        ax.set_title(y_label, loc='left')
     if x_ticks is not None:
         ax.set_xticks(x_ticks)
     if x_ticklabels is not None:
@@ -322,7 +331,7 @@ if __name__ == '__main__':
         est_betas = [obs[x]]
         est_ses = [obs_se[x]]
 
-        fig, axes = plt.subplots(figsize=(9, 3), ncols=3)
+        fig, axes = plt.subplots(figsize=(6.5, 2.5), ncols=3)
         for ax, y, y_coef, y_coef_se, y_label, y_tick, y_ticklabel in zip(
             axes, ys, y_coefs, y_coef_ses, y_labels, y_ticks, y_ticklabels
         ):
@@ -337,7 +346,7 @@ if __name__ == '__main__':
                 y_label=y_label,
                 x_ticks=x_tick,
                 x_ticklabels=x_ticklabel,
-                x_label=x_label,
+                x_label='',
             )
             scale, scale_se = reg(df, y, x)
             est, est_se = compute_est(y_coef, y_coef_se, scale, scale_se)
@@ -348,7 +357,29 @@ if __name__ == '__main__':
             est_labels.append(y_label)
             est_betas.append(est)
             est_ses.append(est_se)
-        fig.tight_layout()
-        fig.savefig(os.path.join(OUT_DIR, f'engel-{x}.pdf'))
+        # fig.tight_layout()
+        fig.savefig(os.path.join(OUT_DIR, f'engel-{x}.pdf'),
+                    bbox_inches='tight', pad_inches=0)
         plot_est(y=x, labels=est_labels, betas=est_betas, ses=est_ses,
                  xticks=None)
+        # test for treatment/control differences
+        fig, axes = plt.subplots(figsize=(6.5, 2.5), ncols=3)
+        for ax, y, y_label, y_tick, y_ticklabel in zip(
+            axes, ys, y_labels, y_ticks, y_ticklabels
+        ):
+            plot_engel(
+                df=df,
+                y=y,
+                x=x,
+                ax=ax,
+                split='treat',
+                cmap=cmap,
+                y_ticks=y_tick,
+                y_ticklabels=y_ticklabel,
+                y_label=y_label,
+                x_ticks=x_tick,
+                x_ticklabels=x_ticklabel,
+                x_label='',
+            )
+        fig.savefig(os.path.join(OUT_DIR, f'engelx2-{x}.pdf'),
+                    bbox_inches='tight', pad_inches=0)
