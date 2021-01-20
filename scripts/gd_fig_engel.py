@@ -181,10 +181,7 @@ def load_survey(SVY_IN_DIR):
     return df_svy
 
 
-def match(
-    df_cen, df_svy, df_sat,
-    radius=0.00045,  # = 50m
-):
+def match(df_cen, df_svy, df_sat, radius):
     df_cen = df_cen.reset_index(drop=True)
     df_cen.loc[:, 'census_id'] = df_cen.index
     tree = scipy.spatial.cKDTree(
@@ -272,8 +269,9 @@ if __name__ == '__main__':
         GPS_FILE=CENSUS_GPS_IN_DIR, MASTER_FILE=CENSUS_MASTER_IN_DIR)
 
     # match
-    df = match(df_cen, df_svy, df_sat,
-               radius=0.0009)  # = 100m
+    df = match(
+        df_cen, df_svy, df_sat,
+        radius=200 / 111000)  # __ meters / 111000 meters -> degrees
     df.loc[:, 'treat'] = df['treat'].astype(float)
 
     # load nightlight
