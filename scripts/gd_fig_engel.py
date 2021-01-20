@@ -51,19 +51,23 @@ def plot_curve(ax, method, x_col, y_col, color='dimgrey',
         pred_lower, pred_upper = pred.conf_int().T
     else:
         raise NotImplementedError
-    ax.plot(x_col, pred_fit,
-            color=color, linewidth=1, alpha=0.4)
     if scatter:
-        ax.plot(x_col, y_col, '.',
-                color=color, alpha=0.1)
+        ax.plot(x_col, y_col,
+                markeredgecolor='none',
+                marker='o',
+                linestyle='None',
+                markersize=3,
+                color='dimgrey', alpha=0.07)
     if se:
         ax.fill_between(x_col, pred_lower, pred_upper,
                         color=color, alpha=.2)
+    ax.plot(x_col, pred_fit,
+            color=color, linewidth=1.5, alpha=1)
 
 
 def plot_engel(df, y, x, ax, split=None,
                method='linear',
-               cmap=None,
+               color=None, cmap=None,
                x_label=None, y_label=None,
                x_ticks=None, x_ticklabels=None,
                y_ticks=None, y_ticklabels=None):
@@ -73,7 +77,7 @@ def plot_engel(df, y, x, ax, split=None,
         x_col = df_nona[x].values
         y_col = df_nona[y].values
         plot_curve(ax=ax, method=method, x_col=x_col, y_col=y_col,
-                   color='dimgrey', scatter=True)
+                   color=color, scatter=True)
     else:
         for color_key, df_group in df_nona.groupby(split):
             color = cmap[color_key]
@@ -84,7 +88,7 @@ def plot_engel(df, y, x, ax, split=None,
     if x_label is not None:
         ax.set_xlabel(x_label)
     if y_label is not None:
-        ax.set_ylabel(y_label)
+        ax.set_title(y_label)
     if x_ticks is not None:
         ax.set_xticks(x_ticks)
     if x_ticklabels is not None:
@@ -216,7 +220,7 @@ def match(
                        'f_consumption', 'f_assets', 'f_housing']],
         how='left', on='census_id',
     )
-    print(df.describe().T)
+    # print(df.describe().T)
     return df
 
 
@@ -267,7 +271,8 @@ if __name__ == '__main__':
     df = load_nightlight_from_point(
         df, NL_IN_DIR,
         lon_col='longitude', lat_col='latitude')
-
+    # eligible sample only
+    df = df.loc[df['eligible'] > 0, :]
     # examine data
     # print('Eligible Sample:')
     # print(df.loc[df['eligible'] > 0.5, :].describe().T)
@@ -291,6 +296,9 @@ if __name__ == '__main__':
                 'Housing Asset (USD PPP)']
     x_ticks = [None, None, None]
     x_ticklabels = [None, None, None]
+    # winsorize satellite based observations
+    for y in ys:
+        df.loc[:, y] = winsorize(df[y], 2.5, 97.5)
     # load previous estimates
     y_coefs = []
     y_coef_ses = []
@@ -314,7 +322,7 @@ if __name__ == '__main__':
         est_betas = [obs[x]]
         est_ses = [obs_se[x]]
 
-        fig, axes = plt.subplots(figsize=(6, 3), ncols=3)
+        fig, axes = plt.subplots(figsize=(9, 3), ncols=3)
         for ax, y, y_coef, y_coef_se, y_label, y_tick, y_ticklabel in zip(
             axes, ys, y_coefs, y_coef_ses, y_labels, y_ticks, y_ticklabels
         ):
@@ -323,6 +331,7 @@ if __name__ == '__main__':
                 y=y,
                 x=x,
                 ax=ax,
+                color=palette[0],
                 y_ticks=y_tick,
                 y_ticklabels=y_ticklabel,
                 y_label=y_label,
