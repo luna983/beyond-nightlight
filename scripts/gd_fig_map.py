@@ -53,7 +53,7 @@ outside = shapely.geometry.box(
 for varname, vmin, vmax, cmap in zip(
     ['treat_eligible', 'area_sum', 'tin_area_sum', 'nightlight'],
     [-0.1, 0, 0, 0],  # vmin
-    [11.9, 1.3e4, 0.7e4, 1],  # vmax
+    [11.9, 1.2e4, 0.8e4, 1],  # vmax
     [cmap_treat, cmap_outcome, cmap_outcome, cmap_outcome],
 ):
     # drop observations with no eligible households

@@ -79,7 +79,7 @@ if __name__ == '__main__':
         df = df.loc[df['eligible'] > 0, :]
     # winsorize outcome variables
     for varname in ['nightlight', 'area_sum', 'tin_area_sum']:
-        df.loc[:, varname] = winsorize(df[varname], 2.5, 97.5)
+        df.loc[:, varname] = winsorize(df[varname], 0, 97.5)
     # placebo runs
     for i_simu in range(args.placebo):
 
