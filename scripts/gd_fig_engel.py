@@ -46,20 +46,6 @@ def compute_est(y_coef, y_se, scale, scale_se):
 
 def plot_curve(ax, method, x_col, y_col, color='dimgrey',
                scatter=True, se=False, **kwargs):
-    if method == 'loess':
-        m = loess(x_col, y_col, **kwargs)
-        m.fit()
-        pred = m.predict(x_col, stderror=True).confidence()
-        pred_fit = pred.fit
-        pred_lower, pred_upper = pred.lower, pred.upper
-    elif method == 'linear':
-        X = sm.add_constant(x_col)
-        m = sm.OLS(y_col, X).fit()
-        pred = m.get_prediction(X)
-        pred_fit = pred.predicted_mean
-        pred_lower, pred_upper = pred.conf_int().T
-    else:
-        raise NotImplementedError
     if scatter:
         ax.plot(x_col, y_col,
                 markeredgecolor='none',
@@ -67,11 +53,30 @@ def plot_curve(ax, method, x_col, y_col, color='dimgrey',
                 linestyle='None',
                 markersize=3,
                 color='dimgrey', alpha=0.07)
-    if se:
-        ax.fill_between(x_col, pred_lower, pred_upper,
-                        color=color, alpha=.2)
-    ax.plot(x_col, pred_fit,
-            color=color, linewidth=1.5, alpha=1)
+    if 'loess' in method:
+        m = loess(x_col, y_col, **kwargs)
+        m.fit()
+        pred = m.predict(x_col, stderror=True).confidence()
+        pred_fit = pred.fit
+        pred_lower, pred_upper = pred.lower, pred.upper
+        # if se:
+        #     ax.fill_between(x_col, pred_lower, pred_upper,
+        #                     color=color, alpha=.2)
+        ax.plot(x_col, pred_fit, '-',
+                color=color, linewidth=1.5, alpha=0.7)
+
+    if 'linear' in method:
+        X = sm.add_constant(x_col)
+        m = sm.OLS(y_col, X).fit()
+        pred = m.get_prediction(X)
+        pred_fit = pred.predicted_mean
+        pred_lower, pred_upper = pred.conf_int().T
+        if se:
+            ax.fill_between(x_col, pred_lower, pred_upper,
+                            color=color, alpha=.2)
+        ax.plot(x_col, pred_fit,
+                ':' if 'loess' in method else '-',
+                color=color, linewidth=1.5, alpha=0.7)
 
 
 def plot_engel(df, y, x, ax, split=None,
@@ -86,18 +91,32 @@ def plot_engel(df, y, x, ax, split=None,
         x_col = df_nona[x].values
         y_col = df_nona[y].values
         plot_curve(ax=ax, method=method, x_col=x_col, y_col=y_col,
-                   color=color, scatter=True)
+                   color=color, se=True, scatter=False,
+                   span=0.75)  # span controls smoothing for loess
     else:
         for color_key, df_group in df_nona.groupby(split):
             color = cmap[color_key]
             x_col = df_group[x].values
             y_col = df_group[y].values
             plot_curve(ax=ax, method=method, x_col=x_col, y_col=y_col,
-                       color=color, se=False)
+                       color=color, se=True, scatter=False)
+        # perform statistical test
+        print('+++ F Test +++')
+        diff = smf.ols(
+            f'{y} ~ {x} * {split}', df_nona).fit()
+        f_test = diff.f_test(f'({split} = 0), ({x}:{split} = 0)')
+        f_value = f_test.fvalue[0, 0]
+        p_value = f_test.pvalue
+        print(f'F={f_value:.3f}; p={p_value:.3f}')
+
     if x_label is not None:
         ax.set_xlabel(x_label)
     if y_label is not None:
-        ax.set_title(y_label, loc='left')
+        ax.set_title(
+            y_label if split is None else
+            (y_label +
+             (' (F-test: p<0.01)' if p_value < 0.01 else '')),
+            loc='left')
     if x_ticks is not None:
         ax.set_xticks(x_ticks)
     if x_ticklabels is not None:
@@ -158,15 +177,17 @@ def load_survey(SVY_IN_DIR):
     # convert to USD PPP by dividing by 46.5, per the GiveDirectly paper
     df_svy.loc[:, 'f_consumption'] = winsorize(
         df_svy['p2_consumption_wins'] / 46.5,
+        0, 97.5)
+    df_svy.loc[:, 'f_assets_housing'] = winsorize(
+        ((df_svy['p1_assets'] / 46.5) +
+         df_svy['h1_10_housevalue_wins_PPP']),
         2.5, 97.5)
     df_svy.loc[:, 'f_assets'] = winsorize(
-        ((df_svy['p1_assets'] / 46.5) +
-         df_svy['h1_11_landvalue_wins_PPP'] +
-         df_svy['h1_10_housevalue_wins_PPP']),
+        df_svy['p1_assets'] / 46.5,
         2.5, 97.5)
     df_svy.loc[:, 'f_housing'] = winsorize(
         df_svy['h1_10_housevalue_wins_PPP'],
-        2.5, 97.5)
+        0, 97.5)
 
     # check missing
     assert (df_svy.loc[:, ['treat', 'hi_sat', 's1_hhid_key', 'satcluster']]
@@ -181,7 +202,7 @@ def load_survey(SVY_IN_DIR):
     return df_svy
 
 
-def match(df_cen, df_svy, df_sat, radius):
+def match(df_cen, df_svy, df_sat, sat_radius, svy_radius):
     df_cen = df_cen.reset_index(drop=True)
     df_cen.loc[:, 'census_id'] = df_cen.index
     tree = scipy.spatial.cKDTree(
@@ -191,9 +212,9 @@ def match(df_cen, df_svy, df_sat, radius):
         df_sat.loc[:, ['centroid_lon', 'centroid_lat']].values, k=1)
     df_sat.loc[:, 'dist'] = dists
     df_sat.loc[:, 'census_id'] = cen_idxes
-    print(f"Matching {(df_sat['dist'] < radius).sum()} observations")
-    print(f"Dropping {(df_sat['dist'] >= radius).sum()} observations")
-    df_sat = df_sat.loc[df_sat['dist'] < radius, :]
+    print(f"Matching {(df_sat['dist'] < sat_radius).sum()} observations")
+    print(f"Dropping {(df_sat['dist'] >= sat_radius).sum()} observations")
+    df_sat = df_sat.loc[df_sat['dist'] < sat_radius, :]
     # take all the structures within the radius
     df_sat = df_sat.groupby('census_id').agg(
         area_sum=pd.NamedAgg(column='area', aggfunc='sum'),
@@ -204,9 +225,9 @@ def match(df_cen, df_svy, df_sat, radius):
         df_svy.loc[:, ['longitude', 'latitude']].values, k=1)
     df_svy.loc[:, 'dist'] = dists
     df_svy.loc[:, 'census_id'] = cen_idxes
-    print(f"Matching {(df_svy['dist'] < radius).sum()} observations")
-    print(f"Dropping {(df_svy['dist'] >= radius).sum()} observations")
-    df_svy = df_svy.loc[df_svy['dist'] < radius, :]
+    print(f"Matching {(df_svy['dist'] < svy_radius).sum()} observations")
+    print(f"Dropping {(df_svy['dist'] >= svy_radius).sum()} observations")
+    df_svy = df_svy.loc[df_svy['dist'] < svy_radius, :]
     df_svy = df_svy.sort_values(by=['census_id', 'dist'])
     df_svy = df_svy.drop_duplicates(subset=['census_id'], keep='first')
     # merge
@@ -215,17 +236,16 @@ def match(df_cen, df_svy, df_sat, radius):
         df_sat.loc[:, ['census_id', 'area_sum', 'tin_area_sum']],
         how='left', on='census_id',
     )
-    df.fillna(
-        {'house_count': 0, 'area_sum': 0, 'color_tin': 0,
-         'color_thatched': 0, 'color_tin_area': 0, 'color_thatched_area': 0},
-        inplace=True)
+    df.fillna({'area_sum': 0, 'tin_area_sum': 0}, inplace=True)
     df = pd.merge(
         df,
         df_svy.loc[:, ['census_id', 's1_hhid_key',
                        'treat', 'eligible', 'hi_sat',
-                       'f_consumption', 'f_assets', 'f_housing']],
-        how='left', on='census_id',
+                       'f_consumption', 'f_assets',
+                       'f_housing', 'f_assets_housing']],
+        how='inner', on='census_id',
     )
+    df = df.loc[df['area_sum'] > 0, :]
     # print(df.describe().T)
     return df
 
@@ -249,17 +269,18 @@ if __name__ == '__main__':
     # https://www.nber.org/system/files/working_papers/w26600/w26600.pdf
     # From Table 1, Column 1
     obs = {
-        'f_assets': 178.47 + 377.14 + 49.50,  # row 6-8
+        'f_assets_housing': 178.47 + 377.14,  # row 6-7
         'f_consumption': 292.98,  # row 1
         'f_housing': 377.14,  # row 7
+        'f_assets': 178.47,  # row 6
     }
     obs_se = {
-        # row 6-8
-        'f_assets': np.sqrt(np.square(24.63) +
-                            np.square(26.37) +
-                            np.square(186.30)),
+        # row 6-7
+        'f_assets_housing': np.sqrt(np.square(24.63) +
+                                    np.square(26.37)),
         'f_consumption': 60.09,  # row 1
         'f_housing': 26.37,  # row 7
+        'f_assets': 24.63,  # row 6
     }
 
     # load data
@@ -271,7 +292,8 @@ if __name__ == '__main__':
     # match
     df = match(
         df_cen, df_svy, df_sat,
-        radius=200 / 111000)  # __ meters / 111000 meters -> degrees
+        sat_radius=250 / 111000,
+        svy_radius=250 / 111000)  # __ meters / 111000 meters -> degrees
     df.loc[:, 'treat'] = df['treat'].astype(float)
 
     # load nightlight
@@ -281,7 +303,7 @@ if __name__ == '__main__':
     # eligible sample only
     df = df.loc[df['eligible'] > 0, :]
     # examine data
-    # print('Eligible Sample:')
+    print(f'Eligible Sample: {df.shape}')
     # print(df.loc[df['eligible'] > 0.5, :].describe().T)
     # print('Ineligible Sample:')
     # print(df.loc[df['eligible'] < 0.5, :].describe().T)
@@ -291,21 +313,29 @@ if __name__ == '__main__':
           'area_sum',
           'tin_area_sum']
     y_labels = ['Night Light',
-                'Building Footprint (sq meters)',
-                'Tin-roof Area (sq meters)']
-    y_ticks = [None, None, None]
+                'Building Footprint (m2)',
+                'Tin-roof Area (m2)']
+    y_ticks = [[0.3, 0.35, 0.4],
+               [200, 300, 400],
+               [100, 150, 200, 250]]
     y_ticklabels = [None, None, None]
-    xs = ['f_assets',
+    xs = ['f_assets_housing',
+          'f_assets',
           'f_consumption',
           'f_housing']
     x_labels = ['Assets (USD PPP)',
+                'Non-Housing Assets (USD PPP)',
                 'Consumption (USD PPP)',
                 'Housing Asset (USD PPP)']
-    x_ticks = [None, None, None]
-    x_ticklabels = [None, None, None]
+    x_ticks = [
+        [0, 5000, 10000],
+        [0, 2500, 5000],
+        [0, 4000, 8000],
+        [0, 3000, 6000]]
+    x_ticklabels = [None, None, None, None]
     # winsorize satellite based observations
     for y in ys:
-        df.loc[:, y] = winsorize(df[y], 2.5, 97.5)
+        df.loc[:, y] = winsorize(df[y], 0, 97.5)
     # load previous estimates
     y_coefs = []
     y_coef_ses = []
@@ -333,12 +363,15 @@ if __name__ == '__main__':
         for ax, y, y_coef, y_coef_se, y_label, y_tick, y_ticklabel in zip(
             axes, ys, y_coefs, y_coef_ses, y_labels, y_ticks, y_ticklabels
         ):
+            # control sample only
+            df_control = df.loc[df['treat'] < 1, :]
             plot_engel(
-                df=df,
+                df=df_control,
                 y=y,
                 x=x,
                 ax=ax,
-                color=palette[0],
+                method=['linear', 'loess'],
+                color=palette[-1],
                 y_ticks=y_tick,
                 y_ticklabels=y_ticklabel,
                 y_label=y_label,
@@ -346,7 +379,7 @@ if __name__ == '__main__':
                 x_ticklabels=x_ticklabel,
                 x_label='',
             )
-            scale, scale_se = reg(df, y, x)
+            scale, scale_se = reg(df_control, y, x)
             est, est_se = compute_est(y_coef, y_coef_se, scale, scale_se)
             print(f'y: {y}, x: {x}')
             print(f'{est:.3f}, {est_se:.3f} = '
@@ -359,7 +392,7 @@ if __name__ == '__main__':
         fig.savefig(os.path.join(OUT_DIR, f'engel-{x}.pdf'),
                     bbox_inches='tight', pad_inches=0)
         plot_est(y=x, labels=est_labels, betas=est_betas, ses=est_ses,
-                 xticks=None)
+                 xticks=[-1000, 0, 1000, 2000])
         # test for treatment/control differences
         fig, axes = plt.subplots(figsize=(6.5, 2.5), ncols=3)
         for ax, y, y_label, y_tick, y_ticklabel in zip(

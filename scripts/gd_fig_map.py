@@ -68,9 +68,9 @@ for varname, vmin, vmax, cmap in zip(
     im = ax.imshow(raster, origin='lower',
                    extent=(min_lon, max_lon, min_lat, max_lat),
                    cmap=cmap, vmin=vmin, vmax=vmax)
-    ax.plot(*bound.exterior.xy, color='white', linewidth=2)
+    ax.plot(*bound.exterior.xy, color='#cccccc', linewidth=2)
     ax.add_patch(PolygonPatch(
-        outside, facecolor='#dddddd', edgecolor='#dddddd'))
+        outside, facecolor='white', edgecolor='white'))
     ax.axis('off')
     ax.set_aspect(1)
     cbar = fig.colorbar(im, orientation='horizontal')
