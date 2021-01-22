@@ -4,11 +4,22 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
+import seaborn as sns
 
 from maskrcnn.utils.eval import evaluate
 
 
+sns.set(style='ticks', font='Helvetica')
 matplotlib.rc('pdf', fonttype=42)
+
+plt.rc('font', size=12)  # controls default text sizes
+plt.rc('axes', titlesize=12)  # fontsize of the axes title
+plt.rc('axes', labelsize=12)  # fontsize of the x and y labels
+plt.rc('xtick', labelsize=12)  # fontsize of the tick labels
+plt.rc('ytick', labelsize=12)  # fontsize of the tick labels
+plt.rc('legend', fontsize=12)  # legend fontsize
+plt.rc('figure', titlesize=12)  # fontsize of the figure title
+
 
 # 400 pixels = 22.7 m2 gives the best result
 # but that's a rather high threshold, not super sensible
@@ -35,7 +46,8 @@ gts = {'annotations': [],
        'categories': [{'id': 1, 'name': 'building'}]}
 # renumber all the instance ids to prevent non unique ids
 instance_id = 0
-for i, (pred_file, gt_file) in enumerate(zip(input_pred_files, input_gt_files)):
+for i, (pred_file, gt_file) in enumerate(
+        zip(input_pred_files, input_gt_files)):
     # merge predictions
     with open(pred_file, 'r') as f:
         pred = json.load(f)
@@ -51,7 +63,8 @@ for i, (pred_file, gt_file) in enumerate(zip(input_pred_files, input_gt_files)):
         ann['image_id'] = ann['image_id'] + i * 40
         instance_id = instance_id + 1
         ann['id'] = instance_id
-    gts['annotations'] += [ann for ann in gt['annotations'] if ann['area'] > area_min]
+    gts['annotations'] += [
+        ann for ann in gt['annotations'] if ann['area'] > area_min]
     gts['images'] += gt['images']
 
 with open(output_pred_file, 'w') as f:
@@ -78,7 +91,7 @@ optim_score = scores[np.argmax(f1)]
 optim_f1 = np.max(f1)
 
 # plot
-fig, ax = plt.subplots(figsize=(4, 3))
+fig, ax = plt.subplots(figsize=(5, 4))
 ax.plot(
     recall, precision,
     linewidth=3,
@@ -103,22 +116,23 @@ ax.annotate(
     f'Max F1: {optim_f1:.2f}\n' +
     f'(Recall: {optim_recall:.2f}; Precision: {optim_precision:.2f})\n',
     xy=(optim_recall - 0.02, optim_precision - 0.02), xycoords='data',
-    xytext=(0.05, 0.3), textcoords='data',
-    arrowprops=dict(arrowstyle='->', connectionstyle='arc3'),
+    xytext=(0.8, 0.45), textcoords='data', ha='right',
+    arrowprops=dict(arrowstyle='-|>', connectionstyle='arc3', color='dimgrey'),
 )
 ax.spines['top'].set_color('dimgray')
 ax.spines['right'].set_color('dimgray')
 ax.spines['bottom'].set_color('dimgray')
 ax.spines['left'].set_color('dimgray')
+ax.tick_params(axis='x', colors='dimgrey')
+ax.tick_params(axis='y', colors='dimgrey')
 ax.set_xticks(np.linspace(0, 1, 6))
 ax.set_yticks(np.linspace(0, 1, 6))
 ax.set_xlim(0, 1)
 ax.set_ylim(0, 1)
 ax.set_xlabel('Recall')
-ax.set_ylabel('Precision')
+ax.set_title('Precision', loc='left')
 ax.set_aspect('equal')
-ax.set_title(
-    f'Optimal Confidence Score Cutoff: {optim_score:.2f}\n' +
-    f'Max Recall: {recall[-1]:.2f}')
+print(f'Optimal Confidence Score Cutoff: {optim_score:.2f}\n' +
+      f'Max Recall: {recall[-1]:.2f}')
 fig.tight_layout()
 fig.savefig(output_figure)

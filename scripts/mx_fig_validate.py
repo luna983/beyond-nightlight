@@ -1,5 +1,4 @@
 import os
-import glob
 import numpy as np
 import pandas as pd
 import matplotlib
@@ -254,7 +253,7 @@ if __name__ == '__main__':
     df.loc[:, 'sat_size_sum_pc_wins'] = winsorize(df['sat_size_sum_pc'], 0, 99)
     # load nightlight values
     df = load_nightlight_from_point(df, NL_IN_DIR)
-
+    df = df.rename({'nightlight': 'sat_nightlight'}, axis=1)
     # plotting begins
     plot_scatter(
         col_x_key='cen_pop',
@@ -334,13 +333,13 @@ if __name__ == '__main__':
         line=True, df=df, out_dir=OUT_DIR, show=True)
 
     # massive plotting begins
-    sat_cols = [col for col in df.columns if col.startswith('sat')]
-    cen_cols = [col for col in df.columns if col.startswith('cen')]
-    for f in glob.glob(os.path.join(OUT_DIR, 'archive/*.pdf')):
-        os.remove(f)
-    for sat_col in sat_cols:
-        for cen_col in cen_cols:
-            plot_scatter(col_x_key=cen_col, col_y_key=sat_col,
-                         col_x_label=cen_col, col_y_label=sat_col,
-                         line=True,
-                         df=df, out_dir=os.path.join(OUT_DIR, 'archive'))
+    # sat_cols = [col for col in df.columns if col.startswith('sat')]
+    # cen_cols = [col for col in df.columns if col.startswith('cen')]
+    # for f in glob.glob(os.path.join(OUT_DIR, 'archive/*.pdf')):
+    #     os.remove(f)
+    # for sat_col in sat_cols:
+    #     for cen_col in cen_cols:
+    #         plot_scatter(col_x_key=cen_col, col_y_key=sat_col,
+    #                      col_x_label=cen_col, col_y_label=sat_col,
+    #                      line=True,
+    #                      df=df, out_dir=os.path.join(OUT_DIR, 'archive'))

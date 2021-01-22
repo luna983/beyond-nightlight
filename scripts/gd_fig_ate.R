@@ -142,13 +142,14 @@ y_lims <- list(
     c(-0.055, 0.055), c(-30, 55), c(-30, 80))
 x_lim <- c(-0.2, 3.5)
 placebo <- T
-n_iter <- 100
 
 # load data
 df <- readr::read_csv(
     input_dir,
     # to suppress warnings
     col_type=readr::cols())
+n_iter <- stringr::str_detect(colnames(df),
+                              'treat_eligible_placebo') %>% sum()
 for (outcome_i in c(1:length(col_ys))) {
     print('----------------------------------')
     print(paste0('outcome: ', col_ys[outcome_i]))

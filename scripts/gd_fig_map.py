@@ -53,7 +53,7 @@ outside = shapely.geometry.box(
 for varname, vmin, vmax, cmap in zip(
     ['treat_eligible', 'area_sum', 'tin_area_sum', 'nightlight'],
     [-0.1, 0, 0, 0],  # vmin
-    [11.9, 1.3e4, 0.7e4, 1],  # vmax
+    [11.9, 1.2e4, 0.8e4, 1],  # vmax
     [cmap_treat, cmap_outcome, cmap_outcome, cmap_outcome],
 ):
     # drop observations with no eligible households
@@ -68,9 +68,9 @@ for varname, vmin, vmax, cmap in zip(
     im = ax.imshow(raster, origin='lower',
                    extent=(min_lon, max_lon, min_lat, max_lat),
                    cmap=cmap, vmin=vmin, vmax=vmax)
-    ax.plot(*bound.exterior.xy, color='white', linewidth=2)
+    ax.plot(*bound.exterior.xy, color='#cccccc', linewidth=2)
     ax.add_patch(PolygonPatch(
-        outside, facecolor='#dddddd', edgecolor='#dddddd'))
+        outside, facecolor='white', edgecolor='white'))
     ax.axis('off')
     ax.set_aspect(1)
     cbar = fig.colorbar(im, orientation='horizontal')

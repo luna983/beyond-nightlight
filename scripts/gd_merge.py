@@ -2,7 +2,8 @@ import argparse
 import numpy as np
 import pandas as pd
 from maskrcnn.postprocess.analysis import (
-    load_gd_census, snap_to_grid, load_building, load_nightlight_from_point)
+    winsorize, snap_to_grid,
+    load_gd_census, load_building, load_nightlight_from_point)
 
 
 if __name__ == '__main__':
@@ -76,7 +77,9 @@ if __name__ == '__main__':
     # subset to eligible only
     if args.eligible_only:
         df = df.loc[df['eligible'] > 0, :]
-
+    # winsorize outcome variables
+    for varname in ['nightlight', 'area_sum', 'tin_area_sum']:
+        df.loc[:, varname] = winsorize(df[varname], 0, 97.5)
     # placebo runs
     for i_simu in range(args.placebo):
 
