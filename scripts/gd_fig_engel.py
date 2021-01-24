@@ -145,7 +145,7 @@ def plot_est(ax, y, labels, betas, ses, y_label,
         capsize=3, fmt='o', markersize=4)
     ax.set_yticks(range(len(betas)))
     ax.set_yticklabels(labels, ha='left')
-    ax.set_ylim(len(betas) - 0.5, -2.5)
+    ax.set_ylim(len(betas) - 0.5, -3.5)
     ax.set_xlabel('Treatment Effects (USD PPP)')
     if ticks is not None:
         ax.set_xticks(ticks)
@@ -272,9 +272,9 @@ if __name__ == '__main__':
         print('Treatment Effect: {} ({})'.format(
             *reg(df.loc[df['eligible'] > 0, :], x, 'treat')))
         est_labels = ['Observed (Egger et al., 2019)',
-                      '', 'Estimated based on ...']
-        est_betas = [obs[x], np.nan, np.nan]
-        est_ses = [obs_se[x], np.nan, np.nan]
+                      'Estimated based on ...']
+        est_betas = [obs[x], np.nan]
+        est_ses = [obs_se[x], np.nan]
 
         fig = plt.figure(figsize=(6.5, 5))
         gs = fig.add_gridspec(2, 3)
