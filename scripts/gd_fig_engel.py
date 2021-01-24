@@ -6,12 +6,12 @@ import statsmodels.formula.api as smf
 import seaborn as sns
 import matplotlib
 import matplotlib.pyplot as plt
-import scipy.spatial
 from skmisc.loess import loess
 
 from maskrcnn.postprocess.analysis import (
     winsorize, load_nightlight_from_point,
-    load_building, load_gd_census)
+    load_building, load_gd_census,
+    load_survey, match)
 
 
 np.random.seed(0)
@@ -19,13 +19,13 @@ np.random.seed(0)
 sns.set(style='ticks', font='Helvetica')
 matplotlib.rc('pdf', fonttype=42)
 
-plt.rc('font', size=12)  # controls default text sizes
-plt.rc('axes', titlesize=12)  # fontsize of the axes title
-plt.rc('axes', labelsize=12)  # fontsize of the x and y labels
-plt.rc('xtick', labelsize=12)  # fontsize of the tick labels
-plt.rc('ytick', labelsize=12)  # fontsize of the tick labels
-plt.rc('legend', fontsize=12)  # legend fontsize
-plt.rc('figure', titlesize=12)  # fontsize of the figure title
+plt.rc('font', size=11)  # controls default text sizes
+plt.rc('axes', titlesize=11)  # fontsize of the axes title
+plt.rc('axes', labelsize=11)  # fontsize of the x and y labels
+plt.rc('xtick', labelsize=11)  # fontsize of the tick labels
+plt.rc('ytick', labelsize=11)  # fontsize of the tick labels
+plt.rc('legend', fontsize=11)  # legend fontsize
+plt.rc('figure', titlesize=11)  # fontsize of the figure title
 
 
 def reg(df, y, x):
@@ -73,7 +73,7 @@ def plot_curve(ax, method, x_col, y_col, color='dimgrey',
         pred_lower, pred_upper = pred.conf_int().T
         if se:
             ax.fill_between(x_col, pred_lower, pred_upper,
-                            color=color, alpha=.2)
+                            color=color, alpha=.1)
         ax.plot(x_col, pred_fit,
                 ':' if 'loess' in method else '-',
                 color=color, linewidth=1.5, alpha=0.7)
@@ -108,15 +108,16 @@ def plot_engel(df, y, x, ax, split=None,
         f_value = f_test.fvalue[0, 0]
         p_value = f_test.pvalue
         print(f'F={f_value:.3f}; p={p_value:.3f}')
+        if p_value < 0.01:
+            ax.set_title('*F-test: p<0.01')
 
     if x_label is not None:
         ax.set_xlabel(x_label)
     if y_label is not None:
-        ax.set_title(
-            y_label if split is None else
-            (y_label +
-             (' (F-test: p<0.01)' if p_value < 0.01 else '')),
-            loc='left')
+        if split is None:
+            ax.set_title(y_label, loc='left')
+        else:
+            ax.set_ylabel(y_label)
     if x_ticks is not None:
         ax.set_xticks(x_ticks)
     if x_ticklabels is not None:
@@ -136,118 +137,33 @@ def plot_engel(df, y, x, ax, split=None,
     ax.grid(False)
 
 
-def plot_est(y, labels, betas, ses, xticks=None):
-    fig, ax = plt.subplots(figsize=(7, 2))
+def plot_est(ax, y, labels, betas, ses, y_label,
+             ticks=None, lim=None, minor_ticks=None):
     ax.errorbar(
         x=betas, y=range(len(betas)),
         xerr=1.96 * np.array(ses), color='#999999',
-        capsize=3, fmt='o')
+        capsize=3, fmt='o', markersize=4)
     ax.set_yticks(range(len(betas)))
-    ax.set_yticklabels(labels)
-    ax.set_ylim(-0.5, len(betas) - 0.5)
+    ax.set_yticklabels(labels, ha='left')
+    ax.set_ylim(len(betas) - 0.5, -2.5)
     ax.set_xlabel('Treatment Effects (USD PPP)')
-    if xticks is not None:
-        ax.set_xticks(xticks)
-        ax.set_xlim(xticks[0], xticks[-1])
+    if ticks is not None:
+        ax.set_xticks(ticks)
+        if minor_ticks is not None:
+            ax.set_xticks(minor_ticks, minor=True)
+        ax.set_xlim(ticks[0], ticks[-1])
         ax.spines['bottom'].set_bounds(ax.get_xticks()[0], ax.get_xticks()[-1])
+    if lim is not None:
+        ax.set_xlim(*lim)
     ax.spines['bottom'].set_color('dimgray')
     ax.spines['left'].set_color('none')
     ax.spines['right'].set_color('none')
     ax.spines['top'].set_color('none')
-    ax.tick_params(axis='x', colors='dimgray')
-    ax.tick_params(axis='y', color='none')
+    ax.tick_params(axis='x', which='both', colors='dimgray')
+    ax.tick_params(axis='y', which='both', color='none')
     ax.grid(False)
-    fig.tight_layout()
-    fig.savefig(os.path.join(OUT_DIR, f'betas-{y}.pdf'))
-
-
-def load_survey(SVY_IN_DIR):
-    # load survey data
-    df_svy = pd.read_stata(SVY_IN_DIR)
-    # print('Observations in raw data: ', df_svy.shape[0])
-
-    # drop households without geo coords
-    df_svy = df_svy.dropna(
-        subset=['latitude', 'longitude'],
-    ).reset_index(drop=True)
-    # print('Observations w/ coords: ', df_svy.shape[0])
-
-    # f for final variables
-    # calculate per capita consumption / assets
-    # convert to USD PPP by dividing by 46.5, per the GiveDirectly paper
-    df_svy.loc[:, 'f_consumption'] = winsorize(
-        df_svy['p2_consumption_wins'] / 46.5,
-        0, 97.5)
-    df_svy.loc[:, 'f_assets_housing'] = winsorize(
-        ((df_svy['p1_assets'] / 46.5) +
-         df_svy['h1_10_housevalue_wins_PPP']),
-        2.5, 97.5)
-    df_svy.loc[:, 'f_assets'] = winsorize(
-        df_svy['p1_assets'] / 46.5,
-        2.5, 97.5)
-    df_svy.loc[:, 'f_housing'] = winsorize(
-        df_svy['h1_10_housevalue_wins_PPP'],
-        0, 97.5)
-
-    # check missing
-    assert (df_svy.loc[:, ['treat', 'hi_sat', 's1_hhid_key', 'satcluster']]
-                  .notna().all().all())
-
-    df_svy.loc[:, 'eligible'] = 1 - df_svy['h1_6_nonthatchedroof_BL']
-    # print('Observations in final sample: ', df_svy.shape[0])
-    # print('Eligible Sample:')
-    # print(df_svy.loc[df_svy['eligible'] > 0.5, :].describe().T)
-    # print('Ineligible Sample:')
-    # print(df_svy.loc[df_svy['eligible'] < 0.5, :].describe().T)
-    return df_svy
-
-
-def match(df_cen, df_svy, df_sat, sat_radius, svy_radius):
-    df_cen = df_cen.reset_index(drop=True)
-    df_cen.loc[:, 'census_id'] = df_cen.index
-    tree = scipy.spatial.cKDTree(
-        df_cen.loc[:, ['longitude', 'latitude']].values)
-    # match structures to households
-    dists, cen_idxes = tree.query(
-        df_sat.loc[:, ['centroid_lon', 'centroid_lat']].values, k=1)
-    df_sat.loc[:, 'dist'] = dists
-    df_sat.loc[:, 'census_id'] = cen_idxes
-    print(f"Matching {(df_sat['dist'] < sat_radius).sum()} observations")
-    print(f"Dropping {(df_sat['dist'] >= sat_radius).sum()} observations")
-    df_sat = df_sat.loc[df_sat['dist'] < sat_radius, :]
-    # take all the structures within the radius
-    df_sat = df_sat.groupby('census_id').agg(
-        area_sum=pd.NamedAgg(column='area', aggfunc='sum'),
-        tin_area_sum=pd.NamedAgg(column='color_tin_area', aggfunc='sum'),
-    ).reset_index()
-    # match surveys to households
-    dists, cen_idxes = tree.query(
-        df_svy.loc[:, ['longitude', 'latitude']].values, k=1)
-    df_svy.loc[:, 'dist'] = dists
-    df_svy.loc[:, 'census_id'] = cen_idxes
-    print(f"Matching {(df_svy['dist'] < svy_radius).sum()} observations")
-    print(f"Dropping {(df_svy['dist'] >= svy_radius).sum()} observations")
-    df_svy = df_svy.loc[df_svy['dist'] < svy_radius, :]
-    df_svy = df_svy.sort_values(by=['census_id', 'dist'])
-    df_svy = df_svy.drop_duplicates(subset=['census_id'], keep='first')
-    # merge
-    df = pd.merge(
-        df_cen.loc[:, ['census_id', 'longitude', 'latitude']],
-        df_sat.loc[:, ['census_id', 'area_sum', 'tin_area_sum']],
-        how='left', on='census_id',
-    )
-    df.fillna({'area_sum': 0, 'tin_area_sum': 0}, inplace=True)
-    df = pd.merge(
-        df,
-        df_svy.loc[:, ['census_id', 's1_hhid_key',
-                       'treat', 'eligible', 'hi_sat',
-                       'f_consumption', 'f_assets',
-                       'f_housing', 'f_assets_housing']],
-        how='inner', on='census_id',
-    )
-    df = df.loc[df['area_sum'] > 0, :]
-    # print(df.describe().T)
-    return df
+    ax.set_title(f'b  Estimated v.s. Observed Treatment Effects on {y_label}',
+                 loc='left', y=0.8)
 
 
 if __name__ == '__main__':
@@ -288,14 +204,12 @@ if __name__ == '__main__':
     df_svy = load_survey(SVY_IN_DIR)
     df_cen = load_gd_census(
         GPS_FILE=CENSUS_GPS_IN_DIR, MASTER_FILE=CENSUS_MASTER_IN_DIR)
-
     # match
     df = match(
         df_cen, df_svy, df_sat,
         sat_radius=250 / 111000,
         svy_radius=250 / 111000)  # __ meters / 111000 meters -> degrees
     df.loc[:, 'treat'] = df['treat'].astype(float)
-
     # load nightlight
     df = load_nightlight_from_point(
         df, NL_IN_DIR,
@@ -313,26 +227,28 @@ if __name__ == '__main__':
           'area_sum',
           'tin_area_sum']
     y_labels = ['Night Light',
-                'Building Footprint (m2)',
-                'Tin-roof Area (m2)']
+                'Building Footprint',
+                'Tin-roof Area']
+    y_units = ['(nW·cm-2·sr-1)', '(m2)', '(m2)']
     y_ticks = [[0.3, 0.35, 0.4],
                [200, 300, 400],
                [100, 150, 200, 250]]
-    y_ticklabels = [None, None, None]
+    # here, assets refers to non-land, non-housing assets only
     xs = ['f_assets_housing',
-          'f_assets',
           'f_consumption',
-          'f_housing']
-    x_labels = ['Assets (USD PPP)',
-                'Non-Housing Assets (USD PPP)',
-                'Consumption (USD PPP)',
-                'Housing Asset (USD PPP)']
+          'f_housing',
+          'f_assets']
+    x_labels = ['Assets Owned',
+                'Annual Expenditure',
+                'Housing Assets Owned',
+                'Non-Housing Assets Owned']
+    x_unit = '(USD PPP)'
     x_ticks = [
         [0, 5000, 10000],
-        [0, 2500, 5000],
         [0, 4000, 8000],
-        [0, 3000, 6000]]
-    x_ticklabels = [None, None, None, None]
+        [0, 3000, 6000],
+        [0, 2500, 5000],
+    ]
     # winsorize satellite based observations
     for y in ys:
         df.loc[:, y] = winsorize(df[y], 0, 97.5)
@@ -347,37 +263,40 @@ if __name__ == '__main__':
         y_coef_ses.append(y_coef_se)
 
     # double loop
-    for x, x_label, x_tick, x_ticklabel in zip(
-        xs, x_labels, x_ticks, x_ticklabels
+    for x, x_label, x_tick in zip(
+        xs, x_labels, x_ticks,
     ):
         print('-' * 36)
         print(x_label)
         print('Replicate the results from the original paper')
         print('Treatment Effect: {} ({})'.format(
             *reg(df.loc[df['eligible'] > 0, :], x, 'treat')))
-        est_labels = ['Observed (Egger et al., 2019)']
-        est_betas = [obs[x]]
-        est_ses = [obs_se[x]]
+        est_labels = ['Observed (Egger et al., 2019)',
+                      '', 'Estimated based on ...']
+        est_betas = [obs[x], np.nan, np.nan]
+        est_ses = [obs_se[x], np.nan, np.nan]
 
-        fig, axes = plt.subplots(figsize=(6.5, 2.5), ncols=3)
-        for ax, y, y_coef, y_coef_se, y_label, y_tick, y_ticklabel in zip(
-            axes, ys, y_coefs, y_coef_ses, y_labels, y_ticks, y_ticklabels
+        fig = plt.figure(figsize=(6.5, 5))
+        gs = fig.add_gridspec(2, 3)
+        ax0 = fig.add_subplot(gs[0, 0])
+        ax1 = fig.add_subplot(gs[0, 1])
+        ax2 = fig.add_subplot(gs[0, 2])
+        ax3 = fig.add_subplot(gs[1, :])
+
+        fig.suptitle('a  Engel Curves', x=0.07, y=0.95, ha='left')
+
+        for ax, y, y_coef, y_coef_se, y_label, y_unit, y_tick in zip(
+            [ax0, ax1, ax2],
+            ys, y_coefs, y_coef_ses, y_labels, y_units, y_ticks,
         ):
             # control sample only
             df_control = df.loc[df['treat'] < 1, :]
             plot_engel(
-                df=df_control,
-                y=y,
-                x=x,
-                ax=ax,
+                df=df_control, y=y, x=x, ax=ax,
                 method=['linear', 'loess'],
                 color=palette[-1],
-                y_ticks=y_tick,
-                y_ticklabels=y_ticklabel,
-                y_label=y_label,
-                x_ticks=x_tick,
-                x_ticklabels=x_ticklabel,
-                x_label='',
+                y_ticks=y_tick, y_label='\n\n' + y_label + ' ' + y_unit,
+                x_ticks=x_tick, x_label='',
             )
             scale, scale_se = reg(df_control, y, x)
             est, est_se = compute_est(y_coef, y_coef_se, scale, scale_se)
@@ -385,32 +304,36 @@ if __name__ == '__main__':
             print(f'{est:.3f}, {est_se:.3f} = '
                   f'compute_est({y_coef:.3f}, {y_coef_se:.3f}, '
                   f'{scale:.3f}, {scale_se:.3f})')
-            est_labels.append(y_label)
+            est_labels.append('    ' + y_label)
             est_betas.append(est)
             est_ses.append(est_se)
-        # fig.tight_layout()
-        fig.savefig(os.path.join(OUT_DIR, f'engel-{x}.pdf'),
+        fig.text(0.5, 0.45, x_label + ' ' + x_unit, ha='center')
+        plot_est(ax=ax3, y=x,
+                 labels=est_labels, betas=est_betas, ses=est_ses,
+                 y_label=x_label,
+                 ticks=[-1000, 0, 1000, 2000],
+                 lim=(-3000, 2000),
+                 minor_ticks=[-800, -600, -400, -200,
+                              200, 400, 600, 800,
+                              1200, 1400, 1600, 1800])
+        fig.savefig(os.path.join(OUT_DIR, f'{x}-raw.pdf'),
                     bbox_inches='tight', pad_inches=0)
-        plot_est(y=x, labels=est_labels, betas=est_betas, ses=est_ses,
-                 xticks=[-1000, 0, 1000, 2000])
-        # test for treatment/control differences
-        fig, axes = plt.subplots(figsize=(6.5, 2.5), ncols=3)
-        for ax, y, y_label, y_tick, y_ticklabel in zip(
-            axes, ys, y_labels, y_ticks, y_ticklabels
-        ):
-            plot_engel(
-                df=df,
-                y=y,
-                x=x,
-                ax=ax,
-                split='treat',
-                cmap=cmap,
-                y_ticks=y_tick,
-                y_ticklabels=y_ticklabel,
-                y_label=y_label,
-                x_ticks=x_tick,
-                x_ticklabels=x_ticklabel,
-                x_label='',
-            )
-        fig.savefig(os.path.join(OUT_DIR, f'engelx2-{x}.pdf'),
-                    bbox_inches='tight', pad_inches=0)
+
+    # test for treatment/control differences
+    print('-' * 36)
+    print('Test for Treatment/Control Engel Curve Differences')
+    fig, axes = plt.subplots(figsize=(6.5, 7), ncols=3, nrows=4)
+    for row_idx, (x, x_label, x_tick) in enumerate(zip(
+        xs, x_labels, x_ticks,
+    )):
+        for col_idx, (y, y_label, y_tick) in enumerate(zip(
+            ys, y_labels, y_ticks,
+        )):
+            plot_engel(df=df, y=y, x=x,
+                       ax=axes[row_idx, col_idx],
+                       split='treat', cmap=cmap,
+                       y_ticks=y_tick, y_label=y_label,
+                       x_ticks=x_tick, x_label=x_label)
+    fig.tight_layout()
+    fig.savefig(os.path.join(OUT_DIR, f'engel-diff-raw.pdf'),
+                bbox_inches='tight', pad_inches=0)

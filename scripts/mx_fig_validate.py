@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
-from scipy.stats import pearsonr, spearmanr
+from scipy.stats import pearsonr
 from sklearn.decomposition import PCA
 from skmisc.loess import loess
 
@@ -12,16 +12,23 @@ from maskrcnn.postprocess.analysis import winsorize, load_nightlight_from_point
 
 
 matplotlib.rc('pdf', fonttype=42)
-sns.set(style='ticks', font='Helvetica', font_scale=1)
+sns.set(style='ticks', font='Helvetica')
+
+plt.rc('font', size=11)  # controls default text sizes
+plt.rc('axes', titlesize=11)  # fontsize of the axes title
+plt.rc('axes', labelsize=11)  # fontsize of the x and y labels
+plt.rc('xtick', labelsize=11)  # fontsize of the tick labels
+plt.rc('ytick', labelsize=11)  # fontsize of the tick labels
+plt.rc('legend', fontsize=11)  # legend fontsize
+plt.rc('figure', titlesize=11)  # fontsize of the figure title
 
 
-def plot_scatter(col_x_key, col_y_key, col_x_label, col_y_label, df, out_dir,
+def plot_scatter(col_x_key, col_y_key, col_x_label, col_y_label, df, ax,
                  transform_x=lambda x: x, transform_y=lambda x: x,
                  xlim=None, ylim=None, xticks=None, yticks=None,
                  xticklabels=None, yticklabels=None,
-                 figsize=(4.5, 3),
                  alpha=0.5, line=False, frac=0.3,
-                 square=False, cut=None, show=False):
+                 square=False):
     """Generates scatter plots w/ correlation coef.
 
     Args:
@@ -39,23 +46,19 @@ def plot_scatter(col_x_key, col_y_key, col_x_label, col_y_label, df, out_dir,
         frac (float): passed to lowess() for smoothing
         square (bool): whether x and y axis should be the same and
             whether a 45 degree line should be plotted
-        cut (int): how many qcuts to make (calculate correlation for different
-            quantiles), disabled if None
-        show (bool): whether to show the figure
     """
 
     df_nona = (df.loc[:, [col_x_key, col_y_key]]
                  .dropna().sort_values(by=col_x_key).astype('float'))
     cols = df_nona.values
-    pcorr, _ = pearsonr(cols[:, 0], cols[:, 1])
-    scorr, _ = spearmanr(cols[:, 0], cols[:, 1])
-    fig, ax = plt.subplots(figsize=figsize)
+    corr, _ = pearsonr(cols[:, 0], cols[:, 1])
     x = transform_x(cols[:, 0])
     y = transform_y(cols[:, 1])
     ax.plot(x, y,
             markeredgecolor='none',
             marker='o', color='dimgrey',
-            linestyle='None', alpha=alpha)
+            linestyle='None', alpha=alpha,
+            markersize=4)
     if line:
         m = loess(x, y)
         m.fit()
@@ -67,9 +70,9 @@ def plot_scatter(col_x_key, col_y_key, col_x_label, col_y_label, df, out_dir,
     if square:
         ax.axis('square')
         ax.plot(xlim, ylim, '--', color='gray', linewidth=2)
-    ax.set_title(f'Pearson: {pcorr:.2f}')
+    ax.set_title(f'{col_y_label}\nCorrelation: {corr:.2f}',
+                 loc='left')
     ax.set_xlabel(col_x_label)
-    ax.set_ylabel(col_y_label)
     if xlim is not None:
         ax.set_xlim(xlim)
     if ylim is not None:
@@ -82,20 +85,6 @@ def plot_scatter(col_x_key, col_y_key, col_x_label, col_y_label, df, out_dir,
         ax.set_xticklabels(xticklabels)
     if yticklabels is not None:
         ax.set_yticklabels(yticklabels)
-    if cut is not None:
-        ymin, ymax = ax.get_ylim()
-        y_pos = ymin * 0.1 + ymax * 0.9
-        category, bins = pd.qcut(x, cut,
-                                 labels=list(range(cut)),
-                                 retbins=True)
-        for i, g in df_nona.groupby(category):
-            pcorr, _ = pearsonr(g.iloc[:, 0].values, g.iloc[:, 1].values)
-            scorr, _ = spearmanr(g.iloc[:, 0].values, g.iloc[:, 1].values)
-            x_pos = np.mean([bins[i], bins[i + 1]])
-            ax.text(x_pos, y_pos,
-                    f'Pearson: {pcorr:.2f}')
-        for b in bins[1:-1]:
-            ax.plot([b, b], [ymin, ymax], '-', color='gray', linewidth=1)
     ax.spines['left'].set_bounds(ax.get_yticks()[0], ax.get_yticks()[-1])
     ax.spines['left'].set_color('dimgray')
     ax.spines['bottom'].set_bounds(ax.get_xticks()[0], ax.get_xticks()[-1])
@@ -105,12 +94,6 @@ def plot_scatter(col_x_key, col_y_key, col_x_label, col_y_label, df, out_dir,
     ax.tick_params(axis='x', colors='dimgray')
     ax.tick_params(axis='y', colors='dimgray')
     ax.grid(False)
-    fig.tight_layout()
-    fig.savefig(os.path.join(
-        out_dir, '{}_vs_{}.pdf'.format(col_x_key, col_y_key)))
-    if show:
-        plt.show()
-    plt.close('all')
 
 
 def load_index(IDX_IN_DIR, LOG_IN_DIR):
@@ -255,9 +238,10 @@ if __name__ == '__main__':
     df = load_nightlight_from_point(df, NL_IN_DIR)
     df = df.rename({'nightlight': 'sat_nightlight'}, axis=1)
     # plotting begins
+    fig, axes = plt.subplots(nrows=3, ncols=2, figsize=(6, 7))
     plot_scatter(
         col_x_key='cen_pop',
-        col_x_label='Census: Population Size',
+        col_x_label='Census: Population Count',
         transform_x=lambda x: np.log10(x + 1),
         xlim=(np.log10(2 + 1), np.log10(3000 + 1)),
         xticks=[np.log10(10 + 1), np.log10(100 + 1), np.log10(1000 + 1)],
@@ -269,68 +253,74 @@ if __name__ == '__main__':
         yticks=[np.log10(1 + 1), np.log10(10 + 1),
                 np.log10(100 + 1), np.log10(1000 + 1)],
         yticklabels=[1, 10, 100, 1000],
-        line=True, df=df, out_dir=OUT_DIR, show=True)
+        line=True, df=df,
+        ax=axes[0, 1])
 
     plot_scatter(
         col_x_key='cen_asset_score_pca',
-        col_x_label='Census: Asset Score (PCA 1st Dimension)',
+        col_x_label='Census: Asset Score',
         xlim=(-1.6, 1.6),
         xticks=[-1, 0, 1],
         col_y_key='sat_size_mean',
-        col_y_label='Satellite: Average House Size\n(sq meters)',
+        col_y_label='Satellite: Average House Size (m2)',
         ylim=(-1, 220),
         yticks=[0, 100, 200],
-        line=True, df=df, out_dir=OUT_DIR, show=True)
+        line=True, df=df,
+        ax=axes[1, 1])
 
     plot_scatter(
         col_x_key='cen_durable_score_pca',
-        col_x_label='Census: Durable Asset Score (PCA 1st Dimension)',
+        col_x_label='Census: Durable Asset Score',
         xlim=(-1.25, 1.25),
         xticks=[-1, 0, 1],
         col_y_key='sat_size_mean',
-        col_y_label='Satellite: Average House Size\n(sq meters)',
+        col_y_label='Satellite: Average House Size (m2)',
         ylim=(-1, 220),
         yticks=[0, 100, 200],
-        line=True, df=df, out_dir=OUT_DIR, show=True)
+        line=True, df=df,
+        ax=axes[2, 1])
 
     plot_scatter(
         col_x_key='cen_pop',
-        col_x_label='Census: Population Size',
+        col_x_label='Census: Population Count',
         transform_x=lambda x: np.log10(x + 1),
         xlim=(np.log10(3), np.log10(3000)),
         xticks=[np.log10(10 + 1), np.log10(100 + 1), np.log10(1000 + 1)],
         xticklabels=[10, 100, 1000],
         col_y_key='sat_nightlight',
-        col_y_label='Satellite: Nightlight Values',
+        col_y_label='Satellite: Night Light',
         ylim=(-0.01, 4),
         yticks=[0, 2, 4],
         alpha=0.3, line=True, df=df,
-        out_dir=OUT_DIR,
-        show=True)
+        ax=axes[0, 0])
 
     plot_scatter(
         col_x_key='cen_asset_score_pca',
-        col_x_label='Census: Asset Score (PCA 1st Dimension)',
+        col_x_label='Census: Asset Score',
         xlim=(-1.75, 1.75),
         xticks=[-1, 0, 1],
         col_y_key='sat_nightlight',
-        col_y_label='Satellite: Nightlight Values',
+        col_y_label='Satellite: Night Light',
         ylim=(-0.01, 4),
         yticks=[0, 2, 4],
         alpha=0.3,
-        line=True, df=df, out_dir=OUT_DIR, show=True)
+        line=True, df=df,
+        ax=axes[1, 0])
 
     plot_scatter(
         col_x_key='cen_durable_score_pca',
-        col_x_label='Census: Durable Score (PCA 1st Dimension)',
+        col_x_label='Census: Durable Score',
         xlim=(-1.5, 1.5),
         xticks=[-1, 0, 1],
         col_y_key='sat_nightlight',
-        col_y_label='Satellite: Nightlight Values',
+        col_y_label='Satellite: Night Light',
         ylim=(-0.01, 4),
         yticks=[0, 2, 4],
         alpha=0.3,
-        line=True, df=df, out_dir=OUT_DIR, show=True)
+        line=True, df=df,
+        ax=axes[2, 0])
+    fig.tight_layout()
+    fig.savefig(os.path.join(OUT_DIR, 'raw.pdf'))
 
     # massive plotting begins
     # sat_cols = [col for col in df.columns if col.startswith('sat')]

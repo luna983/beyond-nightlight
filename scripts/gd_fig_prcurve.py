@@ -12,13 +12,13 @@ from maskrcnn.utils.eval import evaluate
 sns.set(style='ticks', font='Helvetica')
 matplotlib.rc('pdf', fonttype=42)
 
-plt.rc('font', size=12)  # controls default text sizes
-plt.rc('axes', titlesize=12)  # fontsize of the axes title
-plt.rc('axes', labelsize=12)  # fontsize of the x and y labels
-plt.rc('xtick', labelsize=12)  # fontsize of the tick labels
-plt.rc('ytick', labelsize=12)  # fontsize of the tick labels
-plt.rc('legend', fontsize=12)  # legend fontsize
-plt.rc('figure', titlesize=12)  # fontsize of the figure title
+plt.rc('font', size=11)  # controls default text sizes
+plt.rc('axes', titlesize=11)  # fontsize of the axes title
+plt.rc('axes', labelsize=11)  # fontsize of the x and y labels
+plt.rc('xtick', labelsize=11)  # fontsize of the tick labels
+plt.rc('ytick', labelsize=11)  # fontsize of the tick labels
+plt.rc('legend', fontsize=11)  # legend fontsize
+plt.rc('figure', titlesize=11)  # fontsize of the figure title
 
 
 # 400 pixels = 22.7 m2 gives the best result

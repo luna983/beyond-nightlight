@@ -126,16 +126,16 @@ g_style <- ggplot2::theme_bw() +
         panel.border=ggplot2::element_blank(),
         panel.grid.major=ggplot2::element_blank(),
         panel.grid.minor=ggplot2::element_blank(),
-        axis.title=ggplot2::element_text(size=12),
-        axis.text=ggplot2::element_text(size=12),
-        plot.title=ggplot2::element_text(size=12),
+        axis.title=ggplot2::element_text(size=11),
+        axis.text=ggplot2::element_text(size=11),
+        plot.title=ggplot2::element_text(size=11),
         axis.ticks.length=ggplot2::unit(.07, "in"),
         axis.ticks.x=ggplot2::element_blank())
 
 col_ys <- c('nightlight', 'area_sum', 'tin_area_sum')
-titles <- c('Night Light',
-            'Building Footprint (sq meters)',
-            'Tin-roof Area (sq meters)')
+titles <- c('a Night Light (nW·cm-2·sr-1)',
+            'b Building Footprint (m2)',
+            'c Tin-roof Area (m2)')
 y_breaks <- list(
     c(-0.05, 0, 0.05), c(-25, 0, 25, 50), c(-25, 0, 25, 50, 75))
 y_lims <- list(
@@ -194,6 +194,11 @@ for (outcome_i in c(1:length(col_ys))) {
     # plotting
     y_lim <- y_lims[[outcome_i]]
     y_break <- y_breaks[[outcome_i]]
+    title_text <- sprintf("%s\nPoint Estimate: %.3f, 95%% CI: [%.3f, %.3f]",
+                          titles[outcome_i],
+                          linear_effect$beta[1],
+                          linear_effect$beta[1] - 1.96 * linear_effect$se[1],
+                          linear_effect$beta[1] + 1.96 * linear_effect$se[1])
     g <- ggplot2::ggplot()
     if (placebo) {
         g <- g +
@@ -214,13 +219,10 @@ for (outcome_i in c(1:length(col_ys))) {
             ggplot2::aes(x=x, y=beta, ymin=beta - 1.96 * se, ymax=beta + 1.96 * se),
             color=palette[1], width=.1) +
         ggplot2::scale_x_continuous(
-            name='Cash Infusion (per 0.012 sq km)',
+            name='Cash Infusion',
             breaks=c(0, 1, 2, 3),
             labels=c('$0', '$1000', '$2000', '>$2000')) +
-        ggplot2::ggtitle(paste0(titles[outcome_i], "\nPoint Estimate: ",
-                                round(linear_effect$beta[1], 3), ", 95% CI: [",
-                                round(linear_effect$beta[1] - 1.96 * linear_effect$se[1], 3), ", ",
-                                round(linear_effect$beta[1] + 1.96 * linear_effect$se[1], 3), "]")) +
+        ggplot2::ggtitle(title_text) +
         ggplot2::annotate(x=x_lim[1], xend=x_lim[1],
                           y=y_break[1], yend=y_break[length(y_break)], lwd=0.75, geom="segment") +
         g_style

@@ -3,6 +3,7 @@ import pandas as pd
 import rasterio
 import statsmodels.formula.api as smf
 from scipy.sparse import coo_matrix
+import scipy.spatial
 
 from .utils import transform_coord
 
@@ -281,6 +282,95 @@ def load_building(input_dir, grid, agg=True):
         df['grid_lat'] * grid['step'] + grid['min_lat'] + grid['step'] / 2)
 
     return (grid_lon, grid_lat), df
+
+
+def load_survey(SVY_IN_DIR):
+    # load survey data
+    df_svy = pd.read_stata(SVY_IN_DIR)
+    # print('Observations in raw data: ', df_svy.shape[0])
+
+    # drop households without geo coords
+    df_svy = df_svy.dropna(
+        subset=['latitude', 'longitude'],
+    ).reset_index(drop=True)
+    # print('Observations w/ coords: ', df_svy.shape[0])
+
+    # f for final variables
+    # calculate per capita consumption / assets
+    # convert to USD PPP by dividing by 46.5, per the GiveDirectly paper
+    df_svy.loc[:, 'f_consumption'] = winsorize(
+        df_svy['p2_consumption_wins'] / 46.5,
+        0, 97.5)
+    df_svy.loc[:, 'f_assets_housing'] = winsorize(
+        ((df_svy['p1_assets'] / 46.5) +
+         df_svy['h1_10_housevalue_wins_PPP']),
+        2.5, 97.5)
+    df_svy.loc[:, 'f_assets'] = winsorize(
+        df_svy['p1_assets'] / 46.5,
+        2.5, 97.5)
+    df_svy.loc[:, 'f_housing'] = winsorize(
+        df_svy['h1_10_housevalue_wins_PPP'],
+        0, 97.5)
+
+    # check missing
+    assert (df_svy.loc[:, ['treat', 'hi_sat', 's1_hhid_key', 'satcluster']]
+                  .notna().all().all())
+
+    df_svy.loc[:, 'eligible'] = 1 - df_svy['h1_6_nonthatchedroof_BL']
+    # print('Observations in final sample: ', df_svy.shape[0])
+    # print('Eligible Sample:')
+    # print(df_svy.loc[df_svy['eligible'] > 0.5, :].describe().T)
+    # print('Ineligible Sample:')
+    # print(df_svy.loc[df_svy['eligible'] < 0.5, :].describe().T)
+    return df_svy
+
+
+def match(df_cen, df_svy, df_sat, sat_radius, svy_radius):
+    df_cen = df_cen.reset_index(drop=True)
+    df_cen.loc[:, 'census_id'] = df_cen.index
+    tree = scipy.spatial.cKDTree(
+        df_cen.loc[:, ['longitude', 'latitude']].values)
+    # match structures to households
+    dists, cen_idxes = tree.query(
+        df_sat.loc[:, ['centroid_lon', 'centroid_lat']].values, k=1)
+    df_sat.loc[:, 'dist'] = dists
+    df_sat.loc[:, 'census_id'] = cen_idxes
+    print(f"Matching {(df_sat['dist'] < sat_radius).sum()} observations")
+    print(f"Dropping {(df_sat['dist'] >= sat_radius).sum()} observations")
+    df_sat = df_sat.loc[df_sat['dist'] < sat_radius, :]
+    # take all the structures within the radius
+    df_sat = df_sat.groupby('census_id').agg(
+        area_sum=pd.NamedAgg(column='area', aggfunc='sum'),
+        tin_area_sum=pd.NamedAgg(column='color_tin_area', aggfunc='sum'),
+    ).reset_index()
+    # match surveys to households
+    dists, cen_idxes = tree.query(
+        df_svy.loc[:, ['longitude', 'latitude']].values, k=1)
+    df_svy.loc[:, 'dist'] = dists
+    df_svy.loc[:, 'census_id'] = cen_idxes
+    print(f"Matching {(df_svy['dist'] < svy_radius).sum()} observations")
+    print(f"Dropping {(df_svy['dist'] >= svy_radius).sum()} observations")
+    df_svy = df_svy.loc[df_svy['dist'] < svy_radius, :]
+    df_svy = df_svy.sort_values(by=['census_id', 'dist'])
+    df_svy = df_svy.drop_duplicates(subset=['census_id'], keep='first')
+    # merge
+    df = pd.merge(
+        df_cen.loc[:, ['census_id', 'longitude', 'latitude']],
+        df_sat.loc[:, ['census_id', 'area_sum', 'tin_area_sum']],
+        how='left', on='census_id',
+    )
+    df.fillna({'area_sum': 0, 'tin_area_sum': 0}, inplace=True)
+    df = pd.merge(
+        df,
+        df_svy.loc[:, ['census_id', 's1_hhid_key',
+                       'treat', 'eligible', 'hi_sat',
+                       'f_consumption', 'f_assets',
+                       'f_housing', 'f_assets_housing']],
+        how='inner', on='census_id',
+    )
+    df = df.loc[df['area_sum'] > 0, :]
+    # print(df.describe().T)
+    return df
 
 
 def df2raster(df, data, row, col):

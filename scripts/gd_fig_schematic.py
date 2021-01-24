@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 from collections.abc import Iterable
 
-random.seed(0)
+random.seed(9)
 matplotlib.rc('pdf', fonttype=42)
 
 
@@ -18,7 +18,7 @@ if __name__ == '__main__':
     N = 10  # no. of images sampled
     # image and prediction input directory
     IMG_IN_DIR = 'data/Siaya/Image'
-    PRED_IN_DIR = 'data/Siaya/Merged/sat.geojson'
+    PRED_IN_DIR = 'data/Siaya/Merged/sat_raw.geojson'
     # AOI index data w/ georeferencing info
     AOI_IN_DIR = 'data/Siaya/Meta/aoi.csv'
     # download log data
