@@ -276,7 +276,7 @@ if __name__ == '__main__':
         est_betas = [obs[x], np.nan]
         est_ses = [obs_se[x], np.nan]
 
-        fig = plt.figure(figsize=(6.5, 5))
+        fig = plt.figure(figsize=(6, 5))
         gs = fig.add_gridspec(2, 3)
         ax0 = fig.add_subplot(gs[0, 0])
         ax1 = fig.add_subplot(gs[0, 1])
@@ -316,13 +316,12 @@ if __name__ == '__main__':
                  minor_ticks=[-800, -600, -400, -200,
                               200, 400, 600, 800,
                               1200, 1400, 1600, 1800])
-        fig.savefig(os.path.join(OUT_DIR, f'{x}-raw.pdf'),
-                    bbox_inches='tight', pad_inches=0)
+        fig.savefig(os.path.join(OUT_DIR, f'{x}-raw.pdf'))
 
     # test for treatment/control differences
     print('-' * 36)
     print('Test for Treatment/Control Engel Curve Differences')
-    fig, axes = plt.subplots(figsize=(6.5, 7), ncols=3, nrows=4)
+    fig, axes = plt.subplots(figsize=(6, 6.5), ncols=3, nrows=4)
     for row_idx, (x, x_label, x_tick) in enumerate(zip(
         xs, x_labels, x_ticks,
     )):
@@ -335,5 +334,4 @@ if __name__ == '__main__':
                        y_ticks=y_tick, y_label=y_label,
                        x_ticks=x_tick, x_label=x_label)
     fig.tight_layout()
-    fig.savefig(os.path.join(OUT_DIR, f'engel-diff-raw.pdf'),
-                bbox_inches='tight', pad_inches=0)
+    fig.savefig(os.path.join(OUT_DIR, f'engel-diff-raw.pdf'))
