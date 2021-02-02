@@ -287,7 +287,9 @@ def load_building(input_dir, grid, agg=True):
 def load_survey(SVY_IN_DIR):
     # load survey data
     df_svy = pd.read_stata(SVY_IN_DIR)
-    # print('Observations in raw data: ', df_svy.shape[0])
+    print('Observations in raw data: ', df_svy.shape[0])
+    print('Eligible observations in raw data: ',
+          df_svy.loc[df_svy['h1_6_nonthatchedroof_BL'] < 0.5, :].shape[0])
 
     # drop households without geo coords
     df_svy = df_svy.dropna(
