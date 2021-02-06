@@ -123,8 +123,10 @@ if __name__ == '__main__':
         df_draw = df_draw.astype(int)
         df = pd.merge(df, df_draw, how='left', on=['grid_lon', 'grid_lat'])
 
-    # check treat_eligible distribution
-    # print('treat_eligible: \n', df['treat_eligible'].value_counts())
+    # check variable distribution
+    print('treat_eligible: \n', df['treat_eligible'].value_counts())
+    print('eligible: \n', df['eligible'].value_counts())
+    print('n_household: \n', df['n_household'].value_counts())
     # print metadata
     print('>>> df.shape')
     print(df.shape)
