@@ -4,8 +4,35 @@ import rasterio
 import statsmodels.formula.api as smf
 from scipy.sparse import coo_matrix
 import scipy.spatial
+import patsy
+from statsmodels.api import add_constant, OLS
 
 from .utils import transform_coord
+
+
+def test_linearity(x, y, n_knots=5):
+    """Test linearity between two variables.
+
+    Run a linear regression of y on x, and take the residuals.
+    Fit the residuals with a natural spline with `n_knots` knots.
+    Conduct a joint F-test for all columns in the natural spline basis matrix.
+
+    Example:
+    >>> import numpy as np
+    >>> rng = np.random.default_rng(0)
+    >>> x = np.linspace(0., 1., 101)
+    >>> y = 5 * x + 3 + rng.random(size=101) / 5
+    >>> test_linearity(x, y, n_knots=5)
+    0.194032
+    """
+    residuals = OLS(y, add_constant(x)).fit().resid
+    basis_matrix = patsy.dmatrix(
+        f"cr(x, df={n_knots - 1}, constraints='center') - 1", {'x': x},
+        return_type='dataframe')
+    results = OLS(residuals, basis_matrix).fit()
+    results.summary()
+    p_value = results.f_pvalue
+    return np.round(p_value, 6)
 
 
 def winsorize(s, lower, upper):

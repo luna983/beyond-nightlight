@@ -11,7 +11,7 @@ from skmisc.loess import loess
 from maskrcnn.postprocess.analysis import (
     winsorize, load_nightlight_from_point,
     load_building, load_gd_census,
-    load_survey, match)
+    load_survey, match, test_linearity)
 
 
 np.random.seed(0)
@@ -64,6 +64,8 @@ def plot_curve(ax, method, x_col, y_col, color='dimgrey',
         #                     color=color, alpha=.2)
         ax.plot(x_col, pred_fit, '-',
                 color=color, linewidth=1.5, alpha=0.7)
+        p_value = test_linearity(x_col, y_col, n_knots=5)
+        print(f'Test for linearity: p={p_value}')
 
     if 'linear' in method:
         X = sm.add_constant(x_col)
@@ -162,7 +164,7 @@ def plot_est(ax, y, labels, betas, ses, y_label,
     ax.tick_params(axis='x', which='both', colors='dimgray')
     ax.tick_params(axis='y', which='both', color='none')
     ax.grid(False)
-    ax.set_title(f'b  Estimated v.s. Observed Treatment Effects on {y_label}',
+    ax.set_title(r'\textbf{b}  Estimated v.s. Observed Treatment Effects on ' + y_label,
                  loc='left', y=0.8)
 
 
@@ -223,16 +225,18 @@ if __name__ == '__main__':
     # print(df.loc[df['eligible'] < 0.5, :].describe().T)
 
     # plotting begins
-    ys = ['nightlight',
-          'area_sum',
-          'tin_area_sum']
-    y_labels = ['Night Light',
-                'Building Footprint',
-                'Tin-roof Area']
-    y_units = ['(nW·cm-2·sr-1)', '(m2)', '(m2)']
-    y_ticks = [[0.3, 0.35, 0.4],
-               [200, 300, 400],
-               [100, 150, 200, 250]]
+    ys = ['area_sum',
+          'tin_area_sum',
+          'nightlight']
+    y_labels = ['Building Footprint',
+                'Tin-roof Area',
+                'Night Light']
+    y_units = [r'$\mathregular{(m^2)}$',
+               r'$\mathregular{(m^2)}$',
+               r'$\mathregular{(nW·cm^{-2}·sr^{-1})}$']
+    y_ticks = [[200, 300, 400],
+               [100, 150, 200, 250],
+               [0.3, 0.35, 0.4]]
     # here, assets refers to non-land, non-housing assets only
     xs = ['f_assets_housing',
           'f_consumption',
@@ -283,7 +287,7 @@ if __name__ == '__main__':
         ax2 = fig.add_subplot(gs[0, 2])
         ax3 = fig.add_subplot(gs[1, :])
 
-        fig.suptitle('a  Engel Curves', x=0.07, y=0.95, ha='left')
+        fig.suptitle(r'\textbf{a}  Engel Curves', x=0.07, y=0.95, ha='left')
 
         for ax, y, y_coef, y_coef_se, y_label, y_unit, y_tick in zip(
             [ax0, ax1, ax2],

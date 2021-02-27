@@ -25,9 +25,9 @@
 # symbolic links and folders
 data/
 data
-logs/
-logs
 runs/
 runs
 output/
 output
+
+**/archive/
