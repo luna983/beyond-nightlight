@@ -118,8 +118,6 @@ regress_linear <- function(df, col_y, col_x='treat_eligible', cutoff=3) {
 input_dir <- 'data/Siaya/Merged/main_res0.0010.csv'
 output_dir <- 'output/fig-ate/'
 
-# set color palette
-palette <- c('#820000', '#ea0000', '#fff4da', '#5d92c4', '#070490')
 # plotting style
 g_style <- ggplot2::theme_bw() +
     ggplot2::theme(
@@ -128,18 +126,23 @@ g_style <- ggplot2::theme_bw() +
         panel.grid.minor=ggplot2::element_blank(),
         axis.title=ggplot2::element_text(size=11),
         axis.text=ggplot2::element_text(size=11),
+        axis.text.x=ggplot2::element_text(vjust=5),
         plot.title=ggplot2::element_text(size=11),
+        plot.subtitle=ggplot2::element_text(size=11),
+        plot.title.position="plot",
+        plot.caption.position="plot",
         axis.ticks.length=ggplot2::unit(.07, "in"),
         axis.ticks.x=ggplot2::element_blank())
 
-col_ys <- c('nightlight', 'area_sum', 'tin_area_sum')
-titles <- c('a Night Light (nW·cm-2·sr-1)',
-            'b Building Footprint (m2)',
-            'c Tin-roof Area (m2)')
+col_ys <- c('area_sum', 'tin_area_sum', 'nightlight')
+titles <- c(expression(paste(bold('a'), '    Building Footprint (', m^2, ')')),
+            expression(paste(bold('b'), '    Tin-roof Area (', m^2, ')')),
+            expression(paste(bold('c'), '    Night Light (nW·', cm^-2, '·', sr^-1, ')')))
+colors <- c('red', 'blue', 'yellow')
 y_breaks <- list(
-    c(-0.05, 0, 0.05), c(-25, 0, 25, 50), c(-25, 0, 25, 50, 75))
+    c(-25, 0, 25, 50), c(-25, 0, 25, 50, 75), c(-0.05, 0, 0.05))
 y_lims <- list(
-    c(-0.055, 0.055), c(-30, 55), c(-30, 80))
+    c(-30, 55), c(-30, 80), c(-0.055, 0.055))
 x_lim <- c(-0.2, 3.5)
 placebo <- T
 
@@ -150,6 +153,7 @@ df <- readr::read_csv(
     col_type=readr::cols())
 n_iter <- stringr::str_detect(colnames(df),
                               'treat_eligible_placebo') %>% sum()
+results <- list()
 for (outcome_i in c(1:length(col_ys))) {
     print('----------------------------------')
     print(paste0('outcome: ', col_ys[outcome_i]))
@@ -194,11 +198,12 @@ for (outcome_i in c(1:length(col_ys))) {
     # plotting
     y_lim <- y_lims[[outcome_i]]
     y_break <- y_breaks[[outcome_i]]
-    title_text <- sprintf("%s\nPoint Estimate: %.3f, 95%% CI: [%.3f, %.3f]",
-                          titles[outcome_i],
-                          linear_effect$beta[1],
-                          linear_effect$beta[1] - 1.96 * linear_effect$se[1],
-                          linear_effect$beta[1] + 1.96 * linear_effect$se[1])
+    color <- colors[outcome_i]
+    subtitle <- sprintf(
+        "      Point Estimate: %.3f, 95%% CI: [%.3f, %.3f]",
+        linear_effect$beta[1],
+        linear_effect$beta[1] - 1.96 * linear_effect$se[1],
+        linear_effect$beta[1] + 1.96 * linear_effect$se[1])
     g <- ggplot2::ggplot()
     if (placebo) {
         g <- g +
@@ -211,20 +216,23 @@ for (outcome_i in c(1:length(col_ys))) {
         ggplot2::coord_cartesian(ylim=y_lim, xlim=x_lim, expand=F)
     g <- g +
         ggplot2::geom_line(
-            data=main_res, ggplot2::aes(x=x, y=beta), size=1, color=palette[1]) +
+            data=main_res, ggplot2::aes(x=x, y=beta), color=color, size=1) +
         ggplot2::geom_point(
-            data=main_res, ggplot2::aes(x=x, y=beta), size=3, color=palette[1]) +
+            data=main_res, ggplot2::aes(x=x, y=beta), color=color, size=4) +
         ggplot2::geom_errorbar(
             data=main_res %>% dplyr::filter(x > 0),
             ggplot2::aes(x=x, y=beta, ymin=beta - 1.96 * se, ymax=beta + 1.96 * se),
-            color=palette[1], width=.1) +
+            color=color, width=.1) +
         ggplot2::scale_x_continuous(
             name='Cash Infusion',
             breaks=c(0, 1, 2, 3),
             labels=c('$0', '$1000', '$2000', '>$2000')) +
-        ggplot2::ggtitle(title_text) +
+        ggplot2::ggtitle(titles[outcome_i], subtitle=subtitle) +
         ggplot2::annotate(x=x_lim[1], xend=x_lim[1],
                           y=y_break[1], yend=y_break[length(y_break)], lwd=0.75, geom="segment") +
         g_style
-    ggplot2::ggsave(paste0(output_dir, col_ys[outcome_i], '_ate.pdf'), g, width=4, height=2)
+    results[[outcome_i]] <- g
 }
+ggplot2::ggsave(paste0(output_dir, 'fig-ate-raw.pdf'),
+                gridExtra::arrangeGrob(results[[1]], results[[2]], results[[3]], nrow=3),
+                width=4, height=7)

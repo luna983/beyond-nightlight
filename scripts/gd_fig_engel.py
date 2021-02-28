@@ -110,8 +110,8 @@ def plot_engel(df, y, x, ax, split=None,
         f_value = f_test.fvalue[0, 0]
         p_value = f_test.pvalue
         print(f'F={f_value:.3f}; p={p_value:.3f}')
-        if p_value < 0.01:
-            ax.set_title('*F-test: p<0.01')
+        # if p_value < 0.01:
+        #     ax.set_title('*F-test: p<0.01')
 
     if x_label is not None:
         ax.set_xlabel(x_label)
@@ -139,16 +139,16 @@ def plot_engel(df, y, x, ax, split=None,
     ax.grid(False)
 
 
-def plot_est(ax, y, labels, betas, ses, y_label,
+def plot_est(ax, y, labels, betas, ses, est_colors, y_label,
              ticks=None, lim=None, minor_ticks=None):
-    ax.errorbar(
-        x=betas, y=range(len(betas)),
-        xerr=1.96 * np.array(ses), color='#999999',
-        capsize=3, fmt='o', markersize=4)
+    for y_pos, (beta, se, color) in enumerate(zip(betas, ses, est_colors)):
+        ax.errorbar(
+            x=beta, y=y_pos, xerr=1.96 * se, color=color,
+            capsize=3, fmt='o', markersize=4)
     ax.set_yticks(range(len(betas)))
     ax.set_yticklabels(labels, ha='left')
     ax.set_ylim(len(betas) - 0.5, -3.5)
-    ax.set_xlabel('Treatment Effects (USD PPP)')
+    ax.set_xlabel('Treatment Effect (USD PPP)')
     if ticks is not None:
         ax.set_xticks(ticks)
         if minor_ticks is not None:
@@ -164,14 +164,11 @@ def plot_est(ax, y, labels, betas, ses, y_label,
     ax.tick_params(axis='x', which='both', colors='dimgray')
     ax.tick_params(axis='y', which='both', color='none')
     ax.grid(False)
-    ax.set_title(r'\textbf{b}  Estimated v.s. Observed Treatment Effects on ' + y_label,
-                 loc='left', y=0.8)
+    ax.set_title(r'$\bf{b}$    Treatment Effect Estimates on ' + y_label,
+                 loc='left', x=-0.09, y=0.65)
 
 
 if __name__ == '__main__':
-
-    palette = ['#820000', '#ea0000', '#fff4da', '#5d92c4', '#070490']
-    cmap = {0: palette[-1], 1: palette[0]}
 
     SVY_IN_DIR = 'data/External/GiveDirectly/GE_Luna_Extract_2020-07-27.dta'
     SAT_IN_DIR = 'data/Siaya/Merged/sat.csv'
@@ -225,6 +222,8 @@ if __name__ == '__main__':
     # print(df.loc[df['eligible'] < 0.5, :].describe().T)
 
     # plotting begins
+    cmap = {0: '#070490', 1: '#820000'}
+    y_colors = ['maroon', 'navy', 'gold']
     ys = ['area_sum',
           'tin_area_sum',
           'nightlight']
@@ -242,10 +241,10 @@ if __name__ == '__main__':
           'f_consumption',
           'f_housing',
           'f_assets']
-    x_labels = ['Assets Owned',
+    x_labels = ['Total Assets',
                 'Annual Expenditure',
-                'Housing Assets Owned',
-                'Non-Housing Assets Owned']
+                'Housing Assets',
+                'Non-Housing Assets']
     x_unit = '(USD PPP)'
     x_ticks = [
         [0, 5000, 10000],
@@ -275,30 +274,31 @@ if __name__ == '__main__':
         print('Replicate the results from the original paper')
         print('Treatment Effect: {} ({})'.format(
             *reg(df.loc[df['eligible'] > 0, :], x, 'treat')))
-        est_labels = ['Observed (Egger et al., 2019)',
-                      'Estimated based on ...']
+        est_labels = ['Survey-based estimate',
+                      'Satellite-derived estimates based on ...']
         est_betas = [obs[x], np.nan]
         est_ses = [obs_se[x], np.nan]
 
         fig = plt.figure(figsize=(6, 5))
+        plt.subplots_adjust(wspace=0.35)
         gs = fig.add_gridspec(2, 3)
         ax0 = fig.add_subplot(gs[0, 0])
         ax1 = fig.add_subplot(gs[0, 1])
         ax2 = fig.add_subplot(gs[0, 2])
         ax3 = fig.add_subplot(gs[1, :])
 
-        fig.suptitle(r'\textbf{a}  Engel Curves', x=0.07, y=0.95, ha='left')
+        fig.suptitle(r'$\bf{a}$    Engel Curves', x=0.05, y=0.97, ha='left')
 
-        for ax, y, y_coef, y_coef_se, y_label, y_unit, y_tick in zip(
+        for ax, y, y_coef, y_coef_se, y_label, y_unit, y_tick, y_color in zip(
             [ax0, ax1, ax2],
-            ys, y_coefs, y_coef_ses, y_labels, y_units, y_ticks,
+            ys, y_coefs, y_coef_ses, y_labels, y_units, y_ticks, y_colors,
         ):
             # control sample only
             df_control = df.loc[df['treat'] < 1, :]
             plot_engel(
                 df=df_control, y=y, x=x, ax=ax,
                 method=['linear', 'loess'],
-                color=palette[-1],
+                color=y_color,
                 y_ticks=y_tick, y_label='\n\n' + y_label + ' ' + y_unit,
                 x_ticks=x_tick, x_label='',
             )
@@ -314,7 +314,7 @@ if __name__ == '__main__':
         fig.text(0.5, 0.45, x_label + ' ' + x_unit, ha='center')
         plot_est(ax=ax3, y=x,
                  labels=est_labels, betas=est_betas, ses=est_ses,
-                 y_label=x_label,
+                 est_colors=['dimgray'] * 2 + y_colors, y_label=x_label,
                  ticks=[-1000, 0, 1000, 2000],
                  lim=(-3000, 2000),
                  minor_ticks=[-800, -600, -400, -200,
@@ -337,5 +337,5 @@ if __name__ == '__main__':
                        split='treat', cmap=cmap,
                        y_ticks=y_tick, y_label=y_label,
                        x_ticks=x_tick, x_label=x_label)
-    fig.tight_layout()
+    plt.subplots_adjust(wspace=0.6, hspace=0.6)
     fig.savefig(os.path.join(OUT_DIR, f'engel-diff-raw.pdf'))
