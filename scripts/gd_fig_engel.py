@@ -141,14 +141,6 @@ def plot_engel(df, y, x, ax, split=None,
 
 def plot_est(ax, y, labels, betas, ses, est_colors, y_label,
              ticks=None, lim=None, minor_ticks=None):
-    for y_pos, (beta, se, color) in enumerate(zip(betas, ses, est_colors)):
-        ax.errorbar(
-            x=beta, y=y_pos, xerr=1.96 * se, color=color,
-            capsize=3, fmt='o', markersize=4)
-    ax.set_yticks(range(len(betas)))
-    ax.set_yticklabels(labels, ha='left')
-    ax.set_ylim(len(betas) - 0.5, -3.5)
-    ax.set_xlabel('Treatment Effect (USD PPP)')
     if ticks is not None:
         ax.set_xticks(ticks)
         if minor_ticks is not None:
@@ -157,6 +149,26 @@ def plot_est(ax, y, labels, betas, ses, est_colors, y_label,
         ax.spines['bottom'].set_bounds(ax.get_xticks()[0], ax.get_xticks()[-1])
     if lim is not None:
         ax.set_xlim(*lim)
+    xmin, xmax = ticks[0], ticks[-1]
+    for y_pos, (beta, se, color) in enumerate(zip(betas, ses, est_colors)):
+        lower = max(beta - 1.96 * se, xmin) - beta
+        upper = min(beta + 1.96 * se, xmax) - beta
+        lower_clipped = xmin > (beta - 1.96 * se)
+        upper_clipped = xmax < (beta + 1.96 * se)
+        ax.arrow(x=beta, y=y_pos, dx=lower, dy=0,
+                 color=color, width=0.05, head_width=0.4,
+                 head_length=(100 if lower_clipped else 1))
+        ax.arrow(x=beta, y=y_pos, dx=upper, dy=0,
+                 color=color, width=0.05, head_width=0.4,
+                 head_length=(100 if upper_clipped else 1))
+        ax.plot(
+            beta, y_pos, marker='o', color=color, markersize=5)
+    ax.set_yticks(range(len(betas)))
+    ax.set_yticklabels(labels, ha='left')
+    ax.set_ylim(len(betas) - 0.5, -3.5)
+    ax.set_xlabel('Treatment Effect (USD PPP)')
+    ax.xaxis.set_label_coords(0.65, -0.2)
+
     ax.spines['bottom'].set_color('dimgray')
     ax.spines['left'].set_color('none')
     ax.spines['right'].set_color('none')
@@ -311,12 +323,12 @@ if __name__ == '__main__':
             est_labels.append('    ' + y_label)
             est_betas.append(est)
             est_ses.append(est_se)
-        fig.text(0.5, 0.45, x_label + ' ' + x_unit, ha='center')
+        fig.text(0.5, 0.43, x_label + ' ' + x_unit, ha='center')
         plot_est(ax=ax3, y=x,
                  labels=est_labels, betas=est_betas, ses=est_ses,
                  est_colors=['dimgray'] * 2 + y_colors, y_label=x_label,
                  ticks=[-1000, 0, 1000, 2000],
-                 lim=(-3000, 2000),
+                 lim=(-2500, 2100),
                  minor_ticks=[-800, -600, -400, -200,
                               200, 400, 600, 800,
                               1200, 1400, 1600, 1800])
