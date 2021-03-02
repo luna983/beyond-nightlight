@@ -1,7 +1,6 @@
 import os
 import numpy as np
 import pandas as pd
-import scipy.stats
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 import seaborn as sns
@@ -44,38 +43,6 @@ def compute_est(y_coef, y_se, scale, scale_se):
     est = y_coef / scale
     est_se = np.sqrt((y_se / y_coef) ** 2 + (scale_se / scale) ** 2) * abs(est)
     return est, est_se
-
-
-def estimate_engel_bias(df, x, y, treat, x_effect, x_effect_se, N=100):
-    df_nona = df.dropna(subset=[x, y])
-    x_cols = df_nona.loc[df_nona[treat] < 0.5, x].values
-    y_cols = df_nona.loc[df_nona[treat] < 0.5, y].values
-    engel_control = smf.ols(
-        y + ' ~ ' + x,
-        data=df_nona.loc[df_nona[treat] < 0.5, :]).fit()
-    est_beta = engel_control.params[x]
-    est_se = engel_control.bse[x]
-    engel_treat = smf.ols(
-        y + ' ~ ' + x,
-        data=df_nona.loc[df_nona[treat] > 0.5, :]).fit()
-    true_betas = []
-    for _ in range(N):
-        x_effects = scipy.stats.norm.rvs(
-            size=len(x_cols)) * x_effect_se + x_effect
-        y_resid = scipy.stats.norm.rvs(
-            size=len(x_cols)) * np.sqrt(engel_treat.mse_resid)
-        y_sim_treat = engel_treat.predict(
-            pd.DataFrame({x: x_cols + x_effects})) + y_resid
-        true_beta = (y_sim_treat - y_cols).mean() / x_effect
-        true_betas.append(true_beta)
-    true_beta_mean = np.mean(true_betas)
-    true_beta_se = np.std(true_betas)
-    diff_mean = true_beta_mean - est_beta
-    diff_se = np.sqrt(np.square(true_beta_se) + np.square(est_se))
-    zscore = diff_mean / diff_se
-    pvalue = (1 - scipy.stats.norm.cdf(abs(zscore))) * 2
-    bias = est_beta / true_beta_mean
-    print(f'y: {y}\t| x: {x}\t| bias: {bias:.2f}\t| p = {pvalue:.6f}')
 
 
 def plot_curve(ax, method, x_col, y_col, color='dimgrey',
@@ -354,8 +321,6 @@ if __name__ == '__main__':
         fig.savefig(os.path.join(OUT_DIR, f'{x}-raw.pdf'))
 
     # test for treatment/control differences
-    print('-' * 72)
-    print('Test for Treatment/Control Engel Curve Differences')
     fig, axes = plt.subplots(figsize=(6, 6.5), ncols=3, nrows=4)
     for row_idx, (x, x_label, x_tick) in enumerate(zip(
         xs, x_labels, x_ticks,
@@ -368,8 +333,5 @@ if __name__ == '__main__':
                        split='treat', cmap=cmap,
                        y_ticks=y_tick, y_label=y_label,
                        x_ticks=x_tick, x_label=x_label)
-            # perform statistical test
-            estimate_engel_bias(df=df, x=x, y=y,
-                                treat='treat', x_effect=obs[x], x_effect_se=obs_se[x])
     plt.subplots_adjust(wspace=0.6, hspace=0.6)
     fig.savefig(os.path.join(OUT_DIR, f'engel-diff-raw.pdf'))
