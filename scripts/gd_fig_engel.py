@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import pandas as pd
+import scipy.stats
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 import seaborn as sns
@@ -28,12 +29,13 @@ plt.rc('legend', fontsize=11)  # legend fontsize
 plt.rc('figure', titlesize=11)  # fontsize of the figure title
 
 
-def reg(df, y, x):
+def reg(df, y, x, verbose=False):
     df_nona = df.dropna(subset=[x, y])
-    print(f'y: {y}, x: {x}, N = {df_nona.shape[0]}')
     results = smf.ols(y + ' ~ ' + x, data=df_nona).fit()
     beta = results.params[x]
     se = results.bse[x]
+    if verbose:
+        print(f'N = {df_nona.shape[0]}, R2 = {results.rsquared:.4f}')
     return beta, se
 
 
@@ -42,6 +44,38 @@ def compute_est(y_coef, y_se, scale, scale_se):
     est = y_coef / scale
     est_se = np.sqrt((y_se / y_coef) ** 2 + (scale_se / scale) ** 2) * abs(est)
     return est, est_se
+
+
+def estimate_engel_bias(df, x, y, treat, x_effect, x_effect_se, N=100):
+    df_nona = df.dropna(subset=[x, y])
+    x_cols = df_nona.loc[df_nona[treat] < 0.5, x].values
+    y_cols = df_nona.loc[df_nona[treat] < 0.5, y].values
+    engel_control = smf.ols(
+        y + ' ~ ' + x,
+        data=df_nona.loc[df_nona[treat] < 0.5, :]).fit()
+    est_beta = engel_control.params[x]
+    est_se = engel_control.bse[x]
+    engel_treat = smf.ols(
+        y + ' ~ ' + x,
+        data=df_nona.loc[df_nona[treat] > 0.5, :]).fit()
+    true_betas = []
+    for _ in range(N):
+        x_effects = scipy.stats.norm.rvs(
+            size=len(x_cols)) * x_effect_se + x_effect
+        y_resid = scipy.stats.norm.rvs(
+            size=len(x_cols)) * np.sqrt(engel_treat.mse_resid)
+        y_sim_treat = engel_treat.predict(
+            pd.DataFrame({x: x_cols + x_effects})) + y_resid
+        true_beta = (y_sim_treat - y_cols).mean() / x_effect
+        true_betas.append(true_beta)
+    true_beta_mean = np.mean(true_betas)
+    true_beta_se = np.std(true_betas)
+    diff_mean = true_beta_mean - est_beta
+    diff_se = np.sqrt(np.square(true_beta_se) + np.square(est_se))
+    zscore = diff_mean / diff_se
+    pvalue = (1 - scipy.stats.norm.cdf(abs(zscore))) * 2
+    bias = est_beta / true_beta_mean
+    print(f'y: {y}\t| x: {x}\t| bias: {bias:.2f}\t| p = {pvalue:.6f}')
 
 
 def plot_curve(ax, method, x_col, y_col, color='dimgrey',
@@ -65,7 +99,7 @@ def plot_curve(ax, method, x_col, y_col, color='dimgrey',
         ax.plot(x_col, pred_fit, '-',
                 color=color, linewidth=1.5, alpha=0.7)
         p_value = test_linearity(x_col, y_col, n_knots=5)
-        print(f'Test for linearity: p={p_value}')
+        print(f'Test for Linearity: p = {p_value:.3f}')
 
     if 'linear' in method:
         X = sm.add_constant(x_col)
@@ -102,17 +136,6 @@ def plot_engel(df, y, x, ax, split=None,
             y_col = df_group[y].values
             plot_curve(ax=ax, method=method, x_col=x_col, y_col=y_col,
                        color=color, se=True, scatter=False)
-        # perform statistical test
-        print('+++ F Test +++')
-        diff = smf.ols(
-            f'{y} ~ {x} * {split}', df_nona).fit()
-        f_test = diff.f_test(f'({split} = 0), ({x}:{split} = 0)')
-        f_value = f_test.fvalue[0, 0]
-        p_value = f_test.pvalue
-        print(f'F={f_value:.3f}; p={p_value:.3f}')
-        # if p_value < 0.01:
-        #     ax.set_title('*F-test: p<0.01')
-
     if x_label is not None:
         ax.set_xlabel(x_label)
     if y_label is not None:
@@ -227,15 +250,11 @@ if __name__ == '__main__':
         lon_col='longitude', lat_col='latitude')
     # eligible sample only
     df = df.loc[df['eligible'] > 0, :]
-    # examine data
-    print(f'Eligible Sample: {df.shape}')
-    # print(df.loc[df['eligible'] > 0.5, :].describe().T)
-    # print('Ineligible Sample:')
-    # print(df.loc[df['eligible'] < 0.5, :].describe().T)
+    print('[Matched] Matched sample: N =', df.shape[0])
 
     # plotting begins
-    cmap = {0: '#070490', 1: '#820000'}
-    y_colors = ['maroon', 'navy', 'gold']
+    cmap = {0: '#666666', 1: '#0F9D58'}
+    y_colors = ['#DB4437', '#4285F4', '#F4B400']
     ys = ['area_sum',
           'tin_area_sum',
           'nightlight']
@@ -281,11 +300,10 @@ if __name__ == '__main__':
     for x, x_label, x_tick in zip(
         xs, x_labels, x_ticks,
     ):
-        print('-' * 36)
+        print('-' * 72)
         print(x_label)
-        print('Replicate the results from the original paper')
-        print('Treatment Effect: {} ({})'.format(
-            *reg(df.loc[df['eligible'] > 0, :], x, 'treat')))
+        print('In-sample Treatment Effect Estimate: {:.1f} ({:.1f})'.format(
+              *reg(df.loc[df['eligible'] > 0, :], x, 'treat')))
         est_labels = ['Survey-based estimate',
                       'Satellite-derived estimates based on ...']
         est_betas = [obs[x], np.nan]
@@ -305,6 +323,8 @@ if __name__ == '__main__':
             [ax0, ax1, ax2],
             ys, y_coefs, y_coef_ses, y_labels, y_units, y_ticks, y_colors,
         ):
+            print(f'---- Variable: {y_label} ----')
+            print('Engel Curve Statistics: ')
             # control sample only
             df_control = df.loc[df['treat'] < 1, :]
             plot_engel(
@@ -314,12 +334,11 @@ if __name__ == '__main__':
                 y_ticks=y_tick, y_label='\n\n' + y_label + ' ' + y_unit,
                 x_ticks=x_tick, x_label='',
             )
-            scale, scale_se = reg(df_control, y, x)
+            scale, scale_se = reg(df_control, y, x, verbose=True)
             est, est_se = compute_est(y_coef, y_coef_se, scale, scale_se)
-            print(f'y: {y}, x: {x}')
-            print(f'{est:.3f}, {est_se:.3f} = '
-                  f'compute_est({y_coef:.3f}, {y_coef_se:.3f}, '
-                  f'{scale:.3f}, {scale_se:.3f})')
+            print(f'Remotely-sensed Effects: {y_coef:.3f} ({y_coef_se:.3f})\n'
+                  f'Scaling Factor: {scale:.6f} ({scale_se:.6f})\n'
+                  f'Scaled Effect: {est:.3f} ({est_se:.3f}) USD PPP')
             est_labels.append('    ' + y_label)
             est_betas.append(est)
             est_ses.append(est_se)
@@ -335,7 +354,7 @@ if __name__ == '__main__':
         fig.savefig(os.path.join(OUT_DIR, f'{x}-raw.pdf'))
 
     # test for treatment/control differences
-    print('-' * 36)
+    print('-' * 72)
     print('Test for Treatment/Control Engel Curve Differences')
     fig, axes = plt.subplots(figsize=(6, 6.5), ncols=3, nrows=4)
     for row_idx, (x, x_label, x_tick) in enumerate(zip(
@@ -349,5 +368,8 @@ if __name__ == '__main__':
                        split='treat', cmap=cmap,
                        y_ticks=y_tick, y_label=y_label,
                        x_ticks=x_tick, x_label=x_label)
+            # perform statistical test
+            estimate_engel_bias(df=df, x=x, y=y,
+                                treat='treat', x_effect=obs[x], x_effect_se=obs_se[x])
     plt.subplots_adjust(wspace=0.6, hspace=0.6)
     fig.savefig(os.path.join(OUT_DIR, f'engel-diff-raw.pdf'))

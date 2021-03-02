@@ -15,8 +15,9 @@ from maskrcnn.postprocess.analysis import df2raster
 sns.set(style='ticks', font='Helvetica')
 
 
-def make_cmap(palette, bad_color='white', N=5):
-    breaks = np.linspace(0, 1, len(palette))
+def make_cmap(palette, breaks=None, bad_color='white', N=5):
+    if breaks is None:
+        breaks = np.linspace(0, 1, len(palette))
     cmap = LinearSegmentedColormap.from_list(
         '', list(zip(breaks, palette)), N=N)
     cmap.set_bad(bad_color)
@@ -30,16 +31,16 @@ if __name__ == '__main__':
     IN_DF_DIR = 'data/Siaya/Merged/main_res0.0050.csv'
     OUT_DIR = 'output/fig-map'
     palettes = {
-        'treat_eligible': ['gainsboro', 'yellowgreen', 'darkgreen'],
-        'area_sum': ['gainsboro', 'crimson', 'maroon'],
-        'tin_area_sum': ['gainsboro', 'royalblue', 'navy'],
-        'nightlight': ['gainsboro', 'gold', 'goldenrod'],
+        'treat_eligible': ['gainsboro', '#0F9D58', '#137333'],
+        'area_sum': ['gainsboro', '#DB4437', '#B31412'],
+        'tin_area_sum': ['gainsboro', '#4285F4', '#185ABC'],
+        'nightlight': ['gainsboro', '#F4B400', '#EA8600'],
     }
     v_extents = {
-        'treat_eligible': (-0.1, 11.9),
-        'area_sum': (0, 1.8e4),
-        'tin_area_sum': (0, 1.2e4),
-        'nightlight': (0, 1.5),
+        'treat_eligible': (0, 12),
+        'area_sum': (0, 1.5e4),
+        'tin_area_sum': (0, 0.9e4),
+        'nightlight': (0, 1.8),
     }
 
     # load data
@@ -63,7 +64,7 @@ if __name__ == '__main__':
                                  'tin_area_sum', 'nightlight']):
         ax = axes[i // 2, i % 2]
         vmin, vmax = v_extents[varname]
-        cmap = make_cmap(palettes[varname])
+        cmap = make_cmap(palettes[varname], breaks=[0, 0.7, 1])
         # drop observations with no eligible households
         df.loc[:, varname] = df.apply(
             lambda x: np.nan if x['eligible'] == 0 else x[varname],

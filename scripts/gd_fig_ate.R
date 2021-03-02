@@ -138,7 +138,7 @@ col_ys <- c('area_sum', 'tin_area_sum', 'nightlight')
 titles <- c(expression(paste(bold('a'), '    Building Footprint (', m^2, ')')),
             expression(paste(bold('b'), '    Tin-roof Area (', m^2, ')')),
             expression(paste(bold('c'), '    Night Light (nW·', cm^-2, '·', sr^-1, ')')))
-colors <- c('red', 'blue', 'yellow')
+colors <- c('#DB4437', '#4285F4', '#F4B400')
 y_breaks <- list(
     c(-25, 0, 25, 50), c(-25, 0, 25, 50, 75), c(-0.05, 0, 0.05))
 y_lims <- list(
@@ -218,7 +218,7 @@ for (outcome_i in c(1:length(col_ys))) {
         ggplot2::geom_line(
             data=main_res, ggplot2::aes(x=x, y=beta), color=color, size=1) +
         ggplot2::geom_point(
-            data=main_res, ggplot2::aes(x=x, y=beta), color=color, size=4) +
+            data=main_res, ggplot2::aes(x=x, y=beta), color=color, size=3) +
         ggplot2::geom_errorbar(
             data=main_res %>% dplyr::filter(x > 0),
             ggplot2::aes(x=x, y=beta, ymin=beta - 1.96 * se, ymax=beta + 1.96 * se),

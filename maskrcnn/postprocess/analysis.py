@@ -35,7 +35,7 @@ def test_linearity(x, y, n_knots=5):
     return np.round(p_value, 6)
 
 
-def winsorize(s, lower, upper):
+def winsorize(s, lower, upper, verbose=False):
     """Winsorizes a pandas series.
 
     Args:
@@ -44,7 +44,8 @@ def winsorize(s, lower, upper):
     """
     lower_value = np.nanpercentile(s.values, lower)
     upper_value = np.nanpercentile(s.values, upper)
-    print(f'Winsorizing to {lower_value} - {upper_value}')
+    if verbose:
+        print(f'Winsorizing to {lower_value} - {upper_value}')
     return s.clip(lower_value, upper_value)
 
 
@@ -242,7 +243,7 @@ def load_building(input_dir, grid, agg=True):
     tin_roofs = [0, 1, 5]
     thatched_roofs = [2, 3, 6]
     # load satellite predictions
-    print('Loading building polygon data')
+    # print('Loading building polygon data')
     df = pd.read_csv(input_dir)
     n_clusters = df['color_group'].max() + 1
     for i in range(n_clusters):
@@ -314,15 +315,15 @@ def load_building(input_dir, grid, agg=True):
 def load_survey(SVY_IN_DIR):
     # load survey data
     df_svy = pd.read_stata(SVY_IN_DIR)
-    print('Observations in raw data: ', df_svy.shape[0])
-    print('Eligible observations in raw data: ',
+    print('[Survey] Raw data: N =', df_svy.shape[0])
+    print('[Survey] Eligible sample: N =',
           df_svy.loc[df_svy['h1_6_nonthatchedroof_BL'] < 0.5, :].shape[0])
 
     # drop households without geo coords
     df_svy = df_svy.dropna(
         subset=['latitude', 'longitude'],
     ).reset_index(drop=True)
-    # print('Observations w/ coords: ', df_svy.shape[0])
+    print('[Survey] Geo-coded sample: N =', df_svy.shape[0])
 
     # f for final variables
     # calculate per capita consumption / assets
@@ -346,7 +347,8 @@ def load_survey(SVY_IN_DIR):
                   .notna().all().all())
 
     df_svy.loc[:, 'eligible'] = 1 - df_svy['h1_6_nonthatchedroof_BL']
-    # print('Observations in final sample: ', df_svy.shape[0])
+    print('[Survey] Geo-coded and eligible sample: N =',
+          df_svy.loc[df_svy['eligible'] > 0.5, :].shape[0])
     # print('Eligible Sample:')
     # print(df_svy.loc[df_svy['eligible'] > 0.5, :].describe().T)
     # print('Ineligible Sample:')
@@ -354,7 +356,7 @@ def load_survey(SVY_IN_DIR):
     return df_svy
 
 
-def match(df_cen, df_svy, df_sat, sat_radius, svy_radius):
+def match(df_cen, df_svy, df_sat, sat_radius, svy_radius, verbose=False):
     df_cen = df_cen.reset_index(drop=True)
     df_cen.loc[:, 'census_id'] = df_cen.index
     tree = scipy.spatial.cKDTree(
@@ -364,8 +366,9 @@ def match(df_cen, df_svy, df_sat, sat_radius, svy_radius):
         df_sat.loc[:, ['centroid_lon', 'centroid_lat']].values, k=1)
     df_sat.loc[:, 'dist'] = dists
     df_sat.loc[:, 'census_id'] = cen_idxes
-    print(f"Matching {(df_sat['dist'] < sat_radius).sum()} observations")
-    print(f"Dropping {(df_sat['dist'] >= sat_radius).sum()} observations")
+    if verbose:
+        print(f"Matching {(df_sat['dist'] < sat_radius).sum()} observations")
+        print(f"Dropping {(df_sat['dist'] >= sat_radius).sum()} observations")
     df_sat = df_sat.loc[df_sat['dist'] < sat_radius, :]
     # take all the structures within the radius
     df_sat = df_sat.groupby('census_id').agg(
@@ -377,8 +380,9 @@ def match(df_cen, df_svy, df_sat, sat_radius, svy_radius):
         df_svy.loc[:, ['longitude', 'latitude']].values, k=1)
     df_svy.loc[:, 'dist'] = dists
     df_svy.loc[:, 'census_id'] = cen_idxes
-    print(f"Matching {(df_svy['dist'] < svy_radius).sum()} observations")
-    print(f"Dropping {(df_svy['dist'] >= svy_radius).sum()} observations")
+    if verbose:
+        print(f"Matching {(df_svy['dist'] < svy_radius).sum()} observations")
+        print(f"Dropping {(df_svy['dist'] >= svy_radius).sum()} observations")
     df_svy = df_svy.loc[df_svy['dist'] < svy_radius, :]
     df_svy = df_svy.sort_values(by=['census_id', 'dist'])
     df_svy = df_svy.drop_duplicates(subset=['census_id'], keep='first')
