@@ -45,68 +45,14 @@ def compute_est(y_coef, y_se, scale, scale_se):
     return est, est_se
 
 
-def plot_curve(ax, method, x_col, y_col, color='dimgrey',
-               scatter=True, se=False, **kwargs):
-    if scatter:
-        ax.plot(x_col, y_col,
-                markeredgecolor='none',
-                marker='o',
-                linestyle='None',
-                markersize=3,
-                color='dimgrey', alpha=0.07)
-    if 'loess' in method:
-        m = loess(x_col, y_col, **kwargs)
-        m.fit()
-        pred = m.predict(x_col, stderror=True).confidence()
-        pred_fit = pred.fit
-        pred_lower, pred_upper = pred.lower, pred.upper
-        # if se:
-        #     ax.fill_between(x_col, pred_lower, pred_upper,
-        #                     color=color, alpha=.2)
-        ax.plot(x_col, pred_fit, '-',
-                color=color, linewidth=1.5, alpha=0.7)
-        p_value = test_linearity(x_col, y_col, n_knots=5)
-        print(f'Test for Linearity: p = {p_value:.3f}')
-
-    if 'linear' in method:
-        X = sm.add_constant(x_col)
-        m = sm.OLS(y_col, X).fit()
-        pred = m.get_prediction(X)
-        pred_fit = pred.predicted_mean
-        pred_lower, pred_upper = pred.conf_int().T
-        if se:
-            ax.fill_between(x_col, pred_lower, pred_upper,
-                            color=color, alpha=.1)
-        ax.plot(x_col, pred_fit,
-                ':' if 'loess' in method else '-',
-                color=color, linewidth=1.5, alpha=0.7)
-
-
-def plot_engel(df, y, x, ax, split=None,
-               method='linear',
-               color=None, cmap=None,
-               x_label=None, y_label=None,
-               x_ticks=None, x_ticklabels=None,
-               y_ticks=None, y_ticklabels=None):
-
-    df_nona = df.dropna(subset=[y, x]).sort_values(by=[x])
-    if split is None:
-        x_col = df_nona[x].values
-        y_col = df_nona[y].values
-        plot_curve(ax=ax, method=method, x_col=x_col, y_col=y_col,
-                   color=color, se=True, scatter=False,
-                   span=0.75)  # span controls smoothing for loess
-    else:
-        for color_key, df_group in df_nona.groupby(split):
-            color = cmap[color_key]
-            x_col = df_group[x].values
-            y_col = df_group[y].values
-            plot_curve(ax=ax, method=method, x_col=x_col, y_col=y_col,
-                       color=color, se=True, scatter=False)
+def make_broken_axis(ax,
+                     x_label=None, y_label=None, y_label_as_title=True,
+                     x_ticks=None, x_ticklabels=None,
+                     y_ticks=None, y_ticklabels=None):
     if x_label is not None:
         ax.set_xlabel(x_label)
     if y_label is not None:
-        if split is None:
+        if y_label_as_title:
             ax.set_title(y_label, loc='left')
         else:
             ax.set_ylabel(y_label)
@@ -127,6 +73,49 @@ def plot_engel(df, y, x, ax, split=None,
     ax.tick_params(axis='x', colors='dimgray')
     ax.tick_params(axis='y', colors='dimgray')
     ax.grid(False)
+
+
+def plot_engel(df, y, x, ax,
+               method='linear', scatter=False,
+               color='dimgrey',
+               # span controls smoothing for loess
+               span=0.75):
+
+    df_nona = df.dropna(subset=[y, x]).sort_values(by=[x])
+    x_col = df_nona[x].values
+    y_col = df_nona[y].values
+    if scatter:
+        ax.plot(x_col, y_col,
+                markeredgecolor='none',
+                marker='o',
+                linestyle='None',
+                markersize=3,
+                color='dimgrey', alpha=0.07)
+    if 'loess' in method:
+        m = loess(x_col, y_col, span=span)
+        m.fit()
+        pred = m.predict(x_col, stderror=True).confidence()
+        pred_fit = pred.fit
+        pred_lower, pred_upper = pred.lower, pred.upper
+        # ax.fill_between(x_col, pred_lower, pred_upper,
+        #                 color=color, alpha=.2)
+        ax.plot(x_col, pred_fit, '-',
+                color=color, linewidth=1.5, alpha=0.7)
+        p_value = test_linearity(x_col, y_col, n_knots=5)
+        print(f'Test for Linearity: p = {p_value:.3f}')
+
+    if 'linear' in method:
+        X = sm.add_constant(x_col)
+        m = sm.OLS(y_col, X).fit()
+        pred = m.get_prediction(X)
+        pred_fit = pred.predicted_mean
+        pred_lower, pred_upper = pred.conf_int().T
+        # standard error
+        ax.fill_between(x_col, pred_lower, pred_upper,
+                        color=color, alpha=.1)
+        ax.plot(x_col, pred_fit,
+                ':' if 'loess' in method else '-',
+                color=color, linewidth=1.5, alpha=0.7)
 
 
 def plot_est(ax, y, labels, betas, ses, est_colors, y_label,
@@ -200,27 +189,7 @@ if __name__ == '__main__':
         'f_assets': 24.63,  # row 6
     }
 
-    # load data
-    df_sat = load_building(SAT_IN_DIR, grid=None, agg=False)
-    df_svy = load_survey(SVY_IN_DIR)
-    df_cen = load_gd_census(
-        GPS_FILE=CENSUS_GPS_IN_DIR, MASTER_FILE=CENSUS_MASTER_IN_DIR)
-    # match
-    df = match(
-        df_cen, df_svy, df_sat,
-        sat_radius=250 / 111000,
-        svy_radius=250 / 111000)  # __ meters / 111000 meters -> degrees
-    df.loc[:, 'treat'] = df['treat'].astype(float)
-    # load nightlight
-    df = load_nightlight_from_point(
-        df, NL_IN_DIR,
-        lon_col='longitude', lat_col='latitude')
-    # eligible sample only
-    df = df.loc[df['eligible'] > 0, :]
-    print('[Matched] Matched sample: N =', df.shape[0])
-
-    # plotting begins
-    cmap = {0: '#666666', 1: '#0F9D58'}
+    cmap = {'control': '#666666', 'treat': '#0F9D58'}
     y_colors = ['#DB4437', '#4285F4', '#F4B400']
     ys = ['area_sum',
           'tin_area_sum',
@@ -250,9 +219,7 @@ if __name__ == '__main__':
         [0, 3000, 6000],
         [0, 2500, 5000],
     ]
-    # winsorize satellite based observations
-    for y in ys:
-        df.loc[:, y] = winsorize(df[y], 0, 97.5)
+
     # load previous estimates
     y_coefs = []
     y_coef_ses = []
@@ -263,6 +230,28 @@ if __name__ == '__main__':
         y_coefs.append(y_coef)
         y_coef_ses.append(y_coef_se)
 
+    # load data
+    df_sat = load_building(SAT_IN_DIR, grid=None, agg=False)
+    df_svy = load_survey(SVY_IN_DIR)
+    df_cen = load_gd_census(
+        GPS_FILE=CENSUS_GPS_IN_DIR, MASTER_FILE=CENSUS_MASTER_IN_DIR)
+    # match
+    df = match(
+        df_cen, df_svy, df_sat,
+        sat_radius=250 / 111000,
+        svy_radius=250 / 111000)  # __ meters / 111000 meters -> degrees
+    df.loc[:, 'treat'] = df['treat'].astype(float)
+    # load nightlight
+    df = load_nightlight_from_point(
+        df, NL_IN_DIR,
+        lon_col='longitude', lat_col='latitude')
+    # winsorize satellite based observations
+    for y in ys:
+        df.loc[:, y] = winsorize(df[y], 0, 97.5)
+    # eligible sample only
+    df_eligible = df.loc[df['eligible'] == 1, :]
+    print('[Matched] Matched sample: N =', df_eligible.shape[0])
+
     # double loop
     for x, x_label, x_tick in zip(
         xs, x_labels, x_ticks,
@@ -270,7 +259,7 @@ if __name__ == '__main__':
         print('-' * 72)
         print(x_label)
         print('In-sample Treatment Effect Estimate: {:.1f} ({:.1f})'.format(
-              *reg(df.loc[df['eligible'] > 0, :], x, 'treat')))
+              *reg(df_eligible, x, 'treat')))
         est_labels = ['Survey-based estimate',
                       'Satellite-derived estimates based on ...']
         est_betas = [obs[x], np.nan]
@@ -293,11 +282,13 @@ if __name__ == '__main__':
             print(f'---- Variable: {y_label} ----')
             print('Engel Curve Statistics: ')
             # control sample only
-            df_control = df.loc[df['treat'] < 1, :]
+            df_control = df_eligible.loc[df_eligible['treat'] < 1, :]
             plot_engel(
                 df=df_control, y=y, x=x, ax=ax,
                 method=['linear', 'loess'],
-                color=y_color,
+                color=y_color)
+            make_broken_axis(
+                ax=ax,
                 y_ticks=y_tick, y_label='\n\n' + y_label + ' ' + y_unit,
                 x_ticks=x_tick, x_label='',
             )
@@ -328,10 +319,34 @@ if __name__ == '__main__':
         for col_idx, (y, y_label, y_tick) in enumerate(zip(
             ys, y_labels, y_ticks,
         )):
-            plot_engel(df=df, y=y, x=x,
-                       ax=axes[row_idx, col_idx],
-                       split='treat', cmap=cmap,
-                       y_ticks=y_tick, y_label=y_label,
-                       x_ticks=x_tick, x_label=x_label)
+            ax = axes[row_idx, col_idx]
+            plot_engel(df=df_eligible.loc[df_eligible['treat'] == 1, :],
+                       y=y, x=x, ax=ax, color=cmap['treat'])
+            plot_engel(df=df_eligible.loc[df_eligible['treat'] == 0, :],
+                       y=y, x=x, ax=ax, color=cmap['control'])
+            make_broken_axis(
+                ax=ax,
+                y_ticks=y_tick, y_label=y_label, y_label_as_title=False,
+                x_ticks=x_tick, x_label=x_label)
     plt.subplots_adjust(wspace=0.6, hspace=0.6)
     fig.savefig(os.path.join(OUT_DIR, f'engel-diff-raw.pdf'))
+
+    # test for eligible/ineligible differences
+    fig, axes = plt.subplots(figsize=(6, 6.5), ncols=3, nrows=4)
+    for row_idx, (x, x_label, x_tick) in enumerate(zip(
+        xs, x_labels, x_ticks,
+    )):
+        for col_idx, (y, y_label, y_tick) in enumerate(zip(
+            ys, y_labels, y_ticks,
+        )):
+            ax = axes[row_idx, col_idx]
+            plot_engel(df=df.loc[df['eligible'] == 1, :],
+                       y=y, x=x, ax=ax, color=cmap['treat'])
+            plot_engel(df=df.loc[df['eligible'] == 0, :],
+                       y=y, x=x, ax=ax, color=cmap['control'])
+            make_broken_axis(
+                ax=ax,
+                y_ticks=y_tick, y_label=y_label, y_label_as_title=False,
+                x_ticks=x_tick, x_label=x_label)
+    plt.subplots_adjust(wspace=0.6, hspace=0.6)
+    fig.savefig(os.path.join(OUT_DIR, f'engel-ineligible-raw.pdf'))

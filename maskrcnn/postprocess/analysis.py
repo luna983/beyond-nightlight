@@ -317,7 +317,7 @@ def load_survey(SVY_IN_DIR):
     df_svy = pd.read_stata(SVY_IN_DIR)
     print('[Survey] Raw data: N =', df_svy.shape[0])
     print('[Survey] Eligible sample: N =',
-          df_svy.loc[df_svy['h1_6_nonthatchedroof_BL'] < 0.5, :].shape[0])
+          df_svy.loc[df_svy['h1_6_nonthatchedroof_BL'] == 0, :].shape[0])
 
     # drop households without geo coords
     df_svy = df_svy.dropna(
@@ -348,11 +348,7 @@ def load_survey(SVY_IN_DIR):
 
     df_svy.loc[:, 'eligible'] = 1 - df_svy['h1_6_nonthatchedroof_BL']
     print('[Survey] Geo-coded and eligible sample: N =',
-          df_svy.loc[df_svy['eligible'] > 0.5, :].shape[0])
-    # print('Eligible Sample:')
-    # print(df_svy.loc[df_svy['eligible'] > 0.5, :].describe().T)
-    # print('Ineligible Sample:')
-    # print(df_svy.loc[df_svy['eligible'] < 0.5, :].describe().T)
+          df_svy.loc[df_svy['eligible'] == 1, :].shape[0])
     return df_svy
 
 
