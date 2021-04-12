@@ -175,56 +175,56 @@ def load_nightlight_from_point(df, NL_IN_DIR, lon_col='lon', lat_col='lat'):
     return df
 
 
-def load_nightlight_asis(input_dir):
-    """Loads nightlight data, keeping its raster grid as is.
+# def load_nightlight_asis(input_dir):
+#     """Loads nightlight data, keeping its raster grid as is.
 
-    Args:
-        input_dir (str)
-    Returns:
-        dict {str: float}: with the following keys
-            min_lon, max_lon, min_lat, max_lat, step
-        pandas.DataFrame
-    """
-    # load satellite data
-    print('Loading nightlight data')
-    ds = rasterio.open(input_dir)
-    band = ds.read().squeeze(0)
+#     Args:
+#         input_dir (str)
+#     Returns:
+#         dict {str: float}: with the following keys
+#             min_lon, max_lon, min_lat, max_lat, step
+#         pandas.DataFrame
+#     """
+#     # load satellite data
+#     print('Loading nightlight data')
+#     ds = rasterio.open(input_dir)
+#     band = ds.read().squeeze(0)
 
-    # define the grid
-    grid = {
-        'min_lon': ds.bounds[0],
-        'min_lat': ds.bounds[1],
-        'max_lon': ds.bounds[2],
-        'max_lat': ds.bounds[3],
-        'step': ds.transform[0],
-    }
+#     # define the grid
+#     grid = {
+#         'min_lon': ds.bounds[0],
+#         'min_lat': ds.bounds[1],
+#         'max_lon': ds.bounds[2],
+#         'max_lat': ds.bounds[3],
+#         'step': ds.transform[0],
+#     }
 
-    # construct the grid
-    grid_lon, grid_lat = np.meshgrid(
-        np.arange(0, ds.width),
-        np.arange(0, ds.height))
+#     # construct the grid
+#     grid_lon, grid_lat = np.meshgrid(
+#         np.arange(0, ds.width),
+#         np.arange(0, ds.height))
 
-    # convert to data frame
-    df = pd.DataFrame({
-        'grid_lon': grid_lon.flatten(),
-        'grid_lat': grid_lat[::-1].flatten(),
-        'nightlight': band.flatten(),
-    })
+#     # convert to data frame
+#     df = pd.DataFrame({
+#         'grid_lon': grid_lon.flatten(),
+#         'grid_lat': grid_lat[::-1].flatten(),
+#         'nightlight': band.flatten(),
+#     })
 
-    # recover lon, lat
-    df.loc[:, 'lon'] = (
-        df['grid_lon'] * grid['step'] + grid['min_lon'] + grid['step'] / 2)
-    df.loc[:, 'lat'] = (
-        df['grid_lat'] * grid['step'] + grid['min_lat'] + grid['step'] / 2)
+#     # recover lon, lat
+#     df.loc[:, 'lon'] = (
+#         df['grid_lon'] * grid['step'] + grid['min_lon'] + grid['step'] / 2)
+#     df.loc[:, 'lat'] = (
+#         df['grid_lat'] * grid['step'] + grid['min_lat'] + grid['step'] / 2)
 
-    # winsorize + normalize
-    df.loc[:, 'nightlight'] = winsorize(
-        df['nightlight'], 0, 99)
-    df.loc[:, 'nightlight'] = (
-        (df['nightlight'].values -
-            np.nanmean(df['nightlight'].values)) /
-        np.nanstd(df['nightlight'].values))
-    return grid, df
+#     # winsorize + normalize
+#     df.loc[:, 'nightlight'] = winsorize(
+#         df['nightlight'], 0, 99)
+#     df.loc[:, 'nightlight'] = (
+#         (df['nightlight'].values -
+#             np.nanmean(df['nightlight'].values)) /
+#         np.nanstd(df['nightlight'].values))
+#     return grid, df
 
 
 def load_building(input_dir, grid, agg=True):
@@ -326,21 +326,12 @@ def load_survey(SVY_IN_DIR):
     print('[Survey] Geo-coded sample: N =', df_svy.shape[0])
 
     # f for final variables
-    # calculate per capita consumption / assets
     # convert to USD PPP by dividing by 46.5, per the GiveDirectly paper
-    df_svy.loc[:, 'f_consumption'] = winsorize(
-        df_svy['p2_consumption_wins'] / 46.5,
-        0, 97.5)
-    df_svy.loc[:, 'f_assets_housing'] = winsorize(
-        ((df_svy['p1_assets'] / 46.5) +
-         df_svy['h1_10_housevalue_wins_PPP']),
-        2.5, 97.5)
-    df_svy.loc[:, 'f_assets'] = winsorize(
-        df_svy['p1_assets'] / 46.5,
-        2.5, 97.5)
-    df_svy.loc[:, 'f_housing'] = winsorize(
-        df_svy['h1_10_housevalue_wins_PPP'],
-        0, 97.5)
+    df_svy.loc[:, 'f_consumption'] = df_svy['p2_consumption_wins'] / 46.5
+    df_svy.loc[:, 'f_assets'] = df_svy['p1_assets'] / 46.5
+    df_svy.loc[:, 'f_housing'] = df_svy['h1_10_housevalue_wins_PPP']
+    df_svy.loc[:, 'f_assets_housing'] = (
+        df_svy['f_assets'] + df_svy['f_housing'])
 
     # check missing
     assert (df_svy.loc[:, ['treat', 'hi_sat', 's1_hhid_key', 'satcluster']]

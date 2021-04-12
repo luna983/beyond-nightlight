@@ -79,7 +79,7 @@ def plot_engel(df, y, x, ax,
                method='linear', scatter=False,
                color='dimgrey',
                # span controls smoothing for loess
-               span=0.75):
+               span=0.75, verbose=True):
 
     df_nona = df.dropna(subset=[y, x]).sort_values(by=[x])
     x_col = df_nona[x].values
@@ -155,7 +155,7 @@ def plot_est(ax, y, labels, betas, ses, est_colors, y_label,
     ax.tick_params(axis='x', which='both', colors='dimgray')
     ax.tick_params(axis='y', which='both', color='none')
     ax.grid(False)
-    ax.set_title(r'$\bf{b}$    Treatment Effect Estimates on ' + y_label,
+    ax.set_title(r'b    Treatment Effect Estimates on ' + y_label,
                  loc='left', x=-0.09, y=0.65)
 
 
@@ -245,12 +245,25 @@ if __name__ == '__main__':
     df = load_nightlight_from_point(
         df, NL_IN_DIR,
         lon_col='longitude', lat_col='latitude')
+
+    # subset samples
+    df_eligible = df.loc[df['eligible'] == 1, :].copy()
+    df_noneligible = df.loc[df['eligible'] == 0, :].copy()
+    del df
+
+    # winsorize survey based observations
+    for x in xs:
+        df_eligible.loc[:, x] = winsorize(df_eligible[x], 2.5, 97.5)
+        df_noneligible.loc[:, x] = winsorize(df_noneligible[x], 2.5, 97.5)
     # winsorize satellite based observations
     for y in ys:
-        df.loc[:, y] = winsorize(df[y], 0, 97.5)
-    # eligible sample only
-    df_eligible = df.loc[df['eligible'] == 1, :]
-    print('[Matched] Matched sample: N =', df_eligible.shape[0])
+        df_eligible.loc[:, y] = winsorize(df_eligible[y], 0, 97.5)
+        df_noneligible.loc[:, y] = winsorize(df_noneligible[y], 0, 97.5)
+
+    df_control = df_eligible.loc[df_eligible['treat'] == 0, :]
+    df_treat = df_eligible.loc[df_eligible['treat'] == 1, :]
+    print('[Matched] Matched sample: [eligible] N =', df_eligible.shape[0],
+          ', [noneligible] N =', df_noneligible.shape[0])
 
     # double loop
     for x, x_label, x_tick in zip(
@@ -273,7 +286,7 @@ if __name__ == '__main__':
         ax2 = fig.add_subplot(gs[0, 2])
         ax3 = fig.add_subplot(gs[1, :])
 
-        fig.suptitle(r'$\bf{a}$    Engel Curves', x=0.05, y=0.97, ha='left')
+        fig.suptitle(r'a    Engel Curves', x=0.05, y=0.97, ha='left')
 
         for ax, y, y_coef, y_coef_se, y_label, y_unit, y_tick, y_color in zip(
             [ax0, ax1, ax2],
@@ -282,10 +295,9 @@ if __name__ == '__main__':
             print(f'---- Variable: {y_label} ----')
             print('Engel Curve Statistics: ')
             # control sample only
-            df_control = df_eligible.loc[df_eligible['treat'] < 1, :]
             plot_engel(
                 df=df_control, y=y, x=x, ax=ax,
-                method=['linear', 'loess'],
+                method=['linear', 'loess'], scatter=False,
                 color=y_color)
             make_broken_axis(
                 ax=ax,
@@ -340,9 +352,9 @@ if __name__ == '__main__':
             ys, y_labels, y_ticks,
         )):
             ax = axes[row_idx, col_idx]
-            plot_engel(df=df.loc[df['eligible'] == 1, :],
+            plot_engel(df=df_eligible,
                        y=y, x=x, ax=ax, color=cmap['treat'])
-            plot_engel(df=df.loc[df['eligible'] == 0, :],
+            plot_engel(df=df_noneligible,
                        y=y, x=x, ax=ax, color=cmap['control'])
             make_broken_axis(
                 ax=ax,
