@@ -189,8 +189,6 @@ def load_satellite(df_idx, SAT_IN_DIR):
         sat_size_sum=pd.NamedAgg(column='area', aggfunc=np.nansum),
         sat_lum_mean=pd.NamedAgg(column='RGB_mean', aggfunc=np.nanmean),
     )
-    df_sat.loc[:, 'sat_house'] = df_sat['sat_house'].fillna(0)
-    df_sat.loc[:, 'sat_size_sum'] = df_sat['sat_size_sum'].fillna(0)
 
     # scale areas / distances
     df_sat[['sat_size_mean', 'sat_size_sum']] *= (
@@ -218,6 +216,7 @@ if __name__ == '__main__':
     SAT_IN_DIR = 'data/Mexico/Merged/sat.csv'
     # output path
     OUT_DIR = 'output/fig-mx'
+    OUT_RAW_DATA_DIR = 'fig_raw_data'
     # sample selection
     SAMPLE_NAME = '2019Oct9'
 
@@ -230,6 +229,8 @@ if __name__ == '__main__':
         df_sat,
         df_cen,
         how='right', on=['ent', 'mun', 'loc'])
+    df.loc[:, 'sat_house'] = df['sat_house'].fillna(0)
+    df.loc[:, 'sat_size_sum'] = df['sat_size_sum'].fillna(0)
     # compute per capita values
     df.loc[:, 'sat_size_sum_pc'] = df['sat_size_sum'] / df['cen_pop']
     # winsorize
@@ -238,7 +239,7 @@ if __name__ == '__main__':
     df = load_nightlight_from_point(df, NL_IN_DIR)
     df = df.rename({'nightlight': 'sat_nightlight'}, axis=1)
     # plotting begins
-    fig, axes = plt.subplots(nrows=3, ncols=2, figsize=(6, 7))
+    fig, axes = plt.subplots(ncols=2, figsize=(6, 3))
     plot_scatter(
         col_x_key='cen_pop',
         col_x_label='Census: Population Count',
@@ -249,36 +250,36 @@ if __name__ == '__main__':
         col_y_key='sat_house',
         col_y_label='Satellite: Number of Houses',
         transform_y=lambda x: np.log10(x + 1),
-        ylim=(np.log10(0.5 + 1), np.log10(1500 + 1)),
+        ylim=(np.log10(0.7), np.log10(1500 + 1)),
         yticks=[np.log10(1 + 1), np.log10(10 + 1),
                 np.log10(100 + 1), np.log10(1000 + 1)],
         yticklabels=[1, 10, 100, 1000],
         line=True, df=df,
-        ax=axes[0, 1])
+        ax=axes[1])
 
-    plot_scatter(
-        col_x_key='cen_asset_score_pca',
-        col_x_label='Census: Asset Score',
-        xlim=(-1.6, 1.6),
-        xticks=[-1, 0, 1],
-        col_y_key='sat_size_mean',
-        col_y_label='Satellite: Average House Size (m2)',
-        ylim=(-1, 220),
-        yticks=[0, 100, 200],
-        line=True, df=df,
-        ax=axes[1, 1])
+    # plot_scatter(
+    #     col_x_key='cen_asset_score_pca',
+    #     col_x_label='Census: Asset Score',
+    #     xlim=(-1.6, 1.6),
+    #     xticks=[-1, 0, 1],
+    #     col_y_key='sat_size_mean',
+    #     col_y_label='Satellite: Average House Size (m2)',
+    #     ylim=(-1, 220),
+    #     yticks=[0, 100, 200],
+    #     line=True, df=df,
+    #     ax=axes[1, 1])
 
-    plot_scatter(
-        col_x_key='cen_durable_score_pca',
-        col_x_label='Census: Durable Asset Score',
-        xlim=(-1.25, 1.25),
-        xticks=[-1, 0, 1],
-        col_y_key='sat_size_mean',
-        col_y_label='Satellite: Average House Size (m2)',
-        ylim=(-1, 220),
-        yticks=[0, 100, 200],
-        line=True, df=df,
-        ax=axes[2, 1])
+    # plot_scatter(
+    #     col_x_key='cen_durable_score_pca',
+    #     col_x_label='Census: Durable Asset Score',
+    #     xlim=(-1.25, 1.25),
+    #     xticks=[-1, 0, 1],
+    #     col_y_key='sat_size_mean',
+    #     col_y_label='Satellite: Average House Size (m2)',
+    #     ylim=(-1, 220),
+    #     yticks=[0, 100, 200],
+    #     line=True, df=df,
+    #     ax=axes[2, 1])
 
     plot_scatter(
         col_x_key='cen_pop',
@@ -292,33 +293,33 @@ if __name__ == '__main__':
         ylim=(-0.01, 4),
         yticks=[0, 2, 4],
         alpha=0.3, line=True, df=df,
-        ax=axes[0, 0])
+        ax=axes[0])
 
-    plot_scatter(
-        col_x_key='cen_asset_score_pca',
-        col_x_label='Census: Asset Score',
-        xlim=(-1.75, 1.75),
-        xticks=[-1, 0, 1],
-        col_y_key='sat_nightlight',
-        col_y_label='Satellite: Night Light',
-        ylim=(-0.01, 4),
-        yticks=[0, 2, 4],
-        alpha=0.3,
-        line=True, df=df,
-        ax=axes[1, 0])
+    # plot_scatter(
+    #     col_x_key='cen_asset_score_pca',
+    #     col_x_label='Census: Asset Score',
+    #     xlim=(-1.75, 1.75),
+    #     xticks=[-1, 0, 1],
+    #     col_y_key='sat_nightlight',
+    #     col_y_label='Satellite: Night Light',
+    #     ylim=(-0.01, 4),
+    #     yticks=[0, 2, 4],
+    #     alpha=0.3,
+    #     line=True, df=df,
+    #     ax=axes[1, 0])
 
-    plot_scatter(
-        col_x_key='cen_durable_score_pca',
-        col_x_label='Census: Durable Score',
-        xlim=(-1.5, 1.5),
-        xticks=[-1, 0, 1],
-        col_y_key='sat_nightlight',
-        col_y_label='Satellite: Night Light',
-        ylim=(-0.01, 4),
-        yticks=[0, 2, 4],
-        alpha=0.3,
-        line=True, df=df,
-        ax=axes[2, 0])
+    # plot_scatter(
+    #     col_x_key='cen_durable_score_pca',
+    #     col_x_label='Census: Durable Score',
+    #     xlim=(-1.5, 1.5),
+    #     xticks=[-1, 0, 1],
+    #     col_y_key='sat_nightlight',
+    #     col_y_label='Satellite: Night Light',
+    #     ylim=(-0.01, 4),
+    #     yticks=[0, 2, 4],
+    #     alpha=0.3,
+    #     line=True, df=df,
+    #     ax=axes[2, 0])
     fig.tight_layout()
     fig.savefig(os.path.join(OUT_DIR, 'raw.pdf'))
 
@@ -333,3 +334,10 @@ if __name__ == '__main__':
     #                      col_x_label=cen_col, col_y_label=sat_col,
     #                      line=True,
     #                      df=df, out_dir=os.path.join(OUT_DIR, 'archive'))
+
+    pd.DataFrame({
+        'census_population_count': df['cen_pop'].values,
+        'satellite_night_light': df['sat_nightlight'].values,
+        'satellite_number_of_houses': df['sat_house'].astype(int).values,
+    }).to_csv(
+        os.path.join(OUT_RAW_DATA_DIR, 'fig-mx.csv'), index=False)

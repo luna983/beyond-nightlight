@@ -110,31 +110,17 @@ regress_linear <- function(df, col_y, col_x='treat_eligible', cutoff=3) {
     )
 
     # collate result for plotting
-    res <- tibble::tibble(x=NA, beta=se$betahat[1, 1], se=se$conleySE)
+    res <- tibble::tibble(beta=se$betahat[1, 1], se=se$conleySE)
     return(res)
 }
 
 
-input_dir <- 'data/Siaya/Merged/main_res0.0010.csv'
-output_dir <- 'output/fig-ate/'
-
-# plotting style
-g_style <- ggplot2::theme_bw() +
-    ggplot2::theme(
-        panel.border=ggplot2::element_blank(),
-        panel.grid.major=ggplot2::element_blank(),
-        panel.grid.minor=ggplot2::element_blank(),
-        axis.title=ggplot2::element_text(size=11),
-        axis.text=ggplot2::element_text(size=11),
-        axis.text.x=ggplot2::element_text(vjust=5),
-        plot.title=ggplot2::element_text(size=11),
-        plot.subtitle=ggplot2::element_text(size=11),
-        plot.title.position="plot",
-        plot.caption.position="plot",
-        axis.ticks.length=ggplot2::unit(.07, "in"),
-        axis.ticks.x=ggplot2::element_blank())
+input_file <- 'data/Siaya/Merged/main_res0.0010.csv'
+output_figure_file <- 'output/fig-ate/fig-ate-raw.pdf'
+output_raw_data_file <- 'fig_raw_data/fig-ate.csv'
 
 col_ys <- c('area_sum', 'tin_area_sum', 'nightlight')
+col_label_ys <- c('building_footprint', 'tin_roof_area', 'night_light')
 titles <- c(expression(paste(bold('a'), '    Building Footprint (', m^2, ')')),
             expression(paste(bold('b'), '    Tin-roof Area (', m^2, ')')),
             expression(paste(bold('c'), '    Night Light (nW·', cm^-2, '·', sr^-1, ')')))
@@ -144,73 +130,71 @@ y_breaks <- list(
 y_lims <- list(
     c(-30, 55), c(-30, 80), c(-0.055, 0.055))
 x_lim <- c(-0.2, 3.5)
-placebo <- T
 
 # load data
-df <- readr::read_csv(
-    input_dir,
-    # to suppress warnings
-    col_type=readr::cols())
-n_iter <- stringr::str_detect(colnames(df),
-                              'treat_eligible_placebo') %>% sum()
+if (file.exists(output_raw_data_file)) {
+    cat('Loading cache file:', output_raw_data_file, '\n')
+    output_raw_data <- readr::read_csv(
+        output_raw_data_file,
+        # to suppress warnings
+        col_type=readr::cols())
+} else {
+    cat('Generating cache file:', output_raw_data_file, '\n')
+    df <- readr::read_csv(
+        input_file,
+        # to suppress warnings
+        col_type=readr::cols())
+    n_iter <- stringr::str_detect(colnames(df),
+                                  'treat_eligible_placebo') %>% sum()
+    output_raw_data <- tibble::tibble()
+    for (outcome_i in c(1:length(col_ys))) {
+        cat(paste0('Outcome: ', col_label_ys[outcome_i], '\n'))
+        # binned effect
+        main_res <- regress_bin(df=df, col_y=col_ys[outcome_i])
+        main_res %<>% tibble::add_column(
+            outcome=col_label_ys[outcome_i], iter=NA, placebo=0)
+        output_raw_data %<>% rbind(main_res)
+        # linear effect
+        linear_effect <- regress_linear(df=df, col_y=col_ys[outcome_i])
+        linear_effect %<>% tibble::add_column(
+            outcome=col_label_ys[outcome_i], iter=NA, placebo=0, x=NA)
+        output_raw_data %<>% rbind(linear_effect)
+        # placebo
+        cat('Placebo estimation in progress\n')
+        for (i in c(0:(n_iter - 1))) {
+            cat('.')
+            res <- regress_bin(df=df, col_x=sprintf('treat_eligible_placebo%02d', i),
+                               col_y=col_ys[outcome_i], compute_se=F)
+            res %<>% tibble::add_column(
+                outcome=col_label_ys[outcome_i], iter=i, placebo=1)
+            output_raw_data %<>% rbind(res)
+        }
+        cat('\n')
+    }
+    readr::write_csv(output_raw_data, output_raw_data_file)
+}
+# plotting
 results <- list()
 for (outcome_i in c(1:length(col_ys))) {
-    print('----------------------------------')
-    print(paste0('outcome: ', col_ys[outcome_i]))
-    print('Main effect estimation...')
-    main_res_file <- paste0(output_dir, 'cache/',
-                            col_ys[outcome_i], '_main.csv')
-    if (file.exists(main_res_file)) {
-        main_res_merged <- readr::read_csv(
-            main_res_file,
-            # to suppress warnings
-            col_type=readr::cols())
-        main_res <- main_res_merged %>% dplyr::filter(!is.na(x))
-        linear_effect <- main_res_merged %>% dplyr::filter(is.na(x))
-    } else {
-        main_res <- regress_bin(df=df, col_y=col_ys[outcome_i])
-        linear_effect <- regress_linear(df=df, col_y=col_ys[outcome_i])
-        # write to file - main results
-        readr::write_csv(rbind(linear_effect, main_res), main_res_file)
-    }
-    print('Placebo effect estimation...')
-    if (placebo) {
-        # write to file - placebo results
-        placebo_res_file <- paste0(output_dir, 'cache/',
-                                   col_ys[outcome_i], '_placebo.csv')
-        if (file.exists(placebo_res_file)) {
-            placebo_res <- readr::read_csv(
-                placebo_res_file,
-                # to suppress warnings
-                col_type=readr::cols())
-        } else {
-            placebo_res <- tibble::tibble()
-            for (i in c(0:(n_iter - 1))) {
-                if (i %% 10 == 0) {print('++++++++++')}
-                res <- regress_bin(df=df, col_x=sprintf('treat_eligible_placebo%02d', i),
-                                   col_y=col_ys[outcome_i], compute_se=F)
-                placebo_res <- rbind(placebo_res, res %>% dplyr::mutate(iter=i))
-            }
-            readr::write_csv(placebo_res, placebo_res_file)
-        }
-    }
-
-    # plotting
     y_lim <- y_lims[[outcome_i]]
     y_break <- y_breaks[[outcome_i]]
     color <- colors[outcome_i]
+    main_res <- output_raw_data %>% dplyr::filter(
+        (!is.na(x)) & (outcome == col_label_ys[outcome_i]) & (placebo == 0))
+    linear_effect <- output_raw_data %>% dplyr::filter(
+        is.na(x) & (outcome == col_label_ys[outcome_i]) & (placebo == 0))
+    placebo_res <- output_raw_data %>% dplyr::filter(
+        (outcome == col_label_ys[outcome_i]) & (placebo == 1))
     subtitle <- sprintf(
         "      Point Estimate: %.3f, 95%% CI: [%.3f, %.3f]",
         linear_effect$beta[1],
         linear_effect$beta[1] - 1.96 * linear_effect$se[1],
         linear_effect$beta[1] + 1.96 * linear_effect$se[1])
     g <- ggplot2::ggplot()
-    if (placebo) {
-        g <- g +
-            ggplot2::geom_line(
-                data=placebo_res %>% dplyr::filter(iter < 100),
-                ggplot2::aes(x=x, y=beta, group=iter), size=0.5, color='grey30', alpha=0.05)
-    }
+    g <- g +
+        ggplot2::geom_line(
+            data=placebo_res,
+            ggplot2::aes(x=x, y=beta, group=iter), size=0.5, color='grey30', alpha=0.05)
     g <- g +
         ggplot2::scale_y_continuous(name='', breaks=y_break) +
         ggplot2::coord_cartesian(ylim=y_lim, xlim=x_lim, expand=F)
@@ -230,9 +214,22 @@ for (outcome_i in c(1:length(col_ys))) {
         ggplot2::ggtitle(titles[outcome_i], subtitle=subtitle) +
         ggplot2::annotate(x=x_lim[1], xend=x_lim[1],
                           y=y_break[1], yend=y_break[length(y_break)], lwd=0.75, geom="segment") +
-        g_style
+        ggplot2::theme_bw() +
+        ggplot2::theme(
+            panel.border=ggplot2::element_blank(),
+            panel.grid.major=ggplot2::element_blank(),
+            panel.grid.minor=ggplot2::element_blank(),
+            axis.title=ggplot2::element_text(size=11),
+            axis.text=ggplot2::element_text(size=11),
+            axis.text.x=ggplot2::element_text(vjust=5),
+            plot.title=ggplot2::element_text(size=11),
+            plot.subtitle=ggplot2::element_text(size=11),
+            plot.title.position="plot",
+            plot.caption.position="plot",
+            axis.ticks.length=ggplot2::unit(.07, "in"),
+            axis.ticks.x=ggplot2::element_blank())
     results[[outcome_i]] <- g
 }
-ggplot2::ggsave(paste0(output_dir, 'fig-ate-raw.pdf'),
+ggplot2::ggsave(output_figure_file,
                 gridExtra::arrangeGrob(results[[1]], results[[2]], results[[3]], nrow=3),
                 width=4, height=7)

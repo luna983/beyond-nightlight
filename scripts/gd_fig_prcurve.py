@@ -1,4 +1,5 @@
 import json
+import pandas as pd
 import argparse
 import numpy as np
 import matplotlib
@@ -39,6 +40,7 @@ output_pred_file = 'data/Siaya/Pred/cv/val/pred.json'
 output_gt_file = 'data/Siaya/Pred/cv/val/gt.json'
 
 output_figure = 'output/fig-prcurve/raw.pdf'
+output_figure_raw_data = 'fig_raw_data/fig-prcurve.csv'
 
 preds = []
 gts = {'annotations': [],
@@ -136,3 +138,9 @@ print(f'Optimal Confidence Score Cutoff: {optim_score:.2f}\n' +
       f'Max Recall: {recall[-1]:.2f}')
 fig.tight_layout()
 fig.savefig(output_figure)
+
+# output raw data
+pd.DataFrame({
+    'recall': np.round(recall, 6),
+    'precision': np.round(precision, 6),
+}).to_csv(output_figure_raw_data, index=False)
