@@ -48,15 +48,15 @@ To replicate `fig-schematic` (schematics and randomly sampled images/predictions
 
 To replicate `fig-map` (map of treatment and outcome variables)
 
-- `python scripts/gd_fig_map.py`: Generate the raw figures.
+- `python scripts/gd_fig_map.py > logs/gd_fig_map.log`: Generate the raw figures.
 
 To replicate `fig-ate` (average treatment effect estimation)
 
-- `Rscript scripts/gd_fig_ate.R`: Generate raw figures.
+- `Rscript scripts/gd_fig_ate.R > logs/gd_fig_ate.log`: Generate raw figures.
 
 To replicate `fig-engel` (Engel curve)
 
-- `python scripts/gd_fig_engel.py`: Generate raw figures.
+- `python scripts/gd_fig_engel.py > logs/gd_fig_engel.log`: Generate raw figures.
 
 To replicate the analysis in the appendix (in rural Mexico)
 

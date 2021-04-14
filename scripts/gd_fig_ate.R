@@ -148,7 +148,7 @@ if (file.exists(output_raw_data_file)) {
                                   'treat_eligible_placebo') %>% sum()
     output_raw_data <- tibble::tibble()
     for (outcome_i in c(1:length(col_ys))) {
-        cat(paste0('Outcome: ', col_label_ys[outcome_i], '\n'))
+        cat('========= Outcome:', col_label_ys[outcome_i], '=========\n')
         # binned effect
         main_res <- regress_bin(df=df, col_y=col_ys[outcome_i])
         main_res %<>% tibble::add_column(
@@ -156,6 +156,25 @@ if (file.exists(output_raw_data_file)) {
         output_raw_data %<>% rbind(main_res)
         # linear effect
         linear_effect <- regress_linear(df=df, col_y=col_ys[outcome_i])
+        sample_size <- nrow(df %>% tidyr::drop_na(!! col_ys[outcome_i]))
+        num_fixed_effects <- length(unique(df$eligible))
+        t_stat <- linear_effect$beta[1] / linear_effect$se[1]
+        degree_of_freedom <- sample_size - num_fixed_effects - 1
+        p_value <- pt(q=abs(t_stat), df=degree_of_freedom, lower.tail=FALSE) * 2
+        cat(sprintf(
+            paste0(
+                "N = %i;\n",
+                "Point Estimate: %.6f; Standard Error: %.6f;\n",
+                "95%% CI: [%.6f, %.6f];\n",
+                "(two-sided) t-stat: %.6f (df = %i); p-value: %.6f;\n"),
+            sample_size,
+            linear_effect$beta[1],
+            linear_effect$se[1],
+            linear_effect$beta[1] - 1.96 * linear_effect$se[1],
+            linear_effect$beta[1] + 1.96 * linear_effect$se[1],
+            t_stat,
+            degree_of_freedom,
+            p_value))
         linear_effect %<>% tibble::add_column(
             outcome=col_label_ys[outcome_i], iter=NA, placebo=0, x=NA)
         output_raw_data %<>% rbind(linear_effect)

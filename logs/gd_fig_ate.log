@@ -1,0 +1,22 @@
+Generating cache file: fig_raw_data/fig-ate.csv 
+========= Outcome: building_footprint =========
+N = 14155;
+Point Estimate: 7.856514; Standard Error: 2.854635;
+95% CI: [2.261429, 13.451599];
+(two-sided) t-stat: 2.752195 (df = 14143); p-value: 0.005927;
+Placebo estimation in progress
+....................................................................................................
+========= Outcome: tin_roof_area =========
+N = 14155;
+Point Estimate: 13.608237; Standard Error: 2.031135;
+95% CI: [9.627213, 17.589261];
+(two-sided) t-stat: 6.699820 (df = 14143); p-value: 0.000000;
+Placebo estimation in progress
+....................................................................................................
+========= Outcome: night_light =========
+N = 14155;
+Point Estimate: -0.000120; Standard Error: 0.004189;
+95% CI: [-0.008330, 0.008090];
+(two-sided) t-stat: -0.028590 (df = 14143); p-value: 0.977192;
+Placebo estimation in progress
+....................................................................................................
