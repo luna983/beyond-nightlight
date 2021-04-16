@@ -10,7 +10,7 @@ from statsmodels.api import add_constant, OLS
 from .utils import transform_coord
 
 
-def test_linearity(x, y, n_knots=5):
+def test_linearity(x, y, n_knots=5, verbose=True):
     """Test linearity between two variables.
 
     Run a linear regression of y on x, and take the residuals.
@@ -22,7 +22,7 @@ def test_linearity(x, y, n_knots=5):
     >>> rng = np.random.default_rng(0)
     >>> x = np.linspace(0., 1., 101)
     >>> y = 5 * x + 3 + rng.random(size=101) / 5
-    >>> test_linearity(x, y, n_knots=5)
+    >>> test_linearity(x, y, n_knots=5, verbose=False)
     0.194032
     """
     residuals = OLS(y, add_constant(x)).fit().resid
@@ -31,8 +31,13 @@ def test_linearity(x, y, n_knots=5):
         return_type='dataframe')
     results = OLS(residuals, basis_matrix).fit()
     results.summary()
-    p_value = results.f_pvalue
-    return np.round(p_value, 6)
+    nobs = results.nobs
+    f_value = results.fvalue
+    p_value = np.round(results.f_pvalue, 6)
+    print('Test for Linearity: '
+          f'N = {nobs:.0f}; df={nobs - n_knots - 1:.0f}; '
+          f'F = {f_value:.3f}; p = {p_value:.6f}.')
+    return p_value
 
 
 def winsorize(s, lower, upper, verbose=False):
@@ -316,8 +321,6 @@ def load_survey(SVY_IN_DIR):
     # load survey data
     df_svy = pd.read_stata(SVY_IN_DIR)
     print('[Survey] Raw data: N =', df_svy.shape[0])
-    print('[Survey] Eligible sample: N =',
-          df_svy.loc[df_svy['h1_6_nonthatchedroof_BL'] == 0, :].shape[0])
 
     # drop households without geo coords
     df_svy = df_svy.dropna(
@@ -325,21 +328,30 @@ def load_survey(SVY_IN_DIR):
     ).reset_index(drop=True)
     print('[Survey] Geo-coded sample: N =', df_svy.shape[0])
 
-    # f for final variables
+    # svy_ for final variables
     # convert to USD PPP by dividing by 46.5, per the GiveDirectly paper
-    df_svy.loc[:, 'f_consumption'] = df_svy['p2_consumption_wins'] / 46.5
-    df_svy.loc[:, 'f_assets'] = df_svy['p1_assets'] / 46.5
-    df_svy.loc[:, 'f_housing'] = df_svy['h1_10_housevalue_wins_PPP']
-    df_svy.loc[:, 'f_assets_housing'] = (
-        df_svy['f_assets'] + df_svy['f_housing'])
+    df_svy.loc[:, 'svy_annual_expenditure'] = (
+        df_svy['p2_consumption_wins'] / 46.5)
+    df_svy.loc[:, 'svy_non_housing_assets'] = df_svy['p1_assets'] / 46.5
+    df_svy.loc[:, 'svy_housing_assets'] = df_svy['h1_10_housevalue_wins_PPP']
+    df_svy.loc[:, 'svy_total_assets'] = (
+        df_svy['svy_non_housing_assets'] + df_svy['svy_housing_assets'])
 
     # check missing
     assert (df_svy.loc[:, ['treat', 'hi_sat', 's1_hhid_key', 'satcluster']]
                   .notna().all().all())
 
     df_svy.loc[:, 'eligible'] = 1 - df_svy['h1_6_nonthatchedroof_BL']
-    print('[Survey] Geo-coded and eligible sample: N =',
-          df_svy.loc[df_svy['eligible'] == 1, :].shape[0])
+    print('[Survey] Geo-coded sample: eligible = ',
+          df_svy.loc[df_svy['eligible'] == 1, :].shape[0],
+          '; ineligible = ',
+          df_svy.loc[df_svy['eligible'] == 0, :].shape[0])
+    print('[Survey] Geo-coded and eligible sample: treatment = ',
+          df_svy.loc[(df_svy['eligible'] == 1) &
+                     (df_svy['treat'] == 1), :].shape[0],
+          '; control = ',
+          df_svy.loc[(df_svy['eligible'] == 1) &
+                     (df_svy['treat'] == 0), :].shape[0])
     return df_svy
 
 
@@ -384,8 +396,10 @@ def match(df_cen, df_svy, df_sat, sat_radius, svy_radius, verbose=False):
         df,
         df_svy.loc[:, ['census_id', 's1_hhid_key',
                        'treat', 'eligible', 'hi_sat',
-                       'f_consumption', 'f_assets',
-                       'f_housing', 'f_assets_housing']],
+                       'svy_total_assets',
+                       'svy_annual_expenditure',
+                       'svy_housing_assets',
+                       'svy_non_housing_assets']],
         how='inner', on='census_id',
     )
     df = df.loc[df['area_sum'] > 0, :]

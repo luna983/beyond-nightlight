@@ -1,0 +1,17 @@
+outcome,type,beta,standard_error
+total_assets,Survey-based estimate,555.61,36.08342832935917
+total_assets,Satellite-derived estimates based on: Building Footprint,424.6914599489881,185.54774232813077
+total_assets,Satellite-derived estimates based on: Tin-roof Area,984.5064038635309,254.00028474626532
+total_assets,Satellite-derived estimates based on: Night Light,-40.768959745907395,1426.7183664049178
+annual_expenditure,Survey-based estimate,292.98,60.09
+annual_expenditure,Satellite-derived estimates based on: Building Footprint,737.8192180414685,353.5259658974483
+annual_expenditure,Satellite-derived estimates based on: Tin-roof Area,2320.4228841970435,922.3432145967956
+annual_expenditure,Satellite-derived estimates based on: Night Light,-44.618373630537526,1561.1467681945678
+housing_assets,Survey-based estimate,377.14,26.37
+housing_assets,Satellite-derived estimates based on: Building Footprint,301.24535728097703,142.70222659490707
+housing_assets,Satellite-derived estimates based on: Tin-roof Area,654.9619362755035,189.16435438827557
+housing_assets,Satellite-derived estimates based on: Night Light,-14.787819429273986,517.3422541717168
+non_housing_assets,Survey-based estimate,178.47,24.63
+non_housing_assets,Satellite-derived estimates based on: Building Footprint,374.96193970268837,179.8686526920997
+non_housing_assets,Satellite-derived estimates based on: Tin-roof Area,931.7091368383747,305.127797930441
+non_housing_assets,Satellite-derived estimates based on: Night Light,-91.11679145928267,3204.7503044280043

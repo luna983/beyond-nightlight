@@ -1,0 +1,136 @@
+[Survey] Raw data: N = 8239
+[Survey] Geo-coded sample: N = 7987
+[Survey] Geo-coded sample: eligible =  4578 ; ineligible =  2444
+[Survey] Geo-coded and eligible sample: treatment =  2291 ; control =  2287
+[Matched] Matched sample: treat =  1935 ; control =  1876 ; ineligible =  2152
+[Matched] Matched sample, dropping renters: treat =  1904 ; control =  1844 ; ineligible =  2097
+------------------------------------------------------------------------
+Total Assets
+In-sample Treatment Effect Estimate: 595.3 (41.1)
+---- Variable: Building Footprint ----
+Engel Curve Statistics: 
+Test for Linearity: N = 1844; df=1838; F = 0.371; p = 0.829400.
+N = 1844, R2 = 0.0091
+Remotely-sensed Effects: 7.857 (2.855)
+Scaling Factor: 0.018499 (0.004488)
+Scaled Effect: 424.691 (185.548) USD PPP
+---- Variable: Tin-roof Area ----
+Engel Curve Statistics: 
+Test for Linearity: N = 1844; df=1838; F = 0.788; p = 0.532929.
+N = 1844, R2 = 0.0121
+Remotely-sensed Effects: 13.608 (2.031)
+Scaling Factor: 0.013822 (0.002909)
+Scaled Effect: 984.506 (254.000) USD PPP
+---- Variable: Night Light ----
+Engel Curve Statistics: 
+Test for Linearity: N = 1844; df=1838; F = 0.392; p = 0.814434.
+N = 1844, R2 = 0.0004
+Remotely-sensed Effects: -0.000 (0.004)
+Scaling Factor: 0.000003 (0.000003)
+Scaled Effect: -40.769 (1426.718) USD PPP
+------------------------------------------------------------------------
+Annual Expenditure
+In-sample Treatment Effect Estimate: 340.8 (56.5)
+---- Variable: Building Footprint ----
+Engel Curve Statistics: 
+Test for Linearity: N = 1843; df=1837; F = 0.299; p = 0.878952.
+N = 1843, R2 = 0.0055
+Remotely-sensed Effects: 7.857 (2.855)
+Scaling Factor: 0.010648 (0.003326)
+Scaled Effect: 737.819 (353.526) USD PPP
+---- Variable: Tin-roof Area ----
+Engel Curve Statistics: 
+Test for Linearity: N = 1843; df=1837; F = 0.299; p = 0.878627.
+N = 1843, R2 = 0.0040
+Remotely-sensed Effects: 13.608 (2.031)
+Scaling Factor: 0.005865 (0.002161)
+Scaled Effect: 2320.423 (922.343) USD PPP
+---- Variable: Night Light ----
+Engel Curve Statistics: 
+Test for Linearity: N = 1843; df=1837; F = 1.781; p = 0.129891.
+N = 1843, R2 = 0.0006
+Remotely-sensed Effects: -0.000 (0.004)
+Scaling Factor: 0.000003 (0.000002)
+Scaled Effect: -44.618 (1561.147) USD PPP
+------------------------------------------------------------------------
+Housing Assets
+In-sample Treatment Effect Estimate: 420.0 (24.6)
+---- Variable: Building Footprint ----
+Engel Curve Statistics: 
+Test for Linearity: N = 1844; df=1838; F = 1.681; p = 0.151830.
+N = 1844, R2 = 0.0058
+Remotely-sensed Effects: 7.857 (2.855)
+Scaling Factor: 0.026080 (0.007927)
+Scaled Effect: 301.245 (142.702) USD PPP
+---- Variable: Tin-roof Area ----
+Engel Curve Statistics: 
+Test for Linearity: N = 1844; df=1838; F = 2.547; p = 0.037742.
+N = 1844, R2 = 0.0088
+Remotely-sensed Effects: 13.608 (2.031)
+Scaling Factor: 0.020777 (0.005137)
+Scaled Effect: 654.962 (189.164) USD PPP
+---- Variable: Night Light ----
+Engel Curve Statistics: 
+Test for Linearity: N = 1844; df=1838; F = 2.142; p = 0.073327.
+N = 1844, R2 = 0.0010
+Remotely-sensed Effects: -0.000 (0.004)
+Scaling Factor: 0.000008 (0.000006)
+Scaled Effect: -14.788 (517.342) USD PPP
+------------------------------------------------------------------------
+Non-Housing Assets
+In-sample Treatment Effect Estimate: 177.6 (27.7)
+---- Variable: Building Footprint ----
+Engel Curve Statistics: 
+Test for Linearity: N = 1844; df=1838; F = 0.406; p = 0.804607.
+N = 1844, R2 = 0.0055
+Remotely-sensed Effects: 7.857 (2.855)
+Scaling Factor: 0.020953 (0.006562)
+Scaled Effect: 374.962 (179.869) USD PPP
+---- Variable: Tin-roof Area ----
+Engel Curve Statistics: 
+Test for Linearity: N = 1844; df=1838; F = 0.389; p = 0.816762.
+N = 1844, R2 = 0.0063
+Remotely-sensed Effects: 13.608 (2.031)
+Scaling Factor: 0.014606 (0.004258)
+Scaled Effect: 931.709 (305.128) USD PPP
+---- Variable: Night Light ----
+Engel Curve Statistics: 
+Test for Linearity: N = 1844; df=1838; F = 0.405; p = 0.804878.
+N = 1844, R2 = 0.0000
+Remotely-sensed Effects: -0.000 (0.004)
+Scaling Factor: 0.000001 (0.000005)
+Scaled Effect: -91.117 (3204.750) USD PPP
+------------------------------------------------------------------------
+Diff: Treatment versus Control
+---- Variable: Building Footprint ----
+[Treatmen group]
+Engel curve: N = 1904
+[Control group]
+Engel curve: N = 1844
+---- Variable: Tin-roof Area ----
+[Treatmen group]
+Engel curve: N = 1904
+[Control group]
+Engel curve: N = 1844
+---- Variable: Night Light ----
+[Treatmen group]
+Engel curve: N = 1904
+[Control group]
+Engel curve: N = 1844
+------------------------------------------------------------------------
+Diff: Treatment versus Control
+---- Variable: Building Footprint ----
+[Eligible sample]
+Engel curve: N = 3748
+[Ineligible sample]
+Engel curve: N = 1821
+---- Variable: Tin-roof Area ----
+[Eligible sample]
+Engel curve: N = 3748
+[Ineligible sample]
+Engel curve: N = 1821
+---- Variable: Night Light ----
+[Eligible sample]
+Engel curve: N = 3748
+[Ineligible sample]
+Engel curve: N = 1821

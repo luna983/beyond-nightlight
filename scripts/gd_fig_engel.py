@@ -77,13 +77,16 @@ def make_broken_axis(ax,
 
 def plot_engel(df, y, x, ax,
                method='linear', scatter=False,
+               loess_se=False, linear_se=True,
                color='dimgrey',
                # span controls smoothing for loess
-               span=0.75, verbose=True):
+               span=0.75, verbose=False):
 
     df_nona = df.dropna(subset=[y, x]).sort_values(by=[x])
     x_col = df_nona[x].values
     y_col = df_nona[y].values
+    if verbose:
+        print(f'Engel curve: N = {df_nona.shape[0]}')
     if scatter:
         ax.plot(x_col, y_col,
                 markeredgecolor='none',
@@ -97,12 +100,12 @@ def plot_engel(df, y, x, ax,
         pred = m.predict(x_col, stderror=True).confidence()
         pred_fit = pred.fit
         pred_lower, pred_upper = pred.lower, pred.upper
-        # ax.fill_between(x_col, pred_lower, pred_upper,
-        #                 color=color, alpha=.2)
+        if loess_se:
+            ax.fill_between(x_col, pred_lower, pred_upper,
+                            color=color, alpha=.2)
         ax.plot(x_col, pred_fit, '-',
                 color=color, linewidth=1.5, alpha=0.7)
-        p_value = test_linearity(x_col, y_col, n_knots=5)
-        print(f'Test for Linearity: p = {p_value:.3f}')
+        _ = test_linearity(x_col, y_col, n_knots=5)
 
     if 'linear' in method:
         X = sm.add_constant(x_col)
@@ -111,14 +114,15 @@ def plot_engel(df, y, x, ax,
         pred_fit = pred.predicted_mean
         pred_lower, pred_upper = pred.conf_int().T
         # standard error
-        ax.fill_between(x_col, pred_lower, pred_upper,
-                        color=color, alpha=.1)
+        if linear_se:
+            ax.fill_between(x_col, pred_lower, pred_upper,
+                            color=color, alpha=.1)
         ax.plot(x_col, pred_fit,
                 ':' if 'loess' in method else '-',
                 color=color, linewidth=1.5, alpha=0.7)
 
 
-def plot_est(ax, y, labels, betas, ses, est_colors, y_label,
+def plot_est(ax, labels, betas, ses, est_colors, y_label,
              ticks=None, lim=None, minor_ticks=None):
     if ticks is not None:
         ax.set_xticks(ticks)
@@ -130,16 +134,26 @@ def plot_est(ax, y, labels, betas, ses, est_colors, y_label,
         ax.set_xlim(*lim)
     xmin, xmax = ticks[0], ticks[-1]
     for y_pos, (beta, se, color) in enumerate(zip(betas, ses, est_colors)):
-        lower = max(beta - 1.96 * se, xmin) - beta
-        upper = min(beta + 1.96 * se, xmax) - beta
-        lower_clipped = xmin > (beta - 1.96 * se)
-        upper_clipped = xmax < (beta + 1.96 * se)
-        ax.arrow(x=beta, y=y_pos, dx=lower, dy=0,
-                 color=color, width=0.05, head_width=0.4,
-                 head_length=(100 if lower_clipped else 1))
-        ax.arrow(x=beta, y=y_pos, dx=upper, dy=0,
-                 color=color, width=0.05, head_width=0.4,
-                 head_length=(100 if upper_clipped else 1))
+        if beta < xmin:
+            ax.arrow(x=xmin + 1, y=y_pos, dx=-1, dy=0,
+                     color=color, width=0.05, head_width=0.4,
+                     head_length=100)
+        else:
+            lower = max(beta - 1.96 * se, xmin) - beta
+            lower_clipped = xmin > (beta - 1.96 * se)
+            ax.arrow(x=beta, y=y_pos, dx=lower, dy=0,
+                     color=color, width=0.05, head_width=0.4,
+                     head_length=(100 if lower_clipped else 1))
+        if beta > xmax:
+            ax.arrow(x=xmax - 1, y=y_pos, dx=1, dy=0,
+                     color=color, width=0.05, head_width=0.4,
+                     head_length=100)
+        else:
+            upper = min(beta + 1.96 * se, xmax) - beta
+            upper_clipped = xmax < (beta + 1.96 * se)
+            ax.arrow(x=beta, y=y_pos, dx=upper, dy=0,
+                     color=color, width=0.05, head_width=0.4,
+                     head_length=(100 if upper_clipped else 1))
         ax.plot(
             beta, y_pos, marker='o', color=color, markersize=5)
     ax.set_yticks(range(len(betas)))
@@ -168,67 +182,69 @@ if __name__ == '__main__':
         'data/External/GiveDirectly/GE_HH_Census_2017-07-17_cleanGPS.csv')
     CENSUS_MASTER_IN_DIR = (
         'data/External/GiveDirectly/GE_HH-Census_Analysis_RA_2017-07-17.dta')
-    ATE_IN_DIR = 'output/fig-ate/cache/{}_main.csv'
-    OUT_DIR = 'output/fig-engel'
+    ATE_IN_DIR = 'fig_raw_data/fig-ate.csv'
+    FIG_OUT_DIR = 'output/fig-engel'
+    RAW_DATA_OUT_DIR = 'fig_raw_data'
 
     # 'True' Effect from the original paper
     # https://www.nber.org/system/files/working_papers/w26600/w26600.pdf
     # From Table 1, Column 1
     obs = {
-        'f_assets_housing': 178.47 + 377.14,  # row 6-7
-        'f_consumption': 292.98,  # row 1
-        'f_housing': 377.14,  # row 7
-        'f_assets': 178.47,  # row 6
+        'total_assets': 178.47 + 377.14,  # row 6-7
+        'annual_expenditure': 292.98,  # row 1
+        'housing_assets': 377.14,  # row 7
+        'non_housing_assets': 178.47,  # row 6
     }
     obs_se = {
         # row 6-7
-        'f_assets_housing': np.sqrt(np.square(24.63) +
-                                    np.square(26.37)),
-        'f_consumption': 60.09,  # row 1
-        'f_housing': 26.37,  # row 7
-        'f_assets': 24.63,  # row 6
+        'total_assets': np.sqrt(np.square(24.63) +
+                                np.square(26.37)),
+        'annual_expenditure': 60.09,  # row 1
+        'housing_assets': 26.37,  # row 7
+        'non_housing_assets': 24.63,  # row 6
     }
 
     cmap = {'control': '#666666', 'treat': '#0F9D58'}
     y_colors = ['#DB4437', '#4285F4', '#F4B400']
-    ys = ['area_sum',
-          'tin_area_sum',
-          'nightlight']
+    rename_vars = {
+        'area_sum': 'sat_building_footprint',
+        'tin_area_sum': 'sat_tin_roof_area',
+        'nightlight': 'sat_night_light',
+        'eligible': 'is_eligible',
+        'treat': 'in_treatment_group'}
+    ys = ['building_footprint',
+          'tin_roof_area',
+          'night_light']
     y_labels = ['Building Footprint',
                 'Tin-roof Area',
                 'Night Light']
     y_units = [r'$\mathregular{(m^2)}$',
                r'$\mathregular{(m^2)}$',
                r'$\mathregular{(nW·cm^{-2}·sr^{-1})}$']
-    y_ticks = [[200, 300, 400],
-               [100, 150, 200, 250],
-               [0.3, 0.35, 0.4]]
+    y_ticks = [[200, 250, 300],
+               [100, 150, 200],
+               [0.3, 0.33, 0.36]]
     # here, assets refers to non-land, non-housing assets only
-    xs = ['f_assets_housing',
-          'f_consumption',
-          'f_housing',
-          'f_assets']
+    xs = ['total_assets',
+          'annual_expenditure',
+          'housing_assets',
+          'non_housing_assets']
     x_labels = ['Total Assets',
                 'Annual Expenditure',
                 'Housing Assets',
                 'Non-Housing Assets']
     x_unit = '(USD PPP)'
     x_ticks = [
-        [0, 5000, 10000],
-        [0, 4000, 8000],
         [0, 3000, 6000],
-        [0, 2500, 5000],
+        [0, 4500, 9000],
+        [0, 2000, 4000],
+        [0, 2000, 4000],
     ]
 
     # load previous estimates
-    y_coefs = []
-    y_coef_ses = []
-    for y in ys:
-        df_y = pd.read_csv(ATE_IN_DIR.format(y))
-        y_coef, = df_y.loc[df_y['x'].isna(), 'beta']
-        y_coef_se, = df_y.loc[df_y['x'].isna(), 'se']
-        y_coefs.append(y_coef)
-        y_coef_ses.append(y_coef_se)
+    df_y = pd.read_csv(ATE_IN_DIR)
+    df_y = df_y.loc[df_y['x'].isna(), ['beta', 'se', 'outcome']].copy()
+    df_y = df_y.set_index('outcome', drop=True)
 
     # load data
     df_sat = load_building(SAT_IN_DIR, grid=None, agg=False)
@@ -245,25 +261,58 @@ if __name__ == '__main__':
     df = load_nightlight_from_point(
         df, NL_IN_DIR,
         lon_col='longitude', lat_col='latitude')
+    # rename variables
+    df = df.rename(rename_vars, axis=1)
 
     # subset samples
-    df_eligible = df.loc[df['eligible'] == 1, :].copy()
-    df_noneligible = df.loc[df['eligible'] == 0, :].copy()
+    print('[Matched] Matched sample: treat = ',
+          df.loc[(df['is_eligible'] == 1) &
+                 (df['in_treatment_group'] == 1), :].shape[0],
+          '; control = ',
+          df.loc[(df['is_eligible'] == 1) &
+                 (df['in_treatment_group'] == 0), :].shape[0],
+          '; ineligible = ',
+          df.loc[df['is_eligible'] == 0, :].shape[0])
+
+    df = df.loc[df['svy_housing_assets'] > 0, :]
+    print('[Matched] Matched sample, dropping renters: treat = ',
+          df.loc[(df['is_eligible'] == 1) &
+                 (df['in_treatment_group'] == 1), :].shape[0],
+          '; control = ',
+          df.loc[(df['is_eligible'] == 1) &
+                 (df['in_treatment_group'] == 0), :].shape[0],
+          '; ineligible = ',
+          df.loc[df['is_eligible'] == 0, :].shape[0])
+
+    df_eligible = df.loc[df['is_eligible'] == 1, :].copy()
+    df_ineligible = df.loc[df['is_eligible'] == 0, :].copy()
     del df
 
+    wins_lower_bound = 1
+    wins_upper_bound = 99
     # winsorize survey based observations
     for x in xs:
-        df_eligible.loc[:, x] = winsorize(df_eligible[x], 2.5, 97.5)
-        df_noneligible.loc[:, x] = winsorize(df_noneligible[x], 2.5, 97.5)
+        df_eligible.loc[:, 'svy_' + x] = winsorize(
+            df_eligible['svy_' + x], wins_lower_bound, wins_upper_bound)
+        df_ineligible.loc[:, 'svy_' + x] = winsorize(
+            df_ineligible['svy_' + x], wins_lower_bound, wins_upper_bound)
     # winsorize satellite based observations
     for y in ys:
-        df_eligible.loc[:, y] = winsorize(df_eligible[y], 0, 97.5)
-        df_noneligible.loc[:, y] = winsorize(df_noneligible[y], 0, 97.5)
+        df_eligible.loc[:, 'sat_' + y] = winsorize(
+            df_eligible['sat_' + y], 0, wins_upper_bound)
+        df_ineligible.loc[:, 'sat_' + y] = winsorize(
+            df_ineligible['sat_' + y], 0, wins_upper_bound)
 
-    df_control = df_eligible.loc[df_eligible['treat'] == 0, :]
-    df_treat = df_eligible.loc[df_eligible['treat'] == 1, :]
-    print('[Matched] Matched sample: [eligible] N =', df_eligible.shape[0],
-          ', [noneligible] N =', df_noneligible.shape[0])
+    df_control = df_eligible.loc[df_eligible['in_treatment_group'] == 0, :]
+    df_treat = df_eligible.loc[df_eligible['in_treatment_group'] == 1, :]
+
+    # ================================================================
+    # output raw data
+    output_cols = [col for col in df_control.columns
+                   if col.startswith(('sat_', 'svy_'))]
+    df_control.loc[:, output_cols].to_csv(
+        os.path.join(RAW_DATA_OUT_DIR, 'fig-engel-a.csv'), index=False)
+    est_output_raw_data = []
 
     # double loop
     for x, x_label, x_tick in zip(
@@ -272,11 +321,15 @@ if __name__ == '__main__':
         print('-' * 72)
         print(x_label)
         print('In-sample Treatment Effect Estimate: {:.1f} ({:.1f})'.format(
-              *reg(df_eligible, x, 'treat')))
+              *reg(df_eligible, 'svy_' + x, 'in_treatment_group')))
         est_labels = ['Survey-based estimate',
-                      'Satellite-derived estimates based on ...']
+                      'Satellite-derived estimates based on: ']
         est_betas = [obs[x], np.nan]
         est_ses = [obs_se[x], np.nan]
+        est_output_raw_data.append({
+            'outcome': x, 'type': est_labels[0],
+            'beta': obs[x], 'standard_error': obs_se[x],
+        })
 
         fig = plt.figure(figsize=(6, 5))
         plt.subplots_adjust(wspace=0.35)
@@ -288,23 +341,25 @@ if __name__ == '__main__':
 
         fig.suptitle(r'a    Engel Curves', x=0.05, y=0.97, ha='left')
 
-        for ax, y, y_coef, y_coef_se, y_label, y_unit, y_tick, y_color in zip(
+        for ax, y, y_label, y_unit, y_tick, y_color in zip(
             [ax0, ax1, ax2],
-            ys, y_coefs, y_coef_ses, y_labels, y_units, y_ticks, y_colors,
+            ys, y_labels, y_units, y_ticks, y_colors,
         ):
             print(f'---- Variable: {y_label} ----')
             print('Engel Curve Statistics: ')
             # control sample only
             plot_engel(
-                df=df_control, y=y, x=x, ax=ax,
+                df=df_control, y='sat_' + y, x='svy_' + x, ax=ax,
                 method=['linear', 'loess'], scatter=False,
                 color=y_color)
             make_broken_axis(
                 ax=ax,
                 y_ticks=y_tick, y_label='\n\n' + y_label + ' ' + y_unit,
-                x_ticks=x_tick, x_label='',
+                x_ticks=x_tick,
             )
-            scale, scale_se = reg(df_control, y, x, verbose=True)
+            y_coef, y_coef_se = df_y.loc[y, ['beta', 'se']].values
+            scale, scale_se = reg(
+                df_control, 'sat_' + y, 'svy_' + x, verbose=True)
             est, est_se = compute_est(y_coef, y_coef_se, scale, scale_se)
             print(f'Remotely-sensed Effects: {y_coef:.3f} ({y_coef_se:.3f})\n'
                   f'Scaling Factor: {scale:.6f} ({scale_se:.6f})\n'
@@ -312,8 +367,12 @@ if __name__ == '__main__':
             est_labels.append('    ' + y_label)
             est_betas.append(est)
             est_ses.append(est_se)
+            est_output_raw_data.append({
+                'outcome': x, 'type': est_labels[1] + y_label,
+                'beta': est, 'standard_error': est_se,
+            })
         fig.text(0.5, 0.43, x_label + ' ' + x_unit, ha='center')
-        plot_est(ax=ax3, y=x,
+        plot_est(ax=ax3,
                  labels=est_labels, betas=est_betas, ses=est_ses,
                  est_colors=['dimgray'] * 2 + y_colors, y_label=x_label,
                  ticks=[-1000, 0, 1000, 2000],
@@ -321,44 +380,77 @@ if __name__ == '__main__':
                  minor_ticks=[-800, -600, -400, -200,
                               200, 400, 600, 800,
                               1200, 1400, 1600, 1800])
-        fig.savefig(os.path.join(OUT_DIR, f'{x}-raw.pdf'))
+        fig.savefig(os.path.join(
+            FIG_OUT_DIR, f"fig-engel-{x.replace('_', '-')}-raw.pdf"))
+
+    # output raw data for panel b
+    pd.DataFrame(est_output_raw_data).to_csv(os.path.join(
+        RAW_DATA_OUT_DIR, 'fig-engel-b.csv'), index=False)
+
+    # ================================================================
+    x = xs[0]
+    x_label = x_labels[0]
+    x_tick = x_ticks[0]
+    # subset ineligible sample
+    df_ineligible = df_ineligible.loc[
+        df_ineligible['svy_' + x] < df_eligible['svy_' + x].max(), :].copy()
+    # output raw data
+    output_cols = ([col for col in df_control.columns
+                    if col.startswith(('sat_'))] +
+                   ['svy_' + x, 'is_eligible', 'in_treatment_group'])
+    output_raw_data = pd.concat(
+        [df_eligible.loc[:, output_cols],
+         df_ineligible.loc[:, output_cols]])
+    output_raw_data.loc[:, 'is_eligible'] = (
+        output_raw_data['is_eligible'].astype(int))
+    output_raw_data.loc[:, 'in_treatment_group'] = (
+        output_raw_data['in_treatment_group'].astype(int))
+    output_raw_data.to_csv(
+        os.path.join(RAW_DATA_OUT_DIR, 'fig-engel-diff.csv'), index=False)
 
     # test for treatment/control differences
-    fig, axes = plt.subplots(figsize=(6, 6.5), ncols=3, nrows=4)
-    for row_idx, (x, x_label, x_tick) in enumerate(zip(
-        xs, x_labels, x_ticks,
+    print('-' * 72)
+    print('Diff: Treatment versus Control')
+    fig, axes = plt.subplots(figsize=(6.5, 2.5), ncols=3)
+    for col_idx, (y, y_label, y_tick) in enumerate(zip(
+        ys, y_labels, y_ticks,
     )):
-        for col_idx, (y, y_label, y_tick) in enumerate(zip(
-            ys, y_labels, y_ticks,
-        )):
-            ax = axes[row_idx, col_idx]
-            plot_engel(df=df_eligible.loc[df_eligible['treat'] == 1, :],
-                       y=y, x=x, ax=ax, color=cmap['treat'])
-            plot_engel(df=df_eligible.loc[df_eligible['treat'] == 0, :],
-                       y=y, x=x, ax=ax, color=cmap['control'])
-            make_broken_axis(
-                ax=ax,
-                y_ticks=y_tick, y_label=y_label, y_label_as_title=False,
-                x_ticks=x_tick, x_label=x_label)
-    plt.subplots_adjust(wspace=0.6, hspace=0.6)
-    fig.savefig(os.path.join(OUT_DIR, f'engel-diff-raw.pdf'))
+        print(f'---- Variable: {y_label} ----')
+        ax = axes[col_idx]
+        shared_args = dict(method=['linear'],
+                           y='sat_' + y, x='svy_' + x, ax=ax, verbose=True)
+        print('[Treatmen group]')
+        plot_engel(df=df_treat, color=cmap['treat'], **shared_args)
+        print('[Control group]')
+        plot_engel(df=df_control, color=cmap['control'], **shared_args)
+        make_broken_axis(
+            ax=ax,
+            y_ticks=y_tick, y_label=y_label, y_label_as_title=True,
+            x_ticks=x_tick)
+    fig.subplots_adjust(wspace=0.3, bottom=0.2)
+    fig.text(0.5, 0.02, x_label + ' ' + x_unit, ha='center')
+    fig.savefig(os.path.join(FIG_OUT_DIR, f'engel-tc-diff-raw.pdf'))
 
+    # ================================================================
     # test for eligible/ineligible differences
-    fig, axes = plt.subplots(figsize=(6, 6.5), ncols=3, nrows=4)
-    for row_idx, (x, x_label, x_tick) in enumerate(zip(
-        xs, x_labels, x_ticks,
+    print('-' * 72)
+    print('Diff: Treatment versus Control')
+    fig, axes = plt.subplots(figsize=(6.5, 2.5), ncols=3)
+    for col_idx, (y, y_label, y_tick) in enumerate(zip(
+        ys, y_labels, y_ticks,
     )):
-        for col_idx, (y, y_label, y_tick) in enumerate(zip(
-            ys, y_labels, y_ticks,
-        )):
-            ax = axes[row_idx, col_idx]
-            plot_engel(df=df_eligible,
-                       y=y, x=x, ax=ax, color=cmap['treat'])
-            plot_engel(df=df_noneligible,
-                       y=y, x=x, ax=ax, color=cmap['control'])
-            make_broken_axis(
-                ax=ax,
-                y_ticks=y_tick, y_label=y_label, y_label_as_title=False,
-                x_ticks=x_tick, x_label=x_label)
-    plt.subplots_adjust(wspace=0.6, hspace=0.6)
-    fig.savefig(os.path.join(OUT_DIR, f'engel-ineligible-raw.pdf'))
+        print(f'---- Variable: {y_label} ----')
+        ax = axes[col_idx]
+        shared_args = dict(method=['linear'],
+                           y='sat_' + y, x='svy_' + x, ax=ax, verbose=True)
+        print('[Eligible sample]')
+        plot_engel(df=df_eligible, color=cmap['control'], **shared_args)
+        print('[Ineligible sample]')
+        plot_engel(df=df_ineligible, color=cmap['treat'], **shared_args)
+        make_broken_axis(
+            ax=ax,
+            y_ticks=y_tick, y_label=y_label, y_label_as_title=True,
+            x_ticks=x_tick)
+    fig.subplots_adjust(wspace=0.3, bottom=0.2)
+    fig.text(0.5, 0.02, x_label + ' ' + x_unit, ha='center')
+    fig.savefig(os.path.join(FIG_OUT_DIR, f'engel-ei-diff-raw.pdf'))
