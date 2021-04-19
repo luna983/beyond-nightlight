@@ -1,4 +1,4 @@
-# Using Satellite Imagery and Deep Learning to Evaluate Anti-Poverty Programs
+# Using Satellite Imagery and Deep Learning to Evaluate the Impact of Anti-Poverty Programs
 
 _Luna Yue Huang_
 
