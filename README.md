@@ -8,6 +8,24 @@ _Luna Yue Huang_
 
 ----
 
+## Figure Raw Data
+
+| Figure Identifier | Figure No. | CSV File |
+| --- | --- | --- |
+| fig-schematic | Figure 1 | N/A |
+| fig-map | Figure 2 | `fig-map.csv` |
+| fig-ate | Figure 3 | `fig-ate.csv` |
+| fig-engel | Figure 4 | `fig-engel-a.csv` for Panel a, `fig-engel-b.csv` for Panel b |
+| fig-prcurve | ED Figure 1 | `fig-prcurve.csv` |
+| fig-chips | ED Figure 2 | N/A |
+| fig-colors | ED Figure 3 | N/A |
+| fig-engel-housing | ED Figure 4 | `fig-engel-a.csv` for Panel a, `fig-engel-b.csv` for Panel b |
+| fig-engel-nonhousing | ED Figure 5 | `fig-engel-a.csv` for Panel a, `fig-engel-b.csv` for Panel b |
+| fig-engel-consumption | ED Figure 6 | `fig-engel-a.csv` for Panel a, `fig-engel-b.csv` for Panel b |
+| fig-engel-tc-diff | ED Figure 7 | `fig-engel-diff.csv` |
+| fig-engel-ei-diff | ED Figure 8 | `fig-engel-diff.csv` |
+| fig-mx | ED Figure 9 | `fig-mx.csv` |
+
 ## Instructions for Replication
 
 To pretrain the deep learning model (required for replication of all the subsequent analyses)
