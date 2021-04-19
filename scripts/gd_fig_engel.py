@@ -434,7 +434,7 @@ if __name__ == '__main__':
     # ================================================================
     # test for eligible/ineligible differences
     print('-' * 72)
-    print('Diff: Treatment versus Control')
+    print('Diff: Eligible vs Ineligible')
     fig, axes = plt.subplots(figsize=(6.5, 2.5), ncols=3)
     for col_idx, (y, y_label, y_tick) in enumerate(zip(
         ys, y_labels, y_ticks,
