@@ -429,7 +429,7 @@ if __name__ == '__main__':
             x_ticks=x_tick)
     fig.subplots_adjust(wspace=0.3, bottom=0.2)
     fig.text(0.5, 0.02, x_label + ' ' + x_unit, ha='center')
-    fig.savefig(os.path.join(FIG_OUT_DIR, f'engel-tc-diff-raw.pdf'))
+    fig.savefig(os.path.join(FIG_OUT_DIR, f'fig-engel-tc-diff-raw.pdf'))
 
     # ================================================================
     # test for eligible/ineligible differences
@@ -453,4 +453,4 @@ if __name__ == '__main__':
             x_ticks=x_tick)
     fig.subplots_adjust(wspace=0.3, bottom=0.2)
     fig.text(0.5, 0.02, x_label + ' ' + x_unit, ha='center')
-    fig.savefig(os.path.join(FIG_OUT_DIR, f'engel-ei-diff-raw.pdf'))
+    fig.savefig(os.path.join(FIG_OUT_DIR, f'fig-engel-ei-diff-raw.pdf'))
