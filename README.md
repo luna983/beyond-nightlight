@@ -60,7 +60,7 @@ To replicate `fig-prcurve` (Precision-Recall curve)
 - `python scripts/gd_fig_prcurve_cv.py`: Conduct cross validation on in-sample annotations in rural Kenya. (Before running the script, copy `runs/run_01_PretrainPool/best_checkpoint.pth.tar` to `runs/run_03_SiayaCV0/pretrained_checkpoint.pth.tar`, `runs/run_04_SiayaCV1/pretrained_checkpoint.pth.tar` and `runs/run_05_SiayaCV2/pretrained_checkpoint.pth.tar`.)
 - `python scripts/gd_fig_prcurve.py`: Generate the raw figure.
 
-To replicate `fig-schematic` (schematics and randomly sampled images/predictions)
+To replicate `fig-schematic` and `fig-chips` (schematics and randomly sampled images/predictions)
 
 - `python scripts/gd_fig_schematic.py`: Sample images and predictions.
 
@@ -72,7 +72,7 @@ To replicate `fig-ate` (average treatment effect estimation)
 
 - `Rscript scripts/gd_fig_ate.R > logs/gd_fig_ate.log`: Generate raw figures.
 
-To replicate `fig-engel` (Engel curve)
+To replicate `fig-engel`, `fig-engel-housing`, `fig-engel-nonhousing`, `fig-engel-consumption`, `fig-engel-tc-diff`, `fig-engel-ei-diff` (Engel curves)
 
 - `python scripts/gd_fig_engel.py > logs/gd_fig_engel.log`: Generate raw figures.
 
