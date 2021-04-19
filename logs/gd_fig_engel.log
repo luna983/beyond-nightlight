@@ -101,7 +101,7 @@ Remotely-sensed Effects: -0.000 (0.004)
 Scaling Factor: 0.000001 (0.000005)
 Scaled Effect: -91.117 (3204.750) USD PPP
 ------------------------------------------------------------------------
-Diff: Eligible vs Ineligible
+Diff: Treatment versus Control
 ---- Variable: Building Footprint ----
 [Treatmen group]
 Engel curve: N = 1904
@@ -118,7 +118,7 @@ Engel curve: N = 1904
 [Control group]
 Engel curve: N = 1844
 ------------------------------------------------------------------------
-Diff: Treatment versus Control
+Diff: Eligible vs Ineligible
 ---- Variable: Building Footprint ----
 [Eligible sample]
 Engel curve: N = 3748
