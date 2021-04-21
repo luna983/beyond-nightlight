@@ -1,10 +1,10 @@
 # Using Satellite Imagery and Deep Learning to Evaluate the Impact of Anti-Poverty Programs
 
-_Luna Yue Huang_
+_Luna Yue Huang, Solomon Hsiang, Marco Gonzalez-Navarro_
 
 [![DOI](https://zenodo.org/badge/192596578.svg)](https://zenodo.org/badge/latestdoi/192596578)
 
-[__Working Paper__](http://luna-yue-huang.com/assets/pdf/jmp.pdf) | [__Website__](http://luna-yue-huang.com/research-jmp.html) | [__GitHub__](https://github.com/luna983/beyond-nightlight)
+[__Working Paper__](http://luna-yue-huang.com/assets/pdf/jmp.pdf) | [__GitHub__](https://github.com/luna983/beyond-nightlight)
 
 ----
 
