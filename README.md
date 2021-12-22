@@ -87,3 +87,11 @@ To replicate the analysis in the appendix (in rural Mexico)
 To replicate `fig-mx` (appendix figures showing validation results in Mexico)
 
 - `python scripts/mx_fig_validate.py`: Generate raw figures.
+
+To replicate `fig-res-sensitivity`
+
+- `python scripts/gd_merge.py --resolution 0.0005 --placebo 100  --eligible-only`
+- `python scripts/gd_merge.py --resolution 0.0015 --placebo 100  --eligible-only`
+- `python scripts/gd_merge.py --resolution 0.0020 --placebo 100  --eligible-only`
+- `python scripts/gd_merge.py --resolution 0.0025 --placebo 100  --eligible-only`
+- `Rscript scripts/gd_fig_ate.R`: Generate raw figures.
