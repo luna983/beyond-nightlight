@@ -94,4 +94,7 @@ To replicate `fig-res-sensitivity`
 - `python scripts/gd_merge.py --resolution 0.0015 --placebo 100  --eligible-only`
 - `python scripts/gd_merge.py --resolution 0.0020 --placebo 100  --eligible-only`
 - `python scripts/gd_merge.py --resolution 0.0025 --placebo 100  --eligible-only`
+- `python scripts/gd_merge.py --resolution 0.0030 --placebo 100  --eligible-only`
+- `python scripts/gd_merge.py --resolution 0.0040 --placebo 100  --eligible-only`
+- `python scripts/gd_merge.py --resolution 0.0045 --placebo 100  --eligible-only`
 - `Rscript scripts/gd_fig_ate.R`: Generate raw figures.
