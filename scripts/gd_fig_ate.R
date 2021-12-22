@@ -252,20 +252,20 @@ main <- function(input_file, output_figure_file, output_raw_data_file) {
 }
 
 # Creates the main figure
-# main(input_file = 'data/Siaya/Merged/main_res0.0010.csv',
-#      output_figure_file = 'output/fig-ate/fig-ate-raw.pdf',
-#      output_raw_data_file = 'fig_raw_data/fig-ate.csv')
+main(input_file = 'data/Siaya/Merged/main_res0.0010.csv',
+     output_figure_file = 'output/fig-ate/fig-ate-raw.pdf',
+     output_raw_data_file = 'fig_raw_data/fig-ate.csv')
 
 # Sensitivity checks
-# main(input_file = 'data/Siaya/Merged/main_res0.0005.csv',
-#      output_figure_file = 'output/fig-ate/fig-ate-res-sensitivity-0.0005-raw.pdf',
-#      output_raw_data_file = 'output/fig-ate/archive_data/fig-ate-res-sensitivity-0.0005.csv')
-# main(input_file = 'data/Siaya/Merged/main_res0.0015.csv',
-#      output_figure_file = 'output/fig-ate/fig-ate-res-sensitivity-0.0015-raw.pdf',
-#      output_raw_data_file = 'output/fig-ate/archive_data/fig-ate-res-sensitivity-0.0015.csv')
-# main(input_file = 'data/Siaya/Merged/main_res0.0020.csv',
-#      output_figure_file = 'output/fig-ate/fig-ate-res-sensitivity-0.0020-raw.pdf',
-#      output_raw_data_file = 'output/fig-ate/archive_data/fig-ate-res-sensitivity-0.0020.csv')
+main(input_file = 'data/Siaya/Merged/main_res0.0005.csv',
+     output_figure_file = 'output/fig-ate/fig-ate-res-sensitivity-0.0005-raw.pdf',
+     output_raw_data_file = 'output/fig-ate/archive_data/fig-ate-res-sensitivity-0.0005.csv')
+main(input_file = 'data/Siaya/Merged/main_res0.0015.csv',
+     output_figure_file = 'output/fig-ate/fig-ate-res-sensitivity-0.0015-raw.pdf',
+     output_raw_data_file = 'output/fig-ate/archive_data/fig-ate-res-sensitivity-0.0015.csv')
+main(input_file = 'data/Siaya/Merged/main_res0.0020.csv',
+     output_figure_file = 'output/fig-ate/fig-ate-res-sensitivity-0.0020-raw.pdf',
+     output_raw_data_file = 'output/fig-ate/archive_data/fig-ate-res-sensitivity-0.0020.csv')
 main(input_file = 'data/Siaya/Merged/main_res0.0025.csv',
      output_figure_file = 'output/fig-ate/fig-ate-res-sensitivity-0.0025-raw.pdf',
      output_raw_data_file = 'output/fig-ate/archive_data/fig-ate-res-sensitivity-0.0025.csv')
