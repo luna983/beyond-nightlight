@@ -394,7 +394,7 @@ def match(df_cen, df_svy, df_sat, sat_radius, svy_radius, verbose=False):
     df.fillna({'area_sum': 0, 'tin_area_sum': 0}, inplace=True)
     df = pd.merge(
         df,
-        df_svy.loc[:, ['census_id', 's1_hhid_key',
+        df_svy.loc[:, ['census_id', 's1_hhid_key', 'satcluster',
                        'treat', 'eligible', 'hi_sat',
                        'svy_total_assets',
                        'svy_annual_expenditure',

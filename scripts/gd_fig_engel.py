@@ -173,79 +173,15 @@ def plot_est(ax, labels, betas, ses, est_colors, y_label,
                  loc='left', x=-0.09, y=0.65)
 
 
-if __name__ == '__main__':
-
-    SVY_IN_DIR = 'data/External/GiveDirectly/GE_Luna_Extract_2020-07-27.dta'
-    SAT_IN_DIR = 'data/Siaya/Merged/sat.csv'
-    NL_IN_DIR = 'data/External/Nightlight/VIIRS_DNB_KE_2019.tif'
-    CENSUS_GPS_IN_DIR = (
-        'data/External/GiveDirectly/GE_HH_Census_2017-07-17_cleanGPS.csv')
-    CENSUS_MASTER_IN_DIR = (
-        'data/External/GiveDirectly/GE_HH-Census_Analysis_RA_2017-07-17.dta')
-    ATE_IN_DIR = 'fig_raw_data/fig-ate.csv'
-    FIG_OUT_DIR = 'output/fig-engel'
-    RAW_DATA_OUT_DIR = 'fig_raw_data'
-
-    # 'True' Effect from the original paper
-    # https://www.nber.org/system/files/working_papers/w26600/w26600.pdf
-    # From Table 1, Column 1
-    obs = {
-        'total_assets': 178.47 + 377.14,  # row 6-7
-        'annual_expenditure': 292.98,  # row 1
-        'housing_assets': 377.14,  # row 7
-        'non_housing_assets': 178.47,  # row 6
-    }
-    obs_se = {
-        # row 6-7
-        'total_assets': np.sqrt(np.square(24.63) +
-                                np.square(26.37)),
-        'annual_expenditure': 60.09,  # row 1
-        'housing_assets': 26.37,  # row 7
-        'non_housing_assets': 24.63,  # row 6
-    }
-
-    cmap = {'control': '#666666', 'treat': '#0F9D58'}
-    y_colors = ['#DB4437', '#4285F4', '#F4B400']
+def collate_data(SAT_IN_DIR, SVY_IN_DIR,
+                 CENSUS_GPS_IN_DIR, CENSUS_MASTER_IN_DIR,
+                 NL_IN_DIR):
     rename_vars = {
         'area_sum': 'sat_building_footprint',
         'tin_area_sum': 'sat_tin_roof_area',
         'nightlight': 'sat_night_light',
         'eligible': 'is_eligible',
         'treat': 'in_treatment_group'}
-    ys = ['building_footprint',
-          'tin_roof_area',
-          'night_light']
-    y_labels = ['Building Footprint',
-                'Tin-roof Area',
-                'Night Light']
-    y_units = [r'$\mathregular{(m^2)}$',
-               r'$\mathregular{(m^2)}$',
-               r'$\mathregular{(nW·cm^{-2}·sr^{-1})}$']
-    y_ticks = [[200, 250, 300],
-               [100, 150, 200],
-               [0.3, 0.33, 0.36]]
-    # here, assets refers to non-land, non-housing assets only
-    xs = ['total_assets',
-          'annual_expenditure',
-          'housing_assets',
-          'non_housing_assets']
-    x_labels = ['Total Assets',
-                'Annual Expenditure',
-                'Housing Assets',
-                'Non-Housing Assets']
-    x_unit = '(USD PPP)'
-    x_ticks = [
-        [0, 3000, 6000],
-        [0, 4500, 9000],
-        [0, 2000, 4000],
-        [0, 2000, 4000],
-    ]
-
-    # load previous estimates
-    df_y = pd.read_csv(ATE_IN_DIR)
-    df_y = df_y.loc[df_y['x'].isna(), ['beta', 'se', 'outcome']].copy()
-    df_y = df_y.set_index('outcome', drop=True)
-
     # load data
     df_sat = load_building(SAT_IN_DIR, grid=None, agg=False)
     df_svy = load_survey(SVY_IN_DIR)
@@ -286,22 +222,95 @@ if __name__ == '__main__':
 
     df_eligible = df.loc[df['is_eligible'] == 1, :].copy()
     df_ineligible = df.loc[df['is_eligible'] == 0, :].copy()
-    del df
 
     wins_lower_bound = 1
     wins_upper_bound = 99
     # winsorize survey based observations
-    for x in xs:
-        df_eligible.loc[:, 'svy_' + x] = winsorize(
-            df_eligible['svy_' + x], wins_lower_bound, wins_upper_bound)
-        df_ineligible.loc[:, 'svy_' + x] = winsorize(
-            df_ineligible['svy_' + x], wins_lower_bound, wins_upper_bound)
+    for column in [col for col in df.columns if col.startswith('svy_')]:
+        df_eligible.loc[:, column] = winsorize(
+            df_eligible[column], wins_lower_bound, wins_upper_bound)
+        df_ineligible.loc[:, column] = winsorize(
+            df_ineligible[column], wins_lower_bound, wins_upper_bound)
     # winsorize satellite based observations
-    for y in ys:
-        df_eligible.loc[:, 'sat_' + y] = winsorize(
-            df_eligible['sat_' + y], 0, wins_upper_bound)
-        df_ineligible.loc[:, 'sat_' + y] = winsorize(
-            df_ineligible['sat_' + y], 0, wins_upper_bound)
+    for column in [col for col in df.columns if col.startswith('sat_')]:
+        df_eligible.loc[:, column] = winsorize(
+            df_eligible[column], 0, wins_upper_bound)
+        df_ineligible.loc[:, column] = winsorize(
+            df_ineligible[column], 0, wins_upper_bound)
+    return df_ineligible, df_eligible
+
+
+if __name__ == '__main__':
+
+    SVY_IN_DIR = 'data/External/GiveDirectly/GE_Luna_Extract_2020-07-27.dta'
+    SAT_IN_DIR = 'data/Siaya/Merged/sat.csv'
+    NL_IN_DIR = 'data/External/Nightlight/VIIRS_DNB_KE_2019.tif'
+    CENSUS_GPS_IN_DIR = (
+        'data/External/GiveDirectly/GE_HH_Census_2017-07-17_cleanGPS.csv')
+    CENSUS_MASTER_IN_DIR = (
+        'data/External/GiveDirectly/GE_HH-Census_Analysis_RA_2017-07-17.dta')
+    ATE_IN_DIR = 'fig_raw_data/fig-ate.csv'
+    FIG_OUT_DIR = 'output/fig-engel'
+    RAW_DATA_OUT_DIR = 'fig_raw_data'
+
+    # 'True' Effect from the original paper
+    # https://www.nber.org/system/files/working_papers/w26600/w26600.pdf
+    # From Table 1, Column 1
+    obs = {
+        'total_assets': 178.47 + 377.14,  # row 6-7
+        'annual_expenditure': 292.98,  # row 1
+        'housing_assets': 377.14,  # row 7
+        'non_housing_assets': 178.47,  # row 6
+    }
+    obs_se = {
+        # row 6-7
+        'total_assets': np.sqrt(np.square(24.63) +
+                                np.square(26.37)),
+        'annual_expenditure': 60.09,  # row 1
+        'housing_assets': 26.37,  # row 7
+        'non_housing_assets': 24.63,  # row 6
+    }
+
+    cmap = {'control': '#666666', 'treat': '#0F9D58'}
+    y_colors = ['#DB4437', '#4285F4', '#F4B400']
+    ys = ['building_footprint',
+          'tin_roof_area',
+          'night_light']
+    y_labels = ['Building Footprint',
+                'Tin-roof Area',
+                'Night Light']
+    y_units = [r'$\mathregular{(m^2)}$',
+               r'$\mathregular{(m^2)}$',
+               r'$\mathregular{(nW·cm^{-2}·sr^{-1})}$']
+    y_ticks = [[200, 250, 300],
+               [100, 150, 200],
+               [0.3, 0.33, 0.36]]
+    # here, assets refers to non-land, non-housing assets only
+    xs = ['total_assets',
+          'annual_expenditure',
+          'housing_assets',
+          'non_housing_assets']
+    x_labels = ['Total Assets',
+                'Annual Expenditure',
+                'Housing Assets',
+                'Non-Housing Assets']
+    x_unit = '(USD PPP)'
+    x_ticks = [
+        [0, 3000, 6000],
+        [0, 4500, 9000],
+        [0, 2000, 4000],
+        [0, 2000, 4000],
+    ]
+
+    # load previous estimates
+    df_y = pd.read_csv(ATE_IN_DIR)
+    df_y = df_y.loc[df_y['x'].isna(), ['beta', 'se', 'outcome']].copy()
+    df_y = df_y.set_index('outcome', drop=True)
+
+    df_ineligible, df_eligible = collate_data(
+        SAT_IN_DIR, SVY_IN_DIR,
+        CENSUS_GPS_IN_DIR, CENSUS_MASTER_IN_DIR,
+        NL_IN_DIR)
 
     df_control = df_eligible.loc[df_eligible['in_treatment_group'] == 0, :]
     df_treat = df_eligible.loc[df_eligible['in_treatment_group'] == 1, :]
